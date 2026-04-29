@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --color-mystery-dark: #1a1a2e;
+  --color-mystery-gold: #cba153;
+  --color-victorian-red: #58181F;
+}
+
+body {
+  @apply bg-mystery-dark text-gray-200 antialiased h-screen overflow-hidden;
+}
