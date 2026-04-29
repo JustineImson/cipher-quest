@@ -160,11 +160,29 @@ export default class MainScene extends Phaser.Scene {
             .filter(o => o && Array.isArray(o.polygon));
 
         if (polygonObjects.length) {
+            const triggerGraphics = this.add.graphics();
+            triggerGraphics.lineStyle(2, 0xffff00, 1);
+            triggerGraphics.fillStyle(0xffff00, 0.4);
+            triggerGraphics.setDepth(10000);
+
             polygonObjects.forEach(obj => {
+                const isAccessTrigger = obj.name && obj.name.toLowerCase() === 'access';
                 const points = obj.polygon.map(p => tiledIsoToScreen(obj.x + p.x, obj.y + p.y));
                 
                 // Shift the polygons down by tileH / 2 to perfectly match the object sprite Y-alignment
                 const shifted = points.map(pt => ({ x: pt.x, y: pt.y + (tileH / 2) }));
+
+                // Visually render access triggers so they are visible
+                if (isAccessTrigger && shifted.length > 0) {
+                    triggerGraphics.beginPath();
+                    triggerGraphics.moveTo(shifted[0].x, shifted[0].y);
+                    for (let i = 1; i < shifted.length; i++) {
+                        triggerGraphics.lineTo(shifted[i].x, shifted[i].y);
+                    }
+                    triggerGraphics.closePath();
+                    triggerGraphics.strokePath();
+                    triggerGraphics.fillPath();
+                }
 
                 // compute centroid
                 const cx = shifted.reduce((s, p) => s + p.x, 0) / shifted.length;
@@ -174,8 +192,8 @@ export default class MainScene extends Phaser.Scene {
                 const relVerts = shifted.map(p => ({ x: p.x - cx, y: p.y - cy }));
 
                 try {
-                    const labelName = obj.name ? obj.name : 'polygon';
-                    const body = this.matter.add.fromVertices(cx, cy, relVerts, { isStatic: true, label: labelName }, true);
+                    const labelName = isAccessTrigger ? 'access' : (obj.name ? obj.name : 'polygon');
+                    const body = this.matter.add.fromVertices(cx, cy, relVerts, { isStatic: true, isSensor: isAccessTrigger, label: labelName }, true);
                     if (body) {
                         body.render = body.render || {};
                         body.render.visible = false;
@@ -186,6 +204,24 @@ export default class MainScene extends Phaser.Scene {
                 }
             });
         }
+        
+        // Handle non-polygon access triggers if any exist
+        const accessObjects = mapData.layers
+            .filter(l => l.type === 'objectgroup' && Array.isArray(l.objects))
+            .flatMap(l => l.objects)
+            .filter(o => o && o.name && o.name.toLowerCase() === 'access' && !Array.isArray(o.polygon));
+
+        accessObjects.forEach(obj => {
+            const { x, y } = tiledIsoToScreen(obj.x, obj.y);
+            const w = obj.width || 64;
+            const h = obj.height || 64;
+            this.matter.add.rectangle(x, y + tileH / 2, w, h, { isStatic: true, isSensor: true, label: 'access' });
+            
+            const g = this.add.graphics();
+            g.fillStyle(0xffff00, 0.4);
+            g.fillRect(x - w/2, y + tileH/2 - h/2, w, h);
+            g.setDepth(10000);
+        });
 
         // ─── PLAYER ──────────────────────────────────────────────────────────
         const center = toScreen(mapCols / 2, mapRows / 2);
@@ -219,6 +255,37 @@ export default class MainScene extends Phaser.Scene {
             left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
             right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
         };
+        
+        // ─── TRIGGERS ────────────────────────────────────────────────────────
+        this.fKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+        this.canAccess = false;
+        
+        this.promptText = this.add.text(0, 0, 'Press F to Enter', { fontSize: '20px', fill: '#ffff00', backgroundColor: '#000000bb', padding: { x: 8, y: 4 } })
+            .setOrigin(0.5)
+            .setVisible(false)
+            .setDepth(20000);
+
+        this.matter.world.on('collisionstart', (event) => {
+            event.pairs.forEach(pair => {
+                const { bodyA, bodyB } = pair;
+                if ((bodyA === this.player.body && bodyB.label === 'access') ||
+                    (bodyB === this.player.body && bodyA.label === 'access')) {
+                    this.canAccess = true;
+                    this.promptText.setVisible(true);
+                }
+            });
+        });
+        
+        this.matter.world.on('collisionend', (event) => {
+            event.pairs.forEach(pair => {
+                const { bodyA, bodyB } = pair;
+                if ((bodyA === this.player.body && bodyB.label === 'access') ||
+                    (bodyB === this.player.body && bodyA.label === 'access')) {
+                    this.canAccess = false;
+                    this.promptText.setVisible(false);
+                }
+            });
+        });
     }
 
     update() {
@@ -255,14 +322,16 @@ export default class MainScene extends Phaser.Scene {
         this.player.setDepth(this.player.y + 10);
 
         // Swap in when using sprite:
-        // if (vx !== 0 || vy !== 0) {
-        //   const animKey = Math.abs(vy) > Math.abs(vx)
-        //     ? (vy > 0 ? 'walk_down' : 'walk_up')
-        //     : (vx > 0 ? 'walk_right' : 'walk_left');
-        //   if (this.player.anims.getName() !== animKey) this.player.anims.play(animKey, true);
-        // } else {
-        //   this.player.anims.stop();
-        //   this.player.setFrame(0);
-        // }
+        // ...
+        
+        if (this.canAccess) {
+            this.promptText.setPosition(this.player.x, this.player.y - 40);
+            if (Phaser.Input.Keyboard.JustDown(this.fKey)) {
+                console.log("Access triggered!");
+                this.canAccess = false;
+                // Dispatch event so React component can navigate to the other page
+                window.dispatchEvent(new Event('nav-main-menu'));
+            }
+        }
     }
 }
