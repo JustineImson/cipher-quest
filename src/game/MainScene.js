@@ -6,6 +6,11 @@ export default class MainScene extends Phaser.Scene {
         super('MainScene');
     }
 
+    init(data) {
+        this.fromLocation = data && data.fromLocation ? data.fromLocation : null;
+        this.spawnPoints = {};
+    }
+
     preload() {
         // Will be populated with gid -> texture key mappings as we inspect the map.
         this.gidToKey = {};
@@ -209,6 +214,14 @@ export default class MainScene extends Phaser.Scene {
                 // Shift the polygons down by tileH / 2 to perfectly match the object sprite Y-alignment
                 const shifted = points.map(pt => ({ x: pt.x, y: pt.y + (tileH / 2) }));
 
+                // compute centroid
+                const cx = shifted.reduce((s, p) => s + p.x, 0) / shifted.length;
+                const cy = shifted.reduce((s, p) => s + p.y, 0) / shifted.length;
+
+                if (isAccessTrigger && locationKey) {
+                    this.spawnPoints[locationKey] = { x: cx, y: cy };
+                }
+
                 // Visually render access triggers so they are visible
                 if (isAccessTrigger && shifted.length > 0) {
                     triggerGraphics.beginPath();
@@ -221,9 +234,6 @@ export default class MainScene extends Phaser.Scene {
                     triggerGraphics.fillPath();
                 }
 
-                // compute centroid
-                const cx = shifted.reduce((s, p) => s + p.x, 0) / shifted.length;
-                const cy = shifted.reduce((s, p) => s + p.y, 0) / shifted.length;
 
                 // vertices relative to centroid (Phaser.Matter expects local verts as {x, y} objects)
                 const relVerts = shifted.map(p => ({ x: p.x - cx, y: p.y - cy }));
@@ -279,6 +289,10 @@ export default class MainScene extends Phaser.Scene {
             const h = obj.height || 64;
             const labelName = locationKey ? `access_${locationKey}` : 'access';
 
+            if (locationKey) {
+                this.spawnPoints[locationKey] = { x, y: y + tileH / 2 };
+            }
+
             this.matter.add.rectangle(x, y + tileH / 2, w, h, { isStatic: true, isSensor: true, label: labelName });
             
             const g = this.add.graphics();
@@ -288,14 +302,20 @@ export default class MainScene extends Phaser.Scene {
         });
 
         // ─── PLAYER ──────────────────────────────────────────────────────────
-        const center = toScreen(mapCols / 2, mapRows / 2);
-        this.player = this.add.rectangle(center.x, center.y, 16, 32, 0x00aaff);
+        let spawnPos = toScreen(mapCols / 2, mapRows / 2);
+        
+        // Spawn player near the location they just returned from
+        if (this.fromLocation && this.spawnPoints[this.fromLocation]) {
+            spawnPos = this.spawnPoints[this.fromLocation];
+        }
+
+        this.player = this.add.rectangle(spawnPos.x, spawnPos.y, 16, 32, 0x00aaff);
         
         // Enable Matter Physics for the player so it collides with static walls
         this.matter.add.gameObject(this.player, { isStatic: false, frictionAir: 0.1 });
         this.player.setFixedRotation(); // Keep player upright
         
-        this.player.setDepth(center.y + 10);
+        this.player.setDepth(spawnPos.y + 10);
 
         // Swap in sprite when ready:
         // this.player = this.add.sprite(center.x, center.y, 'player_sprite', 0);
@@ -305,6 +325,7 @@ export default class MainScene extends Phaser.Scene {
         // this.anims.create({ key: 'walk_up',    frames: this.anims.generateFrameNumbers('player_sprite', { start: 12, end: 15 }), frameRate: 8, repeat: -1 });
 
         // ─── CAMERA ──────────────────────────────────────────────────────────
+        this.cameras.main.fadeIn(800, 0, 0, 0);
         this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
         this.cameras.main.setZoom(2);
         const renderedWidth = (mapCols + mapRows) * (tileW / 2);
@@ -373,7 +394,11 @@ export default class MainScene extends Phaser.Scene {
                 .setStrokeStyle(2, 0xd97706)
                 .setInteractive({ useHandCursor: true })
                 .on('pointerdown', () => {
-                    this.scene.start('LocationScene', { locationKey: loc.key });
+                    this.input.enabled = false;
+                    this.cameras.main.fadeOut(300, 0, 0, 0);
+                    this.cameras.main.once('camerafadeoutcomplete', () => {
+                        this.scene.start('LocationScene', { locationKey: loc.key });
+                    });
                 })
                 .on('pointerover', () => btn.setFillStyle(0x333333, 0.9))
                 .on('pointerout', () => btn.setFillStyle(0x111111, 0.8));
@@ -430,8 +455,11 @@ export default class MainScene extends Phaser.Scene {
                 this.promptText.setVisible(false);
 
                 if (this.currentAccessLocation) {
-                    console.log(`Access triggered! Navigating to: ${this.currentAccessLocation}`);
-                    this.scene.start('LocationScene', { locationKey: this.currentAccessLocation });
+                    this.input.enabled = false;
+                    this.cameras.main.fadeOut(300, 0, 0, 0);
+                    this.cameras.main.once('camerafadeoutcomplete', () => {
+                        this.scene.start('LocationScene', { locationKey: this.currentAccessLocation });
+                    });
                 }
             }
         }

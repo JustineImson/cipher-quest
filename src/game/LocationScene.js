@@ -83,6 +83,9 @@ export default class LocationScene extends Phaser.Scene {
     create() {
         const { width, height } = this.scale;
 
+        // ANIMATION: Crime Scene Flash
+        this.cameras.main.flash(1000, 255, 255, 255);
+
         const bg = this.add.image(width / 2, height / 2, `bg_${this.locationKey}`);
         const scaleX = width / bg.width;
         const scaleY = height / bg.height;
@@ -96,7 +99,11 @@ export default class LocationScene extends Phaser.Scene {
             .setStrokeStyle(2, 0xd97706)
             .setInteractive({ useHandCursor: true })
             .on('pointerdown', () => {
-                this.scene.start('MainScene');
+                this.input.enabled = false;
+                this.cameras.main.fadeOut(800, 0, 0, 0);
+                this.cameras.main.once('camerafadeoutcomplete', () => {
+                    this.scene.start('MainScene', { fromLocation: this.locationKey });
+                });
             })
             .on('pointerover', () => returnBtn.setFillStyle(0x333333, 0.9))
             .on('pointerout', () => returnBtn.setFillStyle(0x111111, 0.8));

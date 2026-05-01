@@ -37,12 +37,26 @@ export default class OfficeScene extends Phaser.Scene {
     create() {
         const { width, height } = this.scale;
 
+        // ANIMATION 1: Cinematic Fade-In from black over 2 seconds
+        this.cameras.main.fadeIn(2000, 0, 0, 0);
+
         // Background
         this.bg = this.add.image(width / 2, height / 2, 'bg_office');
         const scaleX = width / this.bg.width;
         const scaleY = height / this.bg.height;
         const scale = Math.max(scaleX, scaleY);
         this.bg.setScale(scale);
+
+        // ANIMATION 2: Subtle Ambient Breathing for the background
+        this.tweens.add({
+            targets: this.bg,
+            scaleX: scale * 1.02, // Zoom in slightly (2%)
+            scaleY: scale * 1.02,
+            duration: 8000,       // Over 8 seconds
+            yoyo: true,           // Zoom back out
+            repeat: -1,           // Loop infinitely
+            ease: 'Sine.easeInOut'
+        });
 
         this.createUI(width, height);
         this.dialogueController = new DialogueController(this);
@@ -114,15 +128,6 @@ export default class OfficeScene extends Phaser.Scene {
         this.leaveBtn.setVisible(false);
         this.leaveText.setVisible(false);
 
-        // Make background 85% transparent (15% opacity) and blurry
-        if (this.bg) {
-            this.bg.setAlpha(0.5);
-            // Add blur effect if supported by the Phaser version (3.60+)
-            if (this.bg.postFX) {
-                this.bg.postFX.addBlur(2, 2, 2, 4);
-            }
-        }
-
         // Prompt
         this.promptText = this.add.text(width / 2, 100, 'Who is the culprit?', {
             fontSize: '48px',
@@ -162,28 +167,17 @@ export default class OfficeScene extends Phaser.Scene {
         this.suspectImages.forEach(img => img.setVisible(false));
 
         if (suspectKey === 'Marcus') {
-            this.dialogueController.playDialogue('Marcus', 'Marcus', "Are you kidding me, Detective? Look at my setup. I crack firewalls from a couch. You think I'm going to physically break into the Mayor's office, steal blueprints, and then use a government corporate credit card to order my own pizza to the scene of the crime? I'm a hacker, not an idiot. You're being played.", () => {
+            this.dialogueController.playDialogue('detective', 'Marcus', "Are you kidding me, Detective? Look at my setup. I crack firewalls from a couch. You think I'm going to physically break into the Mayor's office, steal blueprints, and then use a government corporate credit card to order my own pizza to the scene of the crime? I'm a hacker, not an idiot. You're being played.", () => {
                 this.showEndScreen('Game Over - Failed\nThe real culprit escaped.', false);
             });
         } else if (suspectKey === 'Donovan') {
-            this.dialogueController.playDialogue('Donovan', 'Donovan', "Yeah, those are my boots in the park. So what? I reported them stolen from the gym locker room a week ago! You think I'm tip-toeing around City Hall pulling off some high-tech heist? I bend steel for a living, I don't type on keyboards or wear fancy perfume. Go look at my timecards!", () => {
+            this.dialogueController.playDialogue('detective', 'Donovan', "Yeah, those are my boots in the park. So what? I reported them stolen from the gym locker room a week ago! You think I'm tip-toeing around City Hall pulling off some high-tech heist? I bend steel for a living, I don't type on keyboards or wear fancy perfume. Go look at my timecards!", () => {
                 this.showEndScreen('Game Over - Failed\nThe real culprit escaped.', false);
             });
         } else if (suspectKey === 'Elena') {
-            // Rebuilt sequential interrogation for maximum tension
-            this.dialogueController.playDialogue('detective', 'Detective', "It was a brilliant frame job, Ms. Rostova. You planted Donovan's stolen boots in the park, but you couldn't walk home in them. You left your own designer heel prints right next to the bushes.", () => {
-                this.dialogueController.playDialogue('Elena', 'Elena', "That proves nothing. Anyone can wear heels.", () => {
-                    this.dialogueController.playDialogue('detective', 'Detective', "True. But not everyone has the authorization to bypass the Mayor's safe. The corrupted access log we found started with the ID 'ER'. You.", () => {
-                        this.dialogueController.playDialogue('Elena', 'Elena', "A coincidence. A hacker could have spoofed my ID.", () => {
-                            this.dialogueController.playDialogue('detective', 'Detective', "Maybe. But a hacker like Marcus wouldn't use your City Hall Procurement Credit Card to order pizza to his own alleyway just to leave the receipt in the trash. You tried to frame him, but you used your own office budget to do it.", () => {
-                                this.dialogueController.playDialogue('detective', 'Detective', "And the final nail in the coffin. You burned the copied blueprints at the beach to destroy the evidence. But you dropped this... Sterling silver. Engraved with 'E.R.'", () => {
-                                    this.dialogueController.playDialogue('detective', 'Detective', "You were meticulous about everyone else's tracks, Elena, but you forgot to cover your own.", () => {
-                                        this.showEndScreen('Case Closed - Victory\nElena Rostova Apprehended.', true);
-                                    });
-                                });
-                            });
-                        });
-                    });
+            this.dialogueController.playDialogue('detective', 'Elena', "A coincidence. A hacker could have spoofed my ID.", () => {
+                this.dialogueController.playDialogue('detective', 'Detective', "Maybe. But a hacker like Marcus wouldn't use your City Hall Procurement Credit Card to order pizza to his own alleyway just to leave the receipt in the trash. You tried to frame him, but you used your own office budget to do it. And the final nail in the coffin. You burned the copied blueprints at the beach to destroy the evidence. But you dropped this. Sterling silver. Engraved with 'E.R.' You were meticulous about everyone else's tracks, Elena, but you forgot to cover your own.", () => {
+                    this.showEndScreen('Case Closed - Victory\nElena Rostova Apprehended.', true);
                 });
             });
         }

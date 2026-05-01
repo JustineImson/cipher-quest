@@ -82,58 +82,48 @@ export default class DialogueController {
         });
 
         this.container.add([this.dialogueBox, this.speakerSprite, this.nameText, this.dialogueText]);
-
-        // Input handler to speed up typing or advance
-        this.scene.input.on('pointerdown', () => {
-            if (!this.container.visible) return;
-
-            if (this.isTyping) {
-                // Complete text instantly
-                this.completeTyping();
-            } else if (this.onCompleteCallback) {
-                // Call callback to advance
-                this.onCompleteCallback();
-            }
-        });
     }
 
-    playDialogue(characterImage, name, text, onComplete) {
+    playDialogue(spriteKey, speakerName, fullText, onCompleteCallback) {
         this.container.setVisible(true);
-        this.onCompleteCallback = onComplete;
+        this.onCompleteCallback = onCompleteCallback;
 
-        this.nameText.setText(name);
-        this.fullText = text;
-        this.dialogueText.setText('');
+        this.nameText.setText(speakerName);
+        this.dialogueText.setText(''); // Clear previous text
 
-        if (characterImage) {
-            this.speakerSprite.setTexture(characterImage);
+        if (spriteKey) {
+            this.speakerSprite.setTexture(spriteKey);
             this.speakerSprite.setVisible(true);
         } else {
             this.speakerSprite.setVisible(false);
         }
 
-        this.startTyping();
-    }
-
-    startTyping() {
+        // --- ANIMATION 4: Typewriter Effect ---
         this.isTyping = true;
-        let currentCharIndex = 0;
+        let currentChar = 0;
 
-        if (this.typingTimer) {
-            this.typingTimer.remove();
-        }
+        // Clear any existing typing timers
+        if (this.typingTimer) this.typingTimer.remove();
 
         this.typingTimer = this.scene.time.addEvent({
-            delay: 30, // typing speed
+            delay: 30, // Speed of typing (30ms per character)
+            repeat: fullText.length - 1,
             callback: () => {
-                currentCharIndex++;
-                this.dialogueText.setText(this.fullText.substring(0, currentCharIndex));
+                this.dialogueText.text += fullText[currentChar];
+                currentChar++;
 
-                if (currentCharIndex >= this.fullText.length) {
-                    this.completeTyping();
+                // If we reached the end of the text
+                if (currentChar === fullText.length) {
+                    this.isTyping = false;
+                    // Wait a moment, then allow the next line to be clicked
+                    this.scene.time.delayedCall(500, () => {
+                        // Attach a temporary click listener to advance the dialogue
+                        this.scene.input.once('pointerdown', () => {
+                            if (this.onCompleteCallback) this.onCompleteCallback();
+                        });
+                    });
                 }
-            },
-            repeat: this.fullText.length - 1
+            }
         });
     }
 
@@ -142,7 +132,8 @@ export default class DialogueController {
             this.typingTimer.remove();
         }
         this.isTyping = false;
-        this.dialogueText.setText(this.fullText);
+        // The text is already being built character by character.
+        // If we want instant completion, we'd need to set the full text here.
     }
 
     hide() {
