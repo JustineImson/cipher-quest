@@ -9,33 +9,50 @@ const arrivalTexts = {
     beach: "The edge of the city. The tide washes away tracks fast, but fire... fire always leaves a scar in the sand. Let's see what they were trying so desperately to burn."
 };
 
+// ══════════════════════════════════════════════════════════════════════════
+// EVIDENCE CONFIG — tweak x, y, displayW, displayH to reposition/resize
+//   x, y        → position as % of screen (0.0 = left/top, 1.0 = right/bottom)
+//   displayW    → display width in pixels
+//   displayH    → display height in pixels
+// ══════════════════════════════════════════════════════════════════════════
 const evidenceConfig = {
     apartment: {
         file: 'log',
         key: 'hasFoundLog',
-        x: 0.6, y: 0.8, 
-        scale: 0.5,
-        dialogue: "A corrupted access log. The ID starts with 'ER'. A hacker like Marcus would have wiped the mainframe completely. A brute like Donovan would have just smashed the hub. This looks like someone with actual authorization who panicked and aborted a print job. Someone who belongs there."
+        x: 0.22,             // horizontal position (% of screen width)
+        y: 0.47,            // vertical position (% of screen height)
+        displayW: 120,      // display width in px
+        displayH: 120,      // display height in px
+        dialogue: [
+            "A corrupted access log. The ID starts with 'ER'. A hacker like Marcus would have wiped the mainframe completely. A brute like Donovan would have just smashed the hub.",
+            "This looks like someone with actual authorization who panicked and aborted a print job. Someone who belongs there."
+        ]
     },
     park: {
         file: 'boots',
         key: 'hasFoundBoots',
-        x: 0.3, y: 0.7,
-        scale: 0.5,
+        x: 0.55,            // horizontal position (% of screen width)
+        y: 0.88,            // vertical position (% of screen height)
+        displayW: 140,      // display width in px
+        displayH: 140,      // display height in px
         dialogue: "Size 14 work boots dumped in the bushes. Obviously meant to point to Donovan. But look at the trail leading away... stilettos? Deep, narrow heel marks. Donovan wouldn't be caught dead in designer heels, and Marcus doesn't leave his computer chair. Someone much smaller walked in those massive boots, then changed shoes."
     },
     alley: {
         file: 'receipt',
         key: 'hasFoundReceipt',
-        x: 0.7, y: 0.6,
-        scale: 0.5,
+        x: 0.42,            // horizontal position (% of screen width)
+        y: 0.92,            // vertical position (% of screen height)
+        displayW: 100,      // display width in px
+        displayH: 130,      // display height in px
         dialogue: "A receipt for 'The Grease Pit' pizza. But look at the payment method... it's a City Hall Corporate Procurement Credit Card. Why would a government account be paying for pizza delivered to a dark alleyway?"
     },
     beach: {
         file: 'pen',
         key: 'hasFoundPen',
-        x: 0.5, y: 0.8,
-        scale: 0.3,
+        x: 0.51,            // horizontal position (% of screen width)
+        y: 0.05,            // vertical position (% of screen height)
+        displayW: 50,       // display width in px
+        displayH: 50,       // display height in px
         dialogue: "A sterling silver fountain pen buried in the ashes. Initials E.R. Expensive. Meticulous. Custom-weighted. This isn't just a writing tool, it's a status symbol. Someone who manages executives at City Hall would carry something exactly like this."
     }
 };
@@ -53,7 +70,7 @@ export default class LocationScene extends Phaser.Scene {
         this.load.image(`bg_${this.locationKey}`, `/location/${this.locationKey}.png`);
         this.load.image('dialogueBox', '/dialogueBox.png');
         this.load.image('detective', '/characters/detectiveImg.png');
-        
+
         const evidence = evidenceConfig[this.locationKey];
         if (evidence) {
             this.load.image(`evidence_${evidence.file}`, `/evidence/${evidence.file}.png`);
@@ -110,12 +127,9 @@ export default class LocationScene extends Phaser.Scene {
         const config = evidenceConfig[this.locationKey];
         if (!config) return;
 
-        // If evidence was already found, don't show it again
-        if (gameManager.evidence[config.key]) return;
-
         const evidenceSprite = this.add.image(width * config.x, height * config.y, `evidence_${config.file}`);
-        evidenceSprite.setScale(config.scale);
-        
+        evidenceSprite.setDisplaySize(config.displayW, config.displayH);
+
         // Highlight effect on hover to indicate it's clickable
         evidenceSprite.setInteractive({ useHandCursor: true })
             .on('pointerover', () => {
@@ -127,24 +141,35 @@ export default class LocationScene extends Phaser.Scene {
             .on('pointerdown', () => {
                 // Collect evidence
                 gameManager.collectEvidence(config.key, { name: config.file, location: this.locationKey });
-                
+
                 // Hide/Destroy the sprite
                 evidenceSprite.destroy();
-                
-                // Trigger the dialogue
-                this.dialogueController.playDialogue('detective', 'Detective', config.dialogue, () => {
-                    this.dialogueController.hide();
-                    
-                    // Check for endgame trigger
-                    if (gameManager.evidence.hasFoundLog && 
-                        gameManager.evidence.hasFoundBoots && 
-                        gameManager.evidence.hasFoundReceipt && 
-                        gameManager.evidence.hasFoundPen) {
-                        
-                        gameManager.setPhase('DEDUCTION');
-                        this.scene.start('DeductionBoardScene');
+
+                // Trigger the dialogue (supports string or array of strings)
+                const lines = Array.isArray(config.dialogue) ? config.dialogue : [config.dialogue];
+                let lineIndex = 0;
+
+                const showNext = () => {
+                    if (lineIndex < lines.length) {
+                        this.dialogueController.playDialogue('detective', 'Detective', lines[lineIndex], () => {
+                            lineIndex++;
+                            showNext();
+                        });
+                    } else {
+                        this.dialogueController.hide();
+
+                        // Check for endgame trigger
+                        if (gameManager.evidence.hasFoundLog &&
+                            gameManager.evidence.hasFoundBoots &&
+                            gameManager.evidence.hasFoundReceipt &&
+                            gameManager.evidence.hasFoundPen) {
+
+                            gameManager.setPhase('DEDUCTION');
+                            this.scene.start('DeductionBoardScene');
+                        }
                     }
-                });
+                };
+                showNext();
             });
     }
 }

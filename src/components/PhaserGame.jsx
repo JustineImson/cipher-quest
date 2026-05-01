@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import * as Phaser from 'phaser';
 import MainScene from '../game/MainScene';
 import OfficeScene from '../game/OfficeScene';
@@ -8,11 +7,8 @@ import DeductionBoardScene from '../game/DeductionBoardScene';
 
 export default function PhaserGame() {
   const gameRef = useRef(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
-    const handleNavMenu = () => navigate('/');
-    window.addEventListener('nav-main-menu', handleNavMenu);
     const config = {
       type: Phaser.AUTO,
       parent: gameRef.current,
@@ -38,7 +34,6 @@ export default function PhaserGame() {
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('nav-main-menu', handleNavMenu);
       game.destroy(true);
     };
   }, []);

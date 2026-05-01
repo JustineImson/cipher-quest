@@ -1,21 +1,17 @@
 import * as Phaser from 'phaser';
 import { gameManager, GamePhases } from './GameManager';
+import { addDevPanel } from './DevPanel';
 export default class MainScene extends Phaser.Scene {
     constructor() {
         super('MainScene');
     }
 
     preload() {
-        // Load the exported Tiled map JSON first so we can inspect its tilesets,
-        // then dynamically queue up the image files referenced by the tilesets.
-        this.load.json('map', '/Map.tmj');
-
         // Will be populated with gid -> texture key mappings as we inspect the map.
         this.gidToKey = {};
 
-        // When the map JSON file has finished loading, enqueue the referenced images.
-        this.load.once('filecomplete-json-map', () => {
-            const mapData = this.cache.json.get('map');
+        // Helper: build the gidToKey map from the JSON data and queue any missing images.
+        const buildGidMap = (mapData) => {
             if (!mapData || !Array.isArray(mapData.tilesets)) return;
 
             mapData.tilesets.forEach(tileset => {
@@ -33,20 +29,29 @@ export default class MainScene extends Phaser.Scene {
                         if (!this.textures.exists(key)) this.load.image(key, url);
                     });
                 } else if (tileset.image) {
-                    // Single-image tileset (a tilesheet). Load it under the tileset name/key.
+                    // Single-image tileset (a tilesheet).
                     const imagePath = tileset.image.replace(/\\/g, '/');
                     const filename = imagePath.split('/').pop();
                     const key = tileset.name || filename.replace(/\.[^/.]+$/, '');
                     const url = imagePath.startsWith('/') ? imagePath : '/' + filename;
                     if (!this.textures.exists(key)) this.load.image(key, url);
-                    // Record the starting gid so create() can handle tilesheet-based tilesets.
                     this.gidToKey[firstgid] = key;
                 }
             });
+        };
 
-            // Start loading the queued images from tilesets.
-            this.load.start();
-        });
+        // If the map JSON is already cached (scene restart), build mapping directly.
+        const cachedMap = this.cache.json.get('map');
+        if (cachedMap) {
+            buildGidMap(cachedMap);
+        } else {
+            // First load: queue the JSON and build the map when it arrives.
+            this.load.json('map', '/Map.tmj');
+            this.load.once('filecomplete-json-map', () => {
+                buildGidMap(this.cache.json.get('map'));
+                this.load.start();
+            });
+        }
     }
 
     create() {
@@ -166,7 +171,7 @@ export default class MainScene extends Phaser.Scene {
             triggerGraphics.setDepth(10000);
 
             polygonObjects.forEach(obj => {
-                const isAccessTrigger = obj.name && obj.name.toLowerCase() === 'access';
+                const isAccessTrigger = obj.name && obj.name.toLowerCase().trim() === 'access';
                 const points = obj.polygon.map(p => tiledIsoToScreen(obj.x + p.x, obj.y + p.y));
                 
                 // Shift the polygons down by tileH / 2 to perfectly match the object sprite Y-alignment
@@ -192,7 +197,20 @@ export default class MainScene extends Phaser.Scene {
                 const relVerts = shifted.map(p => ({ x: p.x - cx, y: p.y - cy }));
 
                 try {
-                    const labelName = isAccessTrigger ? 'access' : (obj.name ? obj.name : 'polygon');
+                    // Read the location key from the Tiled custom properties
+                    // e.g. properties: [{name: "apartment", value: "apartment"}]
+                    let locationKey = '';
+                    if (isAccessTrigger && Array.isArray(obj.properties)) {
+                        const prop = obj.properties[0];
+                        if (prop && prop.value) {
+                            locationKey = prop.value.trim();
+                        }
+                    }
+
+                    const labelName = isAccessTrigger
+                        ? (locationKey ? `access_${locationKey}` : 'access')
+                        : (obj.name ? obj.name : 'polygon');
+
                     const body = this.matter.add.fromVertices(cx, cy, relVerts, { isStatic: true, isSensor: isAccessTrigger, label: labelName }, true);
                     if (body) {
                         body.render = body.render || {};
@@ -209,13 +227,23 @@ export default class MainScene extends Phaser.Scene {
         const accessObjects = mapData.layers
             .filter(l => l.type === 'objectgroup' && Array.isArray(l.objects))
             .flatMap(l => l.objects)
-            .filter(o => o && o.name && o.name.toLowerCase() === 'access' && !Array.isArray(o.polygon));
+            .filter(o => o && o.name && o.name.toLowerCase().trim() === 'access' && !Array.isArray(o.polygon));
 
         accessObjects.forEach(obj => {
             const { x, y } = tiledIsoToScreen(obj.x, obj.y);
             const w = obj.width || 64;
             const h = obj.height || 64;
-            this.matter.add.rectangle(x, y + tileH / 2, w, h, { isStatic: true, isSensor: true, label: 'access' });
+
+            let locationKey = '';
+            if (Array.isArray(obj.properties)) {
+                const prop = obj.properties[0];
+                if (prop && prop.value) {
+                    locationKey = prop.value.trim();
+                }
+            }
+            const labelName = locationKey ? `access_${locationKey}` : 'access';
+
+            this.matter.add.rectangle(x, y + tileH / 2, w, h, { isStatic: true, isSensor: true, label: labelName });
             
             const g = this.add.graphics();
             g.fillStyle(0xffff00, 0.4);
@@ -259,6 +287,7 @@ export default class MainScene extends Phaser.Scene {
         // ─── TRIGGERS ────────────────────────────────────────────────────────
         this.fKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
         this.canAccess = false;
+        this.currentAccessLocation = null;  // tracks which location the player is near
         
         this.promptText = this.add.text(0, 0, 'Press F to Enter', { fontSize: '20px', fill: '#ffff00', backgroundColor: '#000000bb', padding: { x: 8, y: 4 } })
             .setOrigin(0.5)
@@ -268,9 +297,12 @@ export default class MainScene extends Phaser.Scene {
         this.matter.world.on('collisionstart', (event) => {
             event.pairs.forEach(pair => {
                 const { bodyA, bodyB } = pair;
-                if ((bodyA === this.player.body && bodyB.label === 'access') ||
-                    (bodyB === this.player.body && bodyA.label === 'access')) {
+                const otherBody = bodyA === this.player.body ? bodyB : (bodyB === this.player.body ? bodyA : null);
+                if (otherBody && otherBody.label && otherBody.label.startsWith('access')) {
                     this.canAccess = true;
+                    // Extract location key from label like "access_apartment"
+                    const parts = otherBody.label.split('_');
+                    this.currentAccessLocation = parts.length > 1 ? parts.slice(1).join('_') : null;
                     this.promptText.setVisible(true);
                 }
             });
@@ -279,16 +311,19 @@ export default class MainScene extends Phaser.Scene {
         this.matter.world.on('collisionend', (event) => {
             event.pairs.forEach(pair => {
                 const { bodyA, bodyB } = pair;
-                if ((bodyA === this.player.body && bodyB.label === 'access') ||
-                    (bodyB === this.player.body && bodyA.label === 'access')) {
+                const otherBody = bodyA === this.player.body ? bodyB : (bodyB === this.player.body ? bodyA : null);
+                if (otherBody && otherBody.label && otherBody.label.startsWith('access')) {
                     this.canAccess = false;
+                    this.currentAccessLocation = null;
                     this.promptText.setVisible(false);
                 }
             });
         });
 
+
         // ─── MAP NAVIGATION UI ───────────────────────────────────────────────
         const uiContainer = this.add.container(0, 0).setScrollFactor(0).setDepth(20000);
+        const navX = this.scale.width - 130;
         
         const locations = [
             { name: 'Apartment', key: 'apartment', y: 50 },
@@ -298,7 +333,7 @@ export default class MainScene extends Phaser.Scene {
         ];
 
         locations.forEach(loc => {
-            const btn = this.add.rectangle(120, loc.y, 200, 50, 0x111111, 0.8)
+            const btn = this.add.rectangle(navX, loc.y, 200, 50, 0x111111, 0.8)
                 .setStrokeStyle(2, 0xd97706)
                 .setInteractive({ useHandCursor: true })
                 .on('pointerdown', () => {
@@ -307,7 +342,7 @@ export default class MainScene extends Phaser.Scene {
                 .on('pointerover', () => btn.setFillStyle(0x333333, 0.9))
                 .on('pointerout', () => btn.setFillStyle(0x111111, 0.8));
 
-            const text = this.add.text(120, loc.y, loc.name, {
+            const text = this.add.text(navX, loc.y, loc.name, {
                 fontSize: '22px',
                 fill: '#d97706',
                 fontFamily: 'serif'
@@ -315,6 +350,9 @@ export default class MainScene extends Phaser.Scene {
 
             uiContainer.add([btn, text]);
         });
+
+        // Dev panel must be added LAST so its UI camera can ignore all existing objects
+        addDevPanel(this);
     }
 
     update() {
@@ -341,7 +379,6 @@ export default class MainScene extends Phaser.Scene {
 
         const moveScale = this.game.loop.delta / 1000;
         if (this.player.body) {
-            // Apply Matter Physics velocity
             this.player.setVelocity(vx * moveScale, vy * moveScale);
         } else {
             this.player.x += vx * moveScale;
@@ -350,16 +387,16 @@ export default class MainScene extends Phaser.Scene {
         
         this.player.setDepth(this.player.y + 10);
 
-        // Swap in when using sprite:
-        // ...
-        
         if (this.canAccess) {
             this.promptText.setPosition(this.player.x, this.player.y - 40);
             if (Phaser.Input.Keyboard.JustDown(this.fKey)) {
-                console.log("Access triggered!");
                 this.canAccess = false;
-                // Dispatch event so React component can navigate to the other page
-                window.dispatchEvent(new Event('nav-main-menu'));
+                this.promptText.setVisible(false);
+
+                if (this.currentAccessLocation) {
+                    console.log(`Access triggered! Navigating to: ${this.currentAccessLocation}`);
+                    this.scene.start('LocationScene', { locationKey: this.currentAccessLocation });
+                }
             }
         }
     }

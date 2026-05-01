@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { gameManager, GamePhases } from './GameManager';
+import { addDevPanel } from './DevPanel';
 
 export default class DeductionBoardScene extends Phaser.Scene {
     constructor() {
@@ -8,6 +9,8 @@ export default class DeductionBoardScene extends Phaser.Scene {
 
     create() {
         const { width, height } = this.scale;
+
+        addDevPanel(this);
 
         // Background
         this.add.rectangle(0, 0, width, height, 0x1a1a1a).setOrigin(0, 0);

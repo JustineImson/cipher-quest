@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import DialogueController from './DialogueController';
 import { gameManager, GamePhases } from './GameManager';
+import { addDevPanel } from './DevPanel';
 
 const dialogueScript = [
     { speaker: 'System', text: "Last night, the City Hall Vault was breached. The master blueprints for the city's defenses are missing.", sprite: null },
@@ -75,6 +76,8 @@ export default class OfficeScene extends Phaser.Scene {
             fill: '#d97706',
             fontFamily: 'serif'
         }).setOrigin(0.5).setVisible(false);
+        // Dev teleport panel
+        addDevPanel(this);
     }
 
     showNextLine() {
@@ -98,6 +101,9 @@ export default class OfficeScene extends Phaser.Scene {
     endDialogue() {
         this.dialogueActive = false;
         this.dialogueController.hide();
+        
+        // Transition to investigating phase so briefing doesn't replay
+        gameManager.setPhase(GamePhases.INVESTIGATING);
         
         // Show leave button
         this.leaveBtn.setVisible(true);
