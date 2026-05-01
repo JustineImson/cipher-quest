@@ -55,6 +55,9 @@ export default class MainScene extends Phaser.Scene {
     }
 
     create() {
+        // Setup dark gloomy background color
+        this.cameras.main.setBackgroundColor('#0d131f');
+
         const mapData = this.cache.json.get('map');
 
         const tileW = mapData.tilewidth;   // 256
@@ -117,6 +120,8 @@ export default class MainScene extends Phaser.Scene {
                     const spr = this.add.sprite(x, y, key);
                     spr.setOrigin(0.5, 0); // top-center of diamond
                     spr.setDepth(0);
+                    // Add a gloomy bluish-gray tint to the ground
+                    spr.setTint(0x73879a);
                 }
             }
         }
@@ -142,11 +147,14 @@ export default class MainScene extends Phaser.Scene {
                 // Tiled object x,y points to the top-left of the orthogonal bounds.
                 // Projecting gives the top-vertex of the isometric diamond.
                 const { x, y } = tiledIsoToScreen(obj.x, obj.y);
+                const finalY = y + (tileH / 2);
 
                 // In Tiled, tile objects are Bottom-Center aligned.
                 // We add tileH/2 to place the bottom of the object at the center of the grid cell.
-                const spr = this.add.sprite(x, y + (tileH / 2), key);
+                const spr = this.add.sprite(x, finalY, key);
                 spr.setOrigin(0.5, 1);
+                // Add a gloomy tint to the object (slightly brighter than ground)
+                spr.setTint(0x9aaebf);
                 spr.setDepth(spr.y + baseDepth); // Y-sort using the final bottom coordinate
             });
         };
@@ -172,6 +180,30 @@ export default class MainScene extends Phaser.Scene {
 
             polygonObjects.forEach(obj => {
                 const isAccessTrigger = obj.name && obj.name.toLowerCase().trim() === 'access';
+                
+                let locationKey = '';
+                if (isAccessTrigger && Array.isArray(obj.properties)) {
+                    const prop = obj.properties[0];
+                    if (prop && prop.value) {
+                        locationKey = prop.value.trim();
+                    }
+                }
+
+                // If this is an access trigger, check if evidence is already found
+                if (isAccessTrigger && locationKey) {
+                    const evidenceMap = {
+                        apartment: 'hasFoundLog',
+                        park: 'hasFoundBoots',
+                        alley: 'hasFoundReceipt',
+                        beach: 'hasFoundPen'
+                    };
+                    const evKey = evidenceMap[locationKey];
+                    if (evKey && gameManager.evidence[evKey]) {
+                        // Evidence found: skip rendering polygon and skip creating sensor body
+                        return;
+                    }
+                }
+
                 const points = obj.polygon.map(p => tiledIsoToScreen(obj.x + p.x, obj.y + p.y));
                 
                 // Shift the polygons down by tileH / 2 to perfectly match the object sprite Y-alignment
@@ -197,16 +229,6 @@ export default class MainScene extends Phaser.Scene {
                 const relVerts = shifted.map(p => ({ x: p.x - cx, y: p.y - cy }));
 
                 try {
-                    // Read the location key from the Tiled custom properties
-                    // e.g. properties: [{name: "apartment", value: "apartment"}]
-                    let locationKey = '';
-                    if (isAccessTrigger && Array.isArray(obj.properties)) {
-                        const prop = obj.properties[0];
-                        if (prop && prop.value) {
-                            locationKey = prop.value.trim();
-                        }
-                    }
-
                     const labelName = isAccessTrigger
                         ? (locationKey ? `access_${locationKey}` : 'access')
                         : (obj.name ? obj.name : 'polygon');
@@ -230,10 +252,6 @@ export default class MainScene extends Phaser.Scene {
             .filter(o => o && o.name && o.name.toLowerCase().trim() === 'access' && !Array.isArray(o.polygon));
 
         accessObjects.forEach(obj => {
-            const { x, y } = tiledIsoToScreen(obj.x, obj.y);
-            const w = obj.width || 64;
-            const h = obj.height || 64;
-
             let locationKey = '';
             if (Array.isArray(obj.properties)) {
                 const prop = obj.properties[0];
@@ -241,6 +259,24 @@ export default class MainScene extends Phaser.Scene {
                     locationKey = prop.value.trim();
                 }
             }
+
+            if (locationKey) {
+                const evidenceMap = {
+                    apartment: 'hasFoundLog',
+                    park: 'hasFoundBoots',
+                    alley: 'hasFoundReceipt',
+                    beach: 'hasFoundPen'
+                };
+                const evKey = evidenceMap[locationKey];
+                if (evKey && gameManager.evidence[evKey]) {
+                    // Evidence found: skip creating the access body entirely
+                    return;
+                }
+            }
+
+            const { x, y } = tiledIsoToScreen(obj.x, obj.y);
+            const w = obj.width || 64;
+            const h = obj.height || 64;
             const labelName = locationKey ? `access_${locationKey}` : 'access';
 
             this.matter.add.rectangle(x, y + tileH / 2, w, h, { isStatic: true, isSensor: true, label: labelName });

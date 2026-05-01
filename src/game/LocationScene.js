@@ -35,7 +35,10 @@ const evidenceConfig = {
         y: 0.88,            // vertical position (% of screen height)
         displayW: 140,      // display width in px
         displayH: 140,      // display height in px
-        dialogue: "Size 14 work boots dumped in the bushes. Obviously meant to point to Donovan. But look at the trail leading away... stilettos? Deep, narrow heel marks. Donovan wouldn't be caught dead in designer heels, and Marcus doesn't leave his computer chair. Someone much smaller walked in those massive boots, then changed shoes."
+        dialogue: [
+            "Size 14 work boots dumped in the bushes. Obviously meant to point to Donovan. But look at the trail leading away... stilettos? Deep, narrow heel marks.",
+            "Donovan wouldn't be caught dead in designer heels, and Marcus doesn't leave his computer chair. Someone much smaller walked in those massive boots, then changed shoes."
+        ]
     },
     alley: {
         file: 'receipt',
