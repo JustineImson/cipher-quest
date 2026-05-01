@@ -6,8 +6,17 @@ export default function MainMenu() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col h-full w-full max-w-7xl mx-auto px-6 py-12 relative overflow-y-auto">
-      
+    <div className="h-full w-full relative">
+      <div 
+        className="absolute inset-0 z-0"
+        style={{
+          backgroundImage: 'url(/mainMenuBg.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
+      />
+      <div className="flex flex-col h-full w-full max-w-7xl mx-auto px-6 py-12 relative z-10 overflow-y-auto">
+        
       {/* Spacer for vertical centering */}
       <div className="flex-grow"></div>
 
@@ -20,20 +29,20 @@ export default function MainMenu() {
       <div className="w-full h-px bg-mystery-gold opacity-50 mb-12"></div>
 
       {/* Main Action Buttons (Row layout with all 5 buttons) */}
-      <div className="max-w-7xl mx-auto w-full flex flex-wrap justify-center gap-4 mb-16">
-        <Button onClick={() => navigate('/tutorial')} className="flex-1 min-w-[140px] h-14 text-sm lg:text-base bg-gray-500/20">
+      <div className="max-w-7xl mx-auto w-full flex flex-wrap justify-center gap-2 mb-16">
+        <Button onClick={() => navigate('/tutorial')} className="flex-1 min-w-[140px] h-14 text-sm lg:text-base">
           Tutorial
         </Button>
-        <Button onClick={() => navigate('/difficulty')} className="flex-1 min-w-[140px] h-14 text-sm lg:text-base bg-gray-500/20">
+        <Button onClick={() => navigate('/difficulty')} className="flex-1 min-w-[140px] h-14 text-sm lg:text-base">
           Story Mode
         </Button>
-        <Button onClick={() => navigate('/timeAttack')} className="flex-1 min-w-[140px] h-14 text-sm lg:text-base bg-gray-500/20">
+        <Button onClick={() => navigate('/timeAttack')} className="flex-1 min-w-[140px] h-14 text-sm lg:text-base">
           Time Attack
         </Button>
-        <Button onClick={() => navigate('/multiplayer')} className="flex-1 min-w-[140px] h-14 text-sm lg:text-base bg-gray-500/20">
+        <Button onClick={() => navigate('/multiplayer')} className="flex-1 min-w-[140px] h-14 text-sm lg:text-base">
           Multiplayer
         </Button>
-        <Button onClick={() => navigate('/leaderboards')} className="flex-1 min-w-[140px] h-14 text-sm lg:text-base bg-gray-500/20">
+        <Button onClick={() => navigate('/leaderboards')} className="flex-1 min-w-[140px] h-14 text-sm lg:text-base">
           <Trophy className="w-4 h-4 mr-1" />
           Leaderboards
         </Button>
@@ -54,15 +63,15 @@ export default function MainMenu() {
         </div>
         
         {/* Settings Box centered/right layout from wireframe */}
-        <Button onClick={() => navigate('/settings')} variant="secondary" className="px-8 py-3 text-lg border border-mystery-gold">
-          <Settings className="w-6 h-6 mr-2" />
+        <Button onClick={() => navigate('/settings')} variant="secondary" className="px-6 py-2 text-base">
+          <Settings className="w-5 h-5 mr-2 text-[#d4a843]" />
           Settings
         </Button>
       </div>
       
-      {/* Spacer for vertical centering */}
       <div className="flex-grow"></div>
       
+      </div>
     </div>
   );
 }

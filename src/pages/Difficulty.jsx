@@ -13,8 +13,17 @@ export default function Difficulty() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full max-w-7xl mx-auto px-6 py-12 relative overflow-y-auto">
-      <div className="flex-grow"></div>
+    <div className="h-full w-full relative overflow-hidden">
+      <div 
+        className="absolute inset-0 z-0 blur-sm scale-105"
+        style={{
+          backgroundImage: 'url(/mainMenuBg.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
+      />
+      <div className="flex flex-col h-full w-full max-w-7xl mx-auto px-6 py-12 relative z-10 overflow-y-auto">
+        <div className="flex-grow"></div>
 
       <h1 className="text-5xl md:text-7xl font-serif text-mystery-gold tracking-[0.15em] drop-shadow-md text-center uppercase mb-8">
         Cipher Quest
@@ -26,19 +35,22 @@ export default function Difficulty() {
       <div className="max-w-4xl mx-auto w-full flex flex-col md:flex-row justify-center gap-6 mb-20">
         <Button 
           onClick={() => handleSelectDifficulty('Easy')} 
-          className={`flex-1 min-w-[200px] h-[100px] text-3xl font-bold bg-opacity-70 transition-colors ${settings.difficulty === 'Easy' ? 'bg-mystery-gold/90 text-mystery-dark border-mystery-gold drop-shadow-[0_0_15px_rgba(203,161,83,0.5)] scale-105' : 'bg-gray-500/20 text-gray-200 border-gray-500 hover:border-mystery-gold hover:text-mystery-gold'}`}
+          isActive={settings.difficulty === 'Easy'}
+          className="flex-1 min-w-[200px] h-[100px] text-3xl font-bold"
         >
           Easy
         </Button>
         <Button 
           onClick={() => handleSelectDifficulty('Medium')} 
-          className={`flex-1 min-w-[200px] h-[100px] text-3xl font-bold bg-opacity-70 transition-colors ${settings.difficulty === 'Medium' ? 'bg-mystery-gold/90 text-mystery-dark border-mystery-gold drop-shadow-[0_0_15px_rgba(203,161,83,0.5)] scale-105' : 'bg-gray-500/20 text-gray-200 border-gray-500 hover:border-mystery-gold hover:text-mystery-gold'}`}
+          isActive={settings.difficulty === 'Medium'}
+          className="flex-1 min-w-[200px] h-[100px] text-3xl font-bold"
         >
           Medium
         </Button>
         <Button 
           onClick={() => handleSelectDifficulty('Hard')} 
-          className={`flex-1 min-w-[200px] h-[100px] text-3xl font-bold bg-opacity-70 transition-colors ${settings.difficulty === 'Hard' ? 'bg-mystery-gold/90 text-mystery-dark border-mystery-gold drop-shadow-[0_0_15px_rgba(203,161,83,0.5)] scale-105' : 'bg-gray-500/20 text-gray-200 border-gray-500 hover:border-mystery-gold hover:text-mystery-gold'}`}
+          isActive={settings.difficulty === 'Hard'}
+          className="flex-1 min-w-[200px] h-[100px] text-3xl font-bold"
         >
           Hard
         </Button>
@@ -61,13 +73,14 @@ export default function Difficulty() {
           </p>
         </div>
         
-        <Button onClick={() => navigate('/settings')} variant="secondary" className="px-8 py-3 text-lg border border-mystery-gold">
-          <Settings className="w-6 h-6 mr-2" />
+        <Button onClick={() => navigate('/settings')} variant="secondary" className="px-6 py-2 text-base">
+          <Settings className="w-5 h-5 mr-2 text-[#d4a843]" />
           Settings
         </Button>
       </div>
       
       <div className="flex-grow"></div>
+      </div>
     </div>
   );
 }

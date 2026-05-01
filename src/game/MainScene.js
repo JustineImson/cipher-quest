@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-
+import { gameManager, GamePhases } from './GameManager';
 export default class MainScene extends Phaser.Scene {
     constructor() {
         super('MainScene');
