@@ -1,0 +1,94 @@
+Here is the fully updated and reorganized dialogue script! I have added a brand-new **"Arrival Phase"** to set the mood when the player first enters each location, and I’ve integrated the **Office** back into the investigation phase as the primary crime scene. 
+
+You can drop this directly into your game's narrative engine.
+
+---
+Part 1: The Briefing (Start of Game)
+Trigger: When the player spawns or talks to the Chief for the first time.
+
+System: Last night, the City Hall Vault was breached. The master blueprints for the city's defenses are missing.
+
+Police Chief: "Detective, we have a crisis. The Mayor's private safe was emptied last night. We have three suspects, but no hard proof."
+
+Police Chief: "Listen closely to their profiles. You are going to need to remember their habits to solve this."
+
+Police Chief: "Suspect number one is Donovan, the hired muscle. He's a giant of a man who wears heavy size 14 work boots. He lacks finesse and prefers to kick doors down rather than pick locks."
+
+Police Chief: "Suspect number two is Marcus, an underground hacker. He's incredibly messy, constantly eats greasy fast food, and rarely leaves his basement. He does not have employee access to City Hall."
+
+Police Chief: "Suspect number three is Elena, the Mayor's Head Secretary. She is meticulous, has master keys to the building, and always wears a very distinct, expensive lavender perfume."
+
+Police Chief: "The thief left a trail across the city. I need you to investigate the Apartment, the Alley, the Park, and the Beach. Match the clues to the profiles."
+
+Detective: "I've got it memorized, Chief. I'll let the evidence point me to the right suspect."
+
+System: Explore the city to find 4 pieces of evidence.
+### Phase 1: Scene Arrival (Setting the Mood)
+*These lines trigger the moment the player loads into a new isometric background, giving them context before they start clicking around.*
+
+* **Location: The Office (The Crime Scene)**
+    * **Detective (Voiceover):** *"So this is the Mayor's private sanctum. The safe is wide open, papers scattered everywhere. Whoever did this was looking for something specific—the city blueprints—and they tried a little too hard to make it look like a random smash-and-grab."*
+* **Location: The Apartment**
+    * **Detective (Voiceover):** *"Messy, urban, and completely disorganized. But there's a heavy security setup for a place like this. The culprit was definitely here, and they left in a hurry. I need to see what they missed in their rush."*
+* **Location: The Park**
+    * **Detective (Voiceover):** *"Quiet today. Too quiet. If someone wanted to ditch evidence or stage a fake trail, this dense brush right off the main path is the perfect blind spot."*
+* **Location: The Alley**
+    * **Detective (Voiceover):** *"Dark, damp, and smells like cheap takeout and ozone. If our hacker, Marcus, is operating a shadow-server around here, he's hiding it well behind the trash."*
+* **Location: The Beach**
+    * **Detective (Voiceover):** *"The edge of the city. The tide washes away tracks fast, but fire... fire always leaves a scar in the sand. Let's see what they were trying so desperately to burn."*
+
+---
+
+### Phase 2: The Investigation (Item Interactions)
+*These lines trigger as the player's detective clicks on the specific evidence items in the environments.*
+
+* **Location: The Office**
+    * **Trigger:** Player clicks on the open Safe / Alarm Panel.
+    * **Detective (Internal):** *"The safe wasn't forced open with a drill or explosives. The locking mechanism was bypassed digitally. Someone either had the master code, or they knew exactly how to trick the system. This was an inside job."*
+* **Location: The Apartment**
+    * **Trigger:** Player clicks on the Corrupted Fob Log under the desk.
+    * **Detective (Internal):** *"A corrupted access log. The ID starts with 'ER'. A hacker like Marcus would have wiped the mainframe completely. A brute like Donovan would have just smashed the hub. This looks like someone with actual authorization who panicked and aborted a print job. Someone who belongs there."*
+* **Location: The Park**
+    * **Trigger:** Player clicks on the Muddy Work Boots and Footprints.
+    * **Detective (Internal):** *"Size 14 work boots dumped in the bushes. Obviously meant to point to Donovan. But look at the trail leading away... stilettos? Deep, narrow heel marks. Donovan wouldn't be caught dead in designer heels, and Marcus doesn't leave his computer chair. Someone much smaller walked in those massive boots, then changed shoes."*
+* **Location: The Alley**
+    * **Trigger:** Player clicks on the Crumpled Pizza Receipt.
+    * **Detective (Internal):** *"A receipt for 'The Grease Pit' pizza. But look at the payment method... it's a City Hall Corporate Procurement Credit Card. Why would a government account be paying for pizza delivered to a dark alleyway?"*
+* **Location: The Beach**
+    * **Trigger:** Player clicks on the Silver Fountain Pen in the ashes.
+    * **Detective (Internal):** *"A sterling silver fountain pen buried in the ashes. Initials E.R. Expensive. Meticulous. Custom-weighted. This isn't just a writing tool, it's a status symbol. Someone who manages executives at City Hall would carry something exactly like this."*
+
+---
+
+### Phase 3: The Deduction (Evidence Board)
+*This triggers when the player uses the game's mechanics to connect two pieces of information on the string board.*
+
+* **Trigger:** Player drags a string connecting the **[Alley Receipt]** to **[Marcus's Suspect Profile]**.
+* **Detective (Internal):** *"Wait a minute. Marcus is a paranoid hacker who pays for everything in untraceable crypto. He would never use a highly monitored government credit card to order his own dinner. Someone at City Hall bought this pizza and had it sent here to frame him."*
+* **System Action:** Clue updates from "Marcus's Pizza" to "Planted Pizza."
+
+---
+
+### Phase 4: The Interrogation (The Final Choice)
+*This is the climax where the player selects a suspect to arrest.*
+
+**Scenario A: The Player Chooses Marcus (Wrong Suspect)**
+* **Trigger:** Player selects Marcus on the final accusation screen.
+* **Marcus:** "Are you kidding me, Detective? Look at my setup. I crack firewalls from a couch. You think I'm going to physically break into the Mayor's office, steal blueprints, and then use a *government corporate credit card* to order my own pizza to the scene of the crime? I'm a hacker, not an idiot. You're being played."
+* **System UI:** *Investigation Failed. The real culprit escaped.*
+
+**Scenario B: The Player Chooses Donovan (Wrong Suspect)**
+* **Trigger:** Player selects Donovan on the final accusation screen.
+* **Donovan:** "Yeah, those are my boots in the park. So what? I reported them stolen from the gym locker room a week ago! You think I'm tip-toeing around City Hall pulling off some high-tech heist? I bend steel for a living, I don't type on keyboards or wear fancy perfume. Go look at my timecards!"
+* **System UI:** *Investigation Failed. The real culprit escaped.*
+
+**Scenario C: The Player Chooses Elena (Correct Suspect)**
+* **Trigger:** Player selects Elena on the final accusation screen.
+* **Detective:** "It was a brilliant frame job, Ms. Rostova. You planted Donovan's stolen boots in the park, but you couldn't walk home in them. You left your own designer heel prints right next to the bushes."
+* **Elena:** "That proves nothing. Anyone can wear heels."
+* **Detective:** "True. But not everyone has the authorization to bypass the Mayor's safe. The corrupted access log we found started with the ID 'ER'. You."
+* **Elena:** "A coincidence. A hacker could have spoofed my ID."
+* **Detective:** "Maybe. But a hacker like Marcus wouldn't use your City Hall Procurement Credit Card to order pizza to his own alleyway just to leave the receipt in the trash. You tried to frame him, but you used your own office budget to do it."
+* **Elena:** *(Silence, her posture stiffens)*
+* **Detective:** "And the final nail in the coffin. You burned the copied blueprints at the beach to destroy the evidence. But you dropped this." *(The Detective tosses the silver pen on the table).* "Sterling silver. Engraved with 'E.R.' You were meticulous about everyone else's tracks, Elena, but you forgot to cover your own."
+* **System UI:** *Case Closed. Elena Rostova Apprehended.*

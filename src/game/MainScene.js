@@ -286,6 +286,35 @@ export default class MainScene extends Phaser.Scene {
                 }
             });
         });
+
+        // ─── MAP NAVIGATION UI ───────────────────────────────────────────────
+        const uiContainer = this.add.container(0, 0).setScrollFactor(0).setDepth(20000);
+        
+        const locations = [
+            { name: 'Apartment', key: 'apartment', y: 50 },
+            { name: 'Park', key: 'park', y: 110 },
+            { name: 'Alley', key: 'alley', y: 170 },
+            { name: 'Beach', key: 'beach', y: 230 }
+        ];
+
+        locations.forEach(loc => {
+            const btn = this.add.rectangle(120, loc.y, 200, 50, 0x111111, 0.8)
+                .setStrokeStyle(2, 0xd97706)
+                .setInteractive({ useHandCursor: true })
+                .on('pointerdown', () => {
+                    this.scene.start('LocationScene', { locationKey: loc.key });
+                })
+                .on('pointerover', () => btn.setFillStyle(0x333333, 0.9))
+                .on('pointerout', () => btn.setFillStyle(0x111111, 0.8));
+
+            const text = this.add.text(120, loc.y, loc.name, {
+                fontSize: '22px',
+                fill: '#d97706',
+                fontFamily: 'serif'
+            }).setOrigin(0.5);
+
+            uiContainer.add([btn, text]);
+        });
     }
 
     update() {

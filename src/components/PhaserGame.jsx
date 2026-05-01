@@ -2,6 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Phaser from 'phaser';
 import MainScene from '../game/MainScene';
+import OfficeScene from '../game/OfficeScene';
+import LocationScene from '../game/LocationScene';
+import DeductionBoardScene from '../game/DeductionBoardScene';
 
 export default function PhaserGame() {
   const gameRef = useRef(null);
@@ -22,7 +25,7 @@ export default function PhaserGame() {
           gravity: { y: 0 } // Top-down isometric, so no gravity
         }
       },
-      scene: [MainScene]
+      scene: [OfficeScene, MainScene, LocationScene, DeductionBoardScene]
     };
 
     const game = new Phaser.Game(config);
