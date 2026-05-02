@@ -1,101 +1,358 @@
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../store/useGameStore';
-import Button from '../components/ui/Button';
+import { ArrowLeft, Volume2, Music, Settings as SettingsIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 
 export default function Settings() {
   const navigate = useNavigate();
   const { settings, updateSettings } = useGameStore();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
 
   return (
-    <div className="flex flex-col h-full w-full max-w-7xl mx-auto px-6 py-12 relative overflow-y-auto">
-      <div className="flex-grow"></div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Special+Elite&family=IM+Fell+English:ital@0;1&display=swap');
 
-      {/* Title */}
-      <h1 className="text-5xl md:text-7xl font-serif text-mystery-gold tracking-[0.15em] drop-shadow-md text-center uppercase mb-8">
-        Cipher Quest
-      </h1>
-      <div className="w-full h-px bg-mystery-gold opacity-50 mb-16"></div>
+        :root {
+          --gold:       #c9a84c;
+          --gold-light: #e8c96a;
+          --gold-dim:   #7a6030;
+          --red:        #8b1a1a;
+          --cream:      #e8dcc0;
+        }
 
-      {/* Settings Controls */}
-      <div className="max-w-xl mx-auto w-full flex flex-col items-center gap-12 mb-16">
+        .st-root {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          font-family: 'Special Elite', monospace;
+          background: #1a1208;
+        }
+
+        .st-bg {
+          position: absolute;
+          inset: -20px;
+          background-image: url(/mainMenuBg.png);
+          background-size: cover;
+          background-position: center top;
+          filter: blur(12px) brightness(0.35) saturate(0.6);
+          transform: scale(1.08);
+          z-index: 0;
+        }
+
+        .st-scrim {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(170deg, rgba(8,5,2,0.7) 0%, rgba(10,6,2,0.85) 100%);
+          z-index: 1;
+        }
+
+        .st-bloom {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
+          width: 600px;
+          height: 500px;
+          background: radial-gradient(ellipse, rgba(160,105,20,0.15) 0%, transparent 65%);
+          z-index: 2;
+          pointer-events: none;
+        }
+
+        .st-grain {
+          position: absolute;
+          inset: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+          opacity: 0.035;
+          z-index: 3;
+          pointer-events: none;
+          mix-blend-mode: screen;
+        }
+
+        .st-layout {
+          position: relative;
+          z-index: 10;
+          width: 100%;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 32px 20px;
+        }
+
+        /* Header */
+        .st-header {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          margin-bottom: 40px;
+          opacity: 0;
+          transform: translateY(-16px);
+          transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        .st-header.show { opacity: 1; transform: translateY(0); }
+
+        .st-back {
+          align-self: flex-start;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: none;
+          border: none;
+          color: var(--gold-dim);
+          font-size: 11px;
+          letter-spacing: 0.25em;
+          text-transform: uppercase;
+          cursor: pointer;
+          margin-bottom: 24px;
+          transition: color 0.2s;
+        }
+        .st-back:hover { color: var(--gold-light); }
+
+        .st-eyebrow {
+          font-size: 11px;
+          letter-spacing: 0.38em;
+          color: var(--gold-dim);
+          text-transform: uppercase;
+          margin-bottom: 8px;
+        }
+
+        .st-title {
+          font-family: 'Playfair Display', serif;
+          font-size: clamp(34px, 5.5vw, 60px);
+          font-weight: 900;
+          letter-spacing: 0.14em;
+          color: var(--gold-light);
+          text-transform: uppercase;
+          text-shadow: 0 0 40px rgba(200,160,50,0.3), 0 2px 6px rgba(0,0,0,0.9);
+          margin-bottom: 4px;
+        }
+
+        .st-rule {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: clamp(240px, 38vw, 500px);
+          margin-top: 10px;
+        }
+        .st-rule-line { flex: 1; height: 1px; background: linear-gradient(to right, transparent, var(--gold-dim), transparent); }
+        .st-rule-diamond { width: 5px; height: 5px; background: var(--gold); transform: rotate(45deg); flex-shrink: 0; }
+
+        /* Card container */
+        .st-card {
+          background: rgba(18,12,4,0.75);
+          border: 1px solid rgba(201,168,76,0.15);
+          border-left: 3px solid rgba(201,168,76,0.4);
+          padding: 40px 48px;
+          width: 100%;
+          max-width: 600px;
+          display: flex;
+          flex-direction: column;
+          gap: 32px;
+          opacity: 0;
+          transform: translateY(20px);
+          transition: opacity 0.8s ease 0.2s, transform 0.8s ease 0.2s;
+        }
+        .st-card.show { opacity: 1; transform: translateY(0); }
+
+        /* Rows */
+        .st-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px dashed rgba(201,168,76,0.15);
+          padding-bottom: 20px;
+        }
+        .st-row:last-child {
+          border-bottom: none;
+          padding-bottom: 0;
+        }
+
+        .st-label {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          font-family: 'Special Elite', monospace;
+          font-size: 16px;
+          letter-spacing: 0.2em;
+          color: var(--cream);
+          text-transform: uppercase;
+        }
+        .st-icon {
+          color: var(--gold-dim);
+        }
+
+        .st-controls {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .st-toggle {
+          background: none;
+          border: none;
+          font-family: 'Special Elite', monospace;
+          font-size: 16px;
+          letter-spacing: 0.15em;
+          cursor: pointer;
+          transition: all 0.2s;
+          padding: 4px 8px;
+        }
+        .st-toggle.active {
+          color: var(--gold-light);
+          text-shadow: 0 0 10px rgba(232,201,106,0.4);
+        }
+        .st-toggle.inactive {
+          color: rgba(255,255,255,0.3);
+        }
+        .st-toggle:hover:not(.active) {
+          color: rgba(255,255,255,0.6);
+        }
         
-        {/* MUSIC TOGGLE */}
-        <div className="flex flex-col sm:flex-row items-center justify-center w-full gap-4 text-3xl font-serif uppercase tracking-[0.15em] text-mystery-gold">
-          <span className="sm:mr-4">Music</span>
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => updateSettings({ musicEnabled: true })}
-              className={`transition-all duration-300 ${settings.musicEnabled ? 'text-gray-100 font-bold drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]' : 'text-gray-500 opacity-60'}`}
-            >
-              ON
+        .st-sep {
+          color: var(--gold-dim);
+          opacity: 0.5;
+        }
+
+        /* Range Slider */
+        .st-slider {
+          -webkit-appearance: none;
+          width: 200px;
+          height: 2px;
+          background: rgba(201,168,76,0.2);
+          outline: none;
+        }
+        .st-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 14px;
+          height: 14px;
+          background: var(--gold-light);
+          cursor: pointer;
+          border-radius: 50%;
+          box-shadow: 0 0 10px rgba(232,201,106,0.5);
+          transition: transform 0.1s;
+        }
+        .st-slider::-webkit-slider-thumb:hover {
+          transform: scale(1.2);
+        }
+        .st-slider::-moz-range-thumb {
+          width: 14px;
+          height: 14px;
+          background: var(--gold-light);
+          cursor: pointer;
+          border-radius: 50%;
+          border: none;
+          box-shadow: 0 0 10px rgba(232,201,106,0.5);
+        }
+
+        /* Footer */
+        .st-footer {
+          margin-top: 40px;
+          width: 100%;
+          max-width: 600px;
+          text-align: center;
+          opacity: 0;
+          transition: opacity 0.8s ease 0.4s;
+        }
+        .st-footer.show { opacity: 1; }
+
+        .st-lore {
+          font-family: 'IM Fell English', serif;
+          font-style: italic;
+          font-size: 14px;
+          color: var(--gold-dim);
+          line-height: 1.6;
+        }
+      `}</style>
+
+      <div className="st-root">
+        <div className="st-bg" />
+        <div className="st-scrim" />
+        <div className="st-bloom" />
+        <div className="st-grain" />
+
+        <div className="st-layout">
+          <div className={`st-header ${visible ? 'show' : ''}`}>
+            <button className="st-back" onClick={() => navigate(-1)}>
+              <ArrowLeft size={12} /> Back to Menu
             </button>
-            <span className="text-gray-600 opacity-50 text-xl font-light">/</span>
-            <button 
-              onClick={() => updateSettings({ musicEnabled: false })}
-              className={`transition-all duration-300 ${!settings.musicEnabled ? 'text-gray-100 font-bold drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]' : 'text-gray-500 opacity-60'}`}
-            >
-              OFF
-            </button>
+            <span className="st-eyebrow">— Apparatus Calibration —</span>
+            <h1 className="st-title">Settings</h1>
+            <div className="st-rule">
+              <div className="st-rule-line" />
+              <div className="st-rule-diamond" />
+              <div className="st-rule-line" />
+            </div>
+          </div>
+
+          <div className={`st-card ${visible ? 'show' : ''}`}>
+            {/* Music */}
+            <div className="st-row">
+              <div className="st-label">
+                <Music size={18} className="st-icon" /> Music
+              </div>
+              <div className="st-controls">
+                <button 
+                  className={`st-toggle ${settings.musicEnabled ? 'active' : 'inactive'}`}
+                  onClick={() => updateSettings({ musicEnabled: true })}
+                >ON</button>
+                <span className="st-sep">/</span>
+                <button 
+                  className={`st-toggle ${!settings.musicEnabled ? 'active' : 'inactive'}`}
+                  onClick={() => updateSettings({ musicEnabled: false })}
+                >OFF</button>
+              </div>
+            </div>
+
+            {/* Sound FX */}
+            <div className="st-row">
+              <div className="st-label">
+                <Volume2 size={18} className="st-icon" /> Sound FX
+              </div>
+              <div className="st-controls">
+                <button 
+                  className={`st-toggle ${settings.sfxEnabled ? 'active' : 'inactive'}`}
+                  onClick={() => updateSettings({ sfxEnabled: true })}
+                >ON</button>
+                <span className="st-sep">/</span>
+                <button 
+                  className={`st-toggle ${!settings.sfxEnabled ? 'active' : 'inactive'}`}
+                  onClick={() => updateSettings({ sfxEnabled: false })}
+                >OFF</button>
+              </div>
+            </div>
+
+            {/* Volume */}
+            <div className="st-row">
+              <div className="st-label">
+                <SettingsIcon size={18} className="st-icon" /> Master Volume
+              </div>
+              <div className="st-controls">
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="100" 
+                  value={settings.volume} 
+                  onChange={(e) => updateSettings({ volume: parseInt(e.target.value) })}
+                  className="st-slider"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={`st-footer ${visible ? 'show' : ''}`}>
+            <p className="st-lore">
+              Adjust your apparatus cautiously.<br/>
+              The right frequency may be the key to your survival.
+            </p>
           </div>
         </div>
-
-        {/* SOUND FX TOGGLE */}
-        <div className="flex flex-col sm:flex-row items-center justify-center w-full gap-4 text-3xl font-serif uppercase tracking-[0.15em] text-mystery-gold">
-          <span className="sm:mr-4">Sound FX</span>
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => updateSettings({ sfxEnabled: true })}
-              className={`transition-all duration-300 ${settings.sfxEnabled ? 'text-gray-100 font-bold drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]' : 'text-gray-500 opacity-60'}`}
-            >
-              ON
-            </button>
-            <span className="text-gray-600 opacity-50 text-xl font-light">/</span>
-            <button 
-              onClick={() => updateSettings({ sfxEnabled: false })}
-              className={`transition-all duration-300 ${!settings.sfxEnabled ? 'text-gray-100 font-bold drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]' : 'text-gray-500 opacity-60'}`}
-            >
-              OFF
-            </button>
-          </div>
-        </div>
-
-        {/* VOLUME SLIDER */}
-        <div className="flex flex-col items-center gap-4 mt-8 w-full">
-          <span className="text-sm font-serif uppercase tracking-[0.2em] text-mystery-gold opacity-80">Master Volume</span>
-          <input 
-            type="range" 
-            min="0" 
-            max="100" 
-            value={settings.volume} 
-            onChange={(e) => updateSettings({ volume: parseInt(e.target.value) })}
-            className="w-full max-w-sm h-1 bg-mystery-dark border rounded-full border-mystery-gold/50 outline-none hover:border-mystery-gold transition-colors styled-slider"
-          />
-        </div>
-
-        {/* BACK BUTTON */}
-        <div className="mt-8">
-          <button 
-            onClick={() => navigate(-1)} 
-            className="font-serif tracking-widest text-2xl uppercase hover:text-white transition-colors text-mystery-gold"
-          >
-            Back
-          </button>
-        </div>
-
       </div>
-
-      <div className="w-full h-px bg-mystery-gold opacity-50 mb-8"></div>
-
-      <div className="w-full flex justify-center items-center text-center">
-        <div className="text-gray-400 text-sm max-w-sm italic font-serif leading-relaxed">
-          <p>
-            Adjust your apparatus cautiously. 
-            The right frequency may be the key to your survival.
-          </p>
-        </div>
-      </div>
-      
-      <div className="flex-grow"></div>
-    </div>
+    </>
   );
 }

@@ -2,6 +2,8 @@ import * as Phaser from 'phaser';
 import DialogueController from './DialogueController';
 import { gameManager } from './GameManager';
 import { bgmController } from '../engine/BGMController';
+import { StoryCiphers } from './CipherData';
+import { useGameStore } from '../store/useGameStore';
 
 const arrivalTexts = {
     apartment: "Messy, urban, and completely disorganized. But there's a heavy security setup for a place like this. The culprit was definitely here, and they left in a hurry. I need to see what they missed in their rush.",
@@ -237,7 +239,10 @@ export default class LocationScene extends Phaser.Scene {
                 window.addEventListener('storyCipherSolved', handleCipherSolved);
                 window.addEventListener('storyCipherClosed', handleCipherClosed);
 
-                window.dispatchEvent(new CustomEvent('openStoryCipher', { detail: config.cipherData }));
+                const difficulty = useGameStore.getState().settings.difficulty.toLowerCase();
+                const cipherData = StoryCiphers[this.locationKey][difficulty];
+
+                window.dispatchEvent(new CustomEvent('openStoryCipher', { detail: cipherData }));
             });
     }
 }

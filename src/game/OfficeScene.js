@@ -202,17 +202,31 @@ export default class OfficeScene extends Phaser.Scene {
         this.suspectImages.forEach(img => img.setVisible(false));
 
         if (suspectKey === 'Marcus') {
-            this.dialogueController.playDialogue('detective', 'Marcus', "Are you kidding me, Detective? Look at my setup. I crack firewalls from a couch. You think I'm going to physically break into the Mayor's office, steal blueprints, and then use a government corporate credit card to order my own pizza to the scene of the crime? I'm a hacker, not an idiot. You're being played.", () => {
-                this.showEndScreen('Game Over - Failed\nThe real culprit escaped.', false);
+            this.dialogueController.playDialogue('Marcus', 'Marcus', "Are you kidding me, Detective? Look at my setup. I crack firewalls from a couch.", () => {
+                this.dialogueController.playDialogue('Marcus', 'Marcus', "You think I'm going to physically break into the Mayor's office, steal blueprints, and then use a government corporate credit card to order my own pizza to the scene of the crime?", () => {
+                    this.dialogueController.playDialogue('Marcus', 'Marcus', "I'm a hacker, not an idiot. You're being played.", () => {
+                        this.showEndScreen('Game Over - Failed\nThe real culprit escaped.', false);
+                    });
+                });
             });
         } else if (suspectKey === 'Donovan') {
-            this.dialogueController.playDialogue('detective', 'Donovan', "Yeah, those are my boots in the park. So what? I reported them stolen from the gym locker room a week ago! You think I'm tip-toeing around City Hall pulling off some high-tech heist? I bend steel for a living, I don't type on keyboards or wear fancy perfume. Go look at my timecards!", () => {
-                this.showEndScreen('Game Over - Failed\nThe real culprit escaped.', false);
+            this.dialogueController.playDialogue('Donovan', 'Donovan', "Yeah, those are my boots in the park. So what? I reported them stolen from the gym locker room a week ago!", () => {
+                this.dialogueController.playDialogue('Donovan', 'Donovan', "You think I'm tip-toeing around City Hall pulling off some high-tech heist?", () => {
+                    this.dialogueController.playDialogue('Donovan', 'Donovan', "I bend steel for a living, I don't type on keyboards or wear fancy perfume. Go look at my timecards!", () => {
+                        this.showEndScreen('Game Over - Failed\nThe real culprit escaped.', false);
+                    });
+                });
             });
         } else if (suspectKey === 'Elena') {
-            this.dialogueController.playDialogue('detective', 'Elena', "A coincidence. A hacker could have spoofed my ID.", () => {
-                this.dialogueController.playDialogue('detective', 'Detective', "Maybe. But a hacker like Marcus wouldn't use your City Hall Procurement Credit Card to order pizza to his own alleyway just to leave the receipt in the trash. You tried to frame him, but you used your own office budget to do it. And the final nail in the coffin. You burned the copied blueprints at the beach to destroy the evidence. But you dropped this. Sterling silver. Engraved with 'E.R.' You were meticulous about everyone else's tracks, Elena, but you forgot to cover your own.", () => {
-                    this.showEndScreen('Case Closed - Victory\nElena Rostova Apprehended.', true);
+            this.dialogueController.playDialogue('Elena', 'Elena', "A coincidence. A hacker could have spoofed my ID.", () => {
+                this.dialogueController.playDialogue('detective', 'Detective', "Maybe. But a hacker like Marcus wouldn't use your City Hall Procurement Credit Card to order pizza to his own alleyway just to leave the receipt in the trash.", () => {
+                    this.dialogueController.playDialogue('detective', 'Detective', "You tried to frame him, but you used your own office budget to do it. And the final nail in the coffin...", () => {
+                        this.dialogueController.playDialogue('detective', 'Detective', "You burned the copied blueprints at the beach to destroy the evidence. But you dropped this. Sterling silver. Engraved with 'E.R.'", () => {
+                            this.dialogueController.playDialogue('detective', 'Detective', "You were meticulous about everyone else's tracks, Elena, but you forgot to cover your own.", () => {
+                                this.showEndScreen('Case Closed - Victory\nElena Rostova Apprehended.', true);
+                            });
+                        });
+                    });
                 });
             });
         }

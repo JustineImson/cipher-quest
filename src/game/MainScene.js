@@ -382,6 +382,30 @@ export default class MainScene extends Phaser.Scene {
         });
 
 
+        // ─── RAIN EFFECT ─────────────────────────────────────────────────────
+        if (!this.textures.exists('raindrop')) {
+            const dropGfx = this.add.graphics();
+            dropGfx.fillStyle(0xaaddff, 0.4);
+            dropGfx.fillRect(0, 0, 2, 25);
+            dropGfx.generateTexture('raindrop', 2, 25);
+            dropGfx.destroy();
+        }
+
+        this.add.particles(0, 0, 'raindrop', {
+            x: { min: -400, max: this.scale.width + 400 },
+            y: { min: -100, max: -50 },
+            lifespan: 2000,
+            speedY: { min: 600, max: 900 },
+            speedX: { min: -100, max: -50 }, // Slight wind angle
+            angle: { min: 80, max: 85 },
+            gravityY: 300,
+            scale: { start: 0.5, end: 1.2 },
+            alpha: { start: 0.5, end: 0 },
+            quantity: 12,
+            blendMode: 'SCREEN'
+        }).setScrollFactor(0).setDepth(15000);
+
+
         // ─── MAP NAVIGATION UI ───────────────────────────────────────────────
         const uiContainer = this.add.container(0, 0).setScrollFactor(0).setDepth(20000);
         const navX = this.scale.width - 130;

@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import MainMenu from './pages/MainMenu';
 import DefaultPage from './pages/DefaultPage';
 import Settings from './pages/Settings';
+import Tutorial from './pages/Tutorial';
+import Leaderboards from './pages/Leaderboards';
 import Difficulty from './pages/Difficulty';
 import TimeAttackMode from './pages/TimeAttackMode';
 import MultiplayerMode from './pages/MultiplayerMode';
@@ -28,11 +30,11 @@ function App() {
       <div className="relative z-10 h-full w-full">
         <Routes>
           <Route path="/" element={<MainMenu />} />
-          <Route path="/tutorial" element={<DefaultPage title="Tutorial" />} />
+          <Route path="/tutorial" element={<Tutorial />} />
           <Route path="/story" element={<StoryMode />} />
           <Route path="/timeAttack" element={<TimeAttackMode />} />
           <Route path="/multiplayer" element={<MultiplayerMode />} />
-          <Route path="/leaderboards" element={<DefaultPage title="Leaderboards" />} />
+          <Route path="/leaderboards" element={<Leaderboards />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/difficulty" element={<Difficulty />} />
         </Routes>
