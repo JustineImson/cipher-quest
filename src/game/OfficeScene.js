@@ -2,14 +2,15 @@ import * as Phaser from 'phaser';
 import DialogueController from './DialogueController';
 import { gameManager, GamePhases } from './GameManager';
 import { addDevPanel } from './DevPanel';
+import { bgmController } from '../engine/BGMController';
 
 const dialogueScript = [
     { speaker: 'System', text: "Last night, the City Hall Vault was breached. The master blueprints for the city's defenses are missing.", sprite: null },
     { speaker: 'Police Chief', text: "Detective, we have a crisis. The Mayor's private safe was emptied last night. We have three suspects, but no hard proof.", sprite: 'police' },
     { speaker: 'Police Chief', text: "Listen closely to their profiles. You are going to need to remember their habits to solve this.", sprite: 'police' },
-    { speaker: 'Police Chief', text: "Suspect number one is Donovan, the hired muscle. He's a giant of a man who wears heavy size 14 work boots. He lacks finesse and prefers to kick doors down rather than pick locks.", sprite: 'police' },
-    { speaker: 'Police Chief', text: "Suspect number two is Marcus, an underground hacker. He's incredibly messy, constantly eats greasy fast food, and rarely leaves his basement. He does not have employee access to City Hall.", sprite: 'police' },
-    { speaker: 'Police Chief', text: "Suspect number three is Elena, the Mayor's Head Secretary. She is meticulous, has master keys to the building, and always wears a very distinct, expensive lavender perfume.", sprite: 'police' },
+    { speaker: 'Police Chief', text: "Suspect number one is Donovan, the hired muscle. He's a giant of a man who wears heavy size 14 work boots. He lacks finesse and prefers to kick doors down rather than pick locks.", sprite: 'police', suspectImg: 'Donovan' },
+    { speaker: 'Police Chief', text: "Suspect number two is Marcus, an underground hacker. He's incredibly messy, constantly eats greasy fast food, and rarely leaves his basement. He does not have employee access to City Hall.", sprite: 'police', suspectImg: 'Marcus' },
+    { speaker: 'Police Chief', text: "Suspect number three is Elena, the Mayor's Head Secretary. She is meticulous, has master keys to the building, and always wears a very distinct, expensive lavender perfume.", sprite: 'police', suspectImg: 'Elena' },
     { speaker: 'Police Chief', text: "The thief left a trail across the city. I need you to investigate the Apartment, the Alley, the Park, and the Beach. Match the clues to the profiles.", sprite: 'police' },
     { speaker: 'Detective', text: "I've got it memorized, Chief. I'll let the evidence point me to the right suspect.", sprite: 'detective' },
     { speaker: 'System', text: "Explore the city to find 4 pieces of evidence.", sprite: null },
@@ -61,12 +62,20 @@ export default class OfficeScene extends Phaser.Scene {
         this.createUI(width, height);
         this.dialogueController = new DialogueController(this);
 
+        // Featured Suspect Image for Briefing
+        this.featuredSuspectImg = this.add.image(width / 2, height / 2 - 80, 'Donovan')
+            .setAlpha(0)
+            .setScale(0.5)
+            .setDepth(30);
+
         if (gameManager.currentPhase === GamePhases.BRIEFING) {
+            bgmController.play('bgm5');
             // Start Briefing
             this.currentLineIndex = 0;
             this.dialogueActive = true;
             this.showNextLine();
         } else if (gameManager.currentPhase === GamePhases.INTERROGATION) {
+            bgmController.play('bgm3');
             this.startInterrogation(width, height);
         }
     }
@@ -78,7 +87,10 @@ export default class OfficeScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true })
             .on('pointerdown', () => {
                 if (!this.dialogueActive) {
-                    this.scene.start('MainScene');
+                    this.cameras.main.fadeOut(1000, 0, 0, 0);
+                    this.cameras.main.once('camerafadeoutcomplete', () => {
+                        this.scene.start('MainScene');
+                    });
                 }
             })
             .on('pointerover', () => { if (!this.dialogueActive) this.leaveBtn.setFillStyle(0x333333, 0.9) })
@@ -101,6 +113,29 @@ export default class OfficeScene extends Phaser.Scene {
         }
 
         const line = dialogueScript[this.currentLineIndex];
+
+        // Handle Featured Suspect Image Fading
+        if (line.suspectImg) {
+            if (this.featuredSuspectImg.texture.key !== line.suspectImg || this.featuredSuspectImg.alpha === 0) {
+                this.tweens.killTweensOf(this.featuredSuspectImg);
+                this.featuredSuspectImg.setTexture(line.suspectImg);
+                this.featuredSuspectImg.setAlpha(0);
+                this.tweens.add({
+                    targets: this.featuredSuspectImg,
+                    alpha: 1,
+                    duration: 600,
+                    ease: 'Power2'
+                });
+            }
+        } else {
+            this.tweens.killTweensOf(this.featuredSuspectImg);
+            this.tweens.add({
+                targets: this.featuredSuspectImg,
+                alpha: 0,
+                duration: 600,
+                ease: 'Power2'
+            });
+        }
 
         this.dialogueController.playDialogue(
             line.sprite,
@@ -200,7 +235,10 @@ export default class OfficeScene extends Phaser.Scene {
         const btn = this.add.rectangle(width / 2, height / 2 + 100, 200, 50, 0x333333).setDepth(1001)
             .setInteractive({ useHandCursor: true })
             .on('pointerdown', () => {
-                window.location.reload();
+                this.cameras.main.fadeOut(1500, 0, 0, 0);
+                this.cameras.main.once('camerafadeoutcomplete', () => {
+                    window.location.reload();
+                });
             });
 
         this.add.text(width / 2, height / 2 + 100, 'Restart Game', { fontSize: '24px', fill: '#fff' }).setOrigin(0.5).setDepth(1002);

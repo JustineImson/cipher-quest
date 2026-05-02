@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import DialogueController from './DialogueController';
 import { gameManager } from './GameManager';
+import { bgmController } from '../engine/BGMController';
 
 const arrivalTexts = {
     apartment: "Messy, urban, and completely disorganized. But there's a heavy security setup for a place like this. The culprit was definitely here, and they left in a hurry. I need to see what they missed in their rush.",
@@ -26,7 +27,14 @@ const evidenceConfig = {
         dialogue: [
             "A corrupted access log. The ID starts with 'ER'. A hacker like Marcus would have wiped the mainframe completely. A brute like Donovan would have just smashed the hub.",
             "This looks like someone with actual authorization who panicked and aborted a print job. Someone who belongs there."
-        ]
+        ],
+        cipherData: {
+            ciphertext: "BRAYMIOH MNSKYCH",
+            clue: "The log is heavily encrypted by City Hall's firewall.\nSysAdmin: MAYOR (Vigenere)",
+            solution: "PRINTOUT ABORTED",
+            type: "vigenere",
+            keyword: "MAYOR"
+        }
     },
     park: {
         file: 'boots',
@@ -38,7 +46,14 @@ const evidenceConfig = {
         dialogue: [
             "Size 14 work boots dumped in the bushes. Obviously meant to point to Donovan. But look at the trail leading away... stilettos? Deep, narrow heel marks.",
             "Donovan wouldn't be caught dead in designer heels, and Marcus doesn't leave his computer chair. Someone much smaller walked in those massive boots, then changed shoes."
-        ]
+        ],
+        cipherData: {
+            ciphertext: "S M T N C E O L K O R F O L R E",
+            clue: "A scrawled note is stuffed inside the boot, written in a zig-zag pattern.\nThe tracks go back and forth... 5 times.",
+            solution: "STOLEN FROM LOCKER",
+            type: "railfence",
+            rails: 5
+        }
     },
     alley: {
         file: 'receipt',
@@ -47,7 +62,14 @@ const evidenceConfig = {
         y: 0.92,            // vertical position (% of screen height)
         displayW: 100,      // display width in px
         displayH: 130,      // display height in px
-        dialogue: "A receipt for 'The Grease Pit' pizza. But look at the payment method... it's a City Hall Corporate Procurement Credit Card. Why would a government account be paying for pizza delivered to a dark alleyway?"
+        dialogue: "A receipt for 'The Grease Pit' pizza. But look at the payment method... it's a City Hall Corporate Procurement Credit Card. Why would a government account be paying for pizza delivered to a dark alleyway?",
+        cipherData: {
+            ciphertext: "O D P E C A O U C S R R R T E A D",
+            clue: "Marcus’s paranoid transaction hash. (Columnar Transposition)\nKey: HACKER (Alphabetical order determines the columns)",
+            solution: "CORPORATE CARD USED",
+            type: "columnar",
+            keyword: "HACKER"
+        }
     },
     beach: {
         file: 'pen',
@@ -56,7 +78,14 @@ const evidenceConfig = {
         y: 0.05,            // vertical position (% of screen height)
         displayW: 50,       // display width in px
         displayH: 50,       // display height in px
-        dialogue: "A sterling silver fountain pen buried in the ashes. Initials E.R. Expensive. Meticulous. Custom-weighted. This isn't just a writing tool, it's a status symbol. Someone who manages executives at City Hall would carry something exactly like this."
+        dialogue: "A sterling silver fountain pen buried in the ashes. Initials E.R. Expensive. Meticulous. Custom-weighted. This isn't just a writing tool, it's a status symbol. Someone who manages executives at City Hall would carry something exactly like this.",
+        cipherData: {
+            ciphertext: "AHRDOQFMSQ ARQMDV",
+            clue: "Elena's personal, aristocratic cipher.\nA sterling SILVER cipher. (Keyword Mixed Alphabet)",
+            solution: "BLUEPRINTS BURNED",
+            type: "substitution",
+            keyword: "SILVER"
+        }
     }
 };
 
@@ -83,8 +112,11 @@ export default class LocationScene extends Phaser.Scene {
     create() {
         const { width, height } = this.scale;
 
-        // ANIMATION: Crime Scene Flash
+        // ANIMATION: Crime Scene Flash + Fade
         this.cameras.main.flash(1000, 255, 255, 255);
+        this.cameras.main.fadeIn(1500, 0, 0, 0);
+
+        bgmController.play('bgm2');
 
         const bg = this.add.image(width / 2, height / 2, `bg_${this.locationKey}`);
         const scaleX = width / bg.width;
@@ -100,7 +132,7 @@ export default class LocationScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true })
             .on('pointerdown', () => {
                 this.input.enabled = false;
-                this.cameras.main.fadeOut(800, 0, 0, 0);
+                this.cameras.main.fadeOut(1200, 0, 0, 0);
                 this.cameras.main.once('camerafadeoutcomplete', () => {
                     this.scene.start('MainScene', { fromLocation: this.locationKey });
                 });
@@ -149,37 +181,63 @@ export default class LocationScene extends Phaser.Scene {
                 evidenceSprite.clearTint();
             })
             .on('pointerdown', () => {
-                // Collect evidence
-                gameManager.collectEvidence(config.key, { name: config.file, location: this.locationKey });
+                // Pause this scene and trigger the React StoryCipherOverlay
+                this.scene.pause();
+                
+                const handleCipherSolved = () => {
+                    cleanup();
+                    if (this.scene.isPaused()) this.scene.resume();
 
-                // Hide/Destroy the sprite
-                evidenceSprite.destroy();
+                    // Collect evidence
+                    gameManager.collectEvidence(config.key, { name: config.file, location: this.locationKey });
 
-                // Trigger the dialogue (supports string or array of strings)
-                const lines = Array.isArray(config.dialogue) ? config.dialogue : [config.dialogue];
-                let lineIndex = 0;
+                    // Hide/Destroy the sprite
+                    evidenceSprite.destroy();
 
-                const showNext = () => {
-                    if (lineIndex < lines.length) {
-                        this.dialogueController.playDialogue('detective', 'Detective', lines[lineIndex], () => {
-                            lineIndex++;
-                            showNext();
-                        });
-                    } else {
-                        this.dialogueController.hide();
+                    // Trigger the dialogue
+                    const lines = Array.isArray(config.dialogue) ? config.dialogue : [config.dialogue];
+                    let lineIndex = 0;
 
-                        // Check for endgame trigger
-                        if (gameManager.evidence.hasFoundLog &&
-                            gameManager.evidence.hasFoundBoots &&
-                            gameManager.evidence.hasFoundReceipt &&
-                            gameManager.evidence.hasFoundPen) {
+                    const showNext = () => {
+                        if (lineIndex < lines.length) {
+                            this.dialogueController.playDialogue('detective', 'Detective', lines[lineIndex], () => {
+                                lineIndex++;
+                                showNext();
+                            });
+                        } else {
+                            this.dialogueController.hide();
 
-                            gameManager.setPhase('DEDUCTION');
-                            this.scene.start('DeductionBoardScene');
+                            // Check for endgame trigger
+                            if (gameManager.evidence.hasFoundLog &&
+                                gameManager.evidence.hasFoundBoots &&
+                                gameManager.evidence.hasFoundReceipt &&
+                                gameManager.evidence.hasFoundPen) {
+
+                                gameManager.setPhase('DEDUCTION');
+                                this.cameras.main.fadeOut(2000, 0, 0, 0);
+                                this.cameras.main.once('camerafadeoutcomplete', () => {
+                                    this.scene.start('DeductionBoardScene');
+                                });
+                            }
                         }
-                    }
+                    };
+                    showNext();
                 };
-                showNext();
+
+                const handleCipherClosed = () => {
+                    cleanup();
+                    if (this.scene.isPaused()) this.scene.resume();
+                };
+
+                const cleanup = () => {
+                    window.removeEventListener('storyCipherSolved', handleCipherSolved);
+                    window.removeEventListener('storyCipherClosed', handleCipherClosed);
+                };
+
+                window.addEventListener('storyCipherSolved', handleCipherSolved);
+                window.addEventListener('storyCipherClosed', handleCipherClosed);
+
+                window.dispatchEvent(new CustomEvent('openStoryCipher', { detail: config.cipherData }));
             });
     }
 }

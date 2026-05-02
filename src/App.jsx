@@ -1,4 +1,5 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import MainMenu from './pages/MainMenu';
 import DefaultPage from './pages/DefaultPage';
 import Settings from './pages/Settings';
@@ -6,8 +7,18 @@ import Difficulty from './pages/Difficulty';
 import TimeAttackMode from './pages/TimeAttackMode';
 import MultiplayerMode from './pages/MultiplayerMode';
 import StoryMode from './pages/StoryMode';
+import { bgmController } from './engine/BGMController';
 
 function App() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const menuRoutes = ['/', '/tutorial', '/settings', '/difficulty', '/leaderboards'];
+    if (menuRoutes.includes(location.pathname)) {
+      bgmController.play('bgm4');
+    }
+  }, [location.pathname]);
+
   return (
     <div className="h-screen w-screen bg-mystery-dark text-gray-200 relative overflow-hidden">
       {/* Dark Victorian thematic background */}

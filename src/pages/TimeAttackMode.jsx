@@ -10,6 +10,7 @@ import RailFenceInteractive from '../components/RailFenceInteractive';
 import VigenereInteractive from '../components/VigenereInteractive';
 import SubstitutionInteractive from '../components/SubstitutionInteractive';
 import { selectCipherMethod, validateAnswer } from '../engine/gameLogic';
+import { bgmController } from '../engine/BGMController';
 
 export default function TimeAttackMode() {
   const navigate = useNavigate();
@@ -75,6 +76,7 @@ export default function TimeAttackMode() {
 
   // Start initialization
   useEffect(() => {
+    bgmController.play('bgm1');
     startGame();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount

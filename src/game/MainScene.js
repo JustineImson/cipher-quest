@@ -1,6 +1,8 @@
 import * as Phaser from 'phaser';
 import { gameManager, GamePhases } from './GameManager';
 import { addDevPanel } from './DevPanel';
+import { bgmController } from '../engine/BGMController';
+
 export default class MainScene extends Phaser.Scene {
     constructor() {
         super('MainScene');
@@ -325,8 +327,10 @@ export default class MainScene extends Phaser.Scene {
         // this.anims.create({ key: 'walk_up',    frames: this.anims.generateFrameNumbers('player_sprite', { start: 12, end: 15 }), frameRate: 8, repeat: -1 });
 
         // ─── CAMERA ──────────────────────────────────────────────────────────
-        this.cameras.main.fadeIn(800, 0, 0, 0);
+        this.cameras.main.fadeIn(1500, 0, 0, 0);
         this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+        
+        bgmController.play('bgm5');
         this.cameras.main.setZoom(2);
         const renderedWidth = (mapCols + mapRows) * (tileW / 2);
         const renderedHeight = (mapCols + mapRows) * (tileH / 2);
@@ -395,7 +399,9 @@ export default class MainScene extends Phaser.Scene {
                 .setInteractive({ useHandCursor: true })
                 .on('pointerdown', () => {
                     this.input.enabled = false;
-                    this.cameras.main.fadeOut(300, 0, 0, 0);
+                    // Cinematic zoom in
+                    this.cameras.main.zoomTo(4, 1200, 'Sine.easeInOut');
+                    this.cameras.main.fadeOut(1200, 0, 0, 0);
                     this.cameras.main.once('camerafadeoutcomplete', () => {
                         this.scene.start('LocationScene', { locationKey: loc.key });
                     });
@@ -456,7 +462,8 @@ export default class MainScene extends Phaser.Scene {
 
                 if (this.currentAccessLocation) {
                     this.input.enabled = false;
-                    this.cameras.main.fadeOut(300, 0, 0, 0);
+                    this.cameras.main.zoomTo(4, 1200, 'Sine.easeInOut');
+                    this.cameras.main.fadeOut(1200, 0, 0, 0);
                     this.cameras.main.once('camerafadeoutcomplete', () => {
                         this.scene.start('LocationScene', { locationKey: this.currentAccessLocation });
                     });

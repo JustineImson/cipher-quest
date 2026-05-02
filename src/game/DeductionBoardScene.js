@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { gameManager, GamePhases } from './GameManager';
 import { addDevPanel } from './DevPanel';
+import { bgmController } from '../engine/BGMController';
 
 export default class DeductionBoardScene extends Phaser.Scene {
     constructor() {
@@ -9,6 +10,10 @@ export default class DeductionBoardScene extends Phaser.Scene {
 
     create() {
         const { width, height } = this.scale;
+
+        this.cameras.main.fadeIn(1500, 0, 0, 0);
+        
+        bgmController.play('bgm3');
 
         addDevPanel(this);
 
@@ -41,7 +46,10 @@ export default class DeductionBoardScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true })
             .on('pointerdown', () => {
                 gameManager.setPhase(GamePhases.INTERROGATION);
-                this.scene.start('OfficeScene');
+                this.cameras.main.fadeOut(1500, 0, 0, 0);
+                this.cameras.main.once('camerafadeoutcomplete', () => {
+                    this.scene.start('OfficeScene');
+                });
             })
             .on('pointerover', () => btn.setFillStyle(0x333333, 0.9))
             .on('pointerout', () => btn.setFillStyle(0x111111, 0.8));

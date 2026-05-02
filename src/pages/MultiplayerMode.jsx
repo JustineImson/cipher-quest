@@ -10,6 +10,7 @@ import RailFenceInteractive from '../components/RailFenceInteractive';
 import VigenereInteractive from '../components/VigenereInteractive';
 import SubstitutionInteractive from '../components/SubstitutionInteractive';
 import { useMultiplayer } from '../hooks/useMultiplayer';
+import { bgmController } from '../engine/BGMController';
 
 export default function MultiplayerMode() {
   const navigate = useNavigate();
@@ -43,6 +44,7 @@ export default function MultiplayerMode() {
 
   // When game starts
   useEffect(() => {
+     bgmController.play('bgm1');
      if (multiplayerState === 'playing') {
          setScore(0);
          setUserInput('');
