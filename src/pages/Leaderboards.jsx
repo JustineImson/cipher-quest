@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Trophy, ArrowLeft, Medal, Star } from 'lucide-react';
+import { useSfx } from '../hooks/useSfx';
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 const TABS = ['Story Mode', 'Time Attack', 'Multiplayer'];
@@ -12,21 +13,23 @@ const MOCK_DATA = {
 };
 
 const BADGE_STYLES = {
-  gold:   { color: '#e8c96a', glow: 'rgba(232,201,106,0.5)', label: '1ST' },
+  gold: { color: '#e8c96a', glow: 'rgba(232,201,106,0.5)', label: '1ST' },
   silver: { color: '#c0c8d8', glow: 'rgba(192,200,216,0.4)', label: '2ND' },
-  bronze: { color: '#c87941', glow: 'rgba(200,121,65,0.4)',  label: '3RD' },
+  bronze: { color: '#c87941', glow: 'rgba(200,121,65,0.4)', label: '3RD' },
 };
 
 export default function Leaderboards() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab]   = useState('Story Mode');
-  const [visible,   setVisible]     = useState(false);
-  const [animKey,   setAnimKey]     = useState(0);
+  const [activeTab, setActiveTab] = useState('Story Mode');
+  const [visible, setVisible] = useState(false);
+  const [animKey, setAnimKey] = useState(0);
+  const { playClick } = useSfx();
 
   useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
 
   const switchTab = (tab) => {
     if (tab === activeTab) return;
+    playClick();
     setActiveTab(tab);
     setAnimKey(k => k + 1);
   };
@@ -391,7 +394,7 @@ export default function Leaderboards() {
 
           {/* Header */}
           <div className={`lb-header ${visible ? 'show' : ''}`}>
-            <button className="lb-back" onClick={() => navigate(-1)}>
+            <button className="lb-back" onClick={() => { playClick(); navigate(-1); }}>
               <ArrowLeft size={13} /> Back to Menu
             </button>
             <p className="lb-eyebrow">— Hall of Distinction —</p>

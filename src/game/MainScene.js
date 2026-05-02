@@ -2,6 +2,17 @@ import * as Phaser from 'phaser';
 import { gameManager, GamePhases } from './GameManager';
 import { addDevPanel } from './DevPanel';
 import { bgmController } from '../engine/BGMController';
+import { useGameStore } from '../store/useGameStore';
+import { createHUD } from './HUD';
+
+const RUN_FRAME_W = 64;   // 512px / 8 columns
+const RUN_FRAME_H = 64;   // 256px / 4 rows
+const IDLE_FRAME_W = 64;  // 768px / 12 columns
+const IDLE_FRAME_H = 64;  // 256px / 4 rows
+const DISPLAY_W = 32;
+const DISPLAY_H = 48;
+const HITBOX_W = 16;
+const HITBOX_H = 10;
 
 export default class MainScene extends Phaser.Scene {
     constructor() {
@@ -46,6 +57,10 @@ export default class MainScene extends Phaser.Scene {
                 }
             });
         };
+
+        // Load master sprite sheets (run: 8 cols x 4 rows, idle: 12 cols x 4 rows)
+        this.load.spritesheet('player_run', '/spriteSheet/run.png', { frameWidth: RUN_FRAME_W, frameHeight: RUN_FRAME_H });
+        this.load.spritesheet('player_idle', '/spriteSheet/idle.png', { frameWidth: IDLE_FRAME_W, frameHeight: IDLE_FRAME_H });
 
         // If the map JSON is already cached (scene restart), build mapping directly.
         const cachedMap = this.cache.json.get('map');
@@ -180,11 +195,6 @@ export default class MainScene extends Phaser.Scene {
             .filter(o => o && Array.isArray(o.polygon));
 
         if (polygonObjects.length) {
-            const triggerGraphics = this.add.graphics();
-            triggerGraphics.lineStyle(2, 0xffff00, 1);
-            triggerGraphics.fillStyle(0xffff00, 0.4);
-            triggerGraphics.setDepth(10000);
-
             polygonObjects.forEach(obj => {
                 const isAccessTrigger = obj.name && obj.name.toLowerCase().trim() === 'access';
                 
@@ -226,14 +236,18 @@ export default class MainScene extends Phaser.Scene {
 
                 // Visually render access triggers so they are visible
                 if (isAccessTrigger && shifted.length > 0) {
-                    triggerGraphics.beginPath();
-                    triggerGraphics.moveTo(shifted[0].x, shifted[0].y);
+                    const triggerGfx = this.add.graphics();
+                    triggerGfx.lineStyle(2, 0xffff00, 1);
+                    triggerGfx.fillStyle(0xffff00, 0.4);
+                    triggerGfx.setDepth(10000);
+                    triggerGfx.beginPath();
+                    triggerGfx.moveTo(shifted[0].x, shifted[0].y);
                     for (let i = 1; i < shifted.length; i++) {
-                        triggerGraphics.lineTo(shifted[i].x, shifted[i].y);
+                        triggerGfx.lineTo(shifted[i].x, shifted[i].y);
                     }
-                    triggerGraphics.closePath();
-                    triggerGraphics.strokePath();
-                    triggerGraphics.fillPath();
+                    triggerGfx.closePath();
+                    triggerGfx.strokePath();
+                    triggerGfx.fillPath();
                 }
 
 
@@ -311,20 +325,40 @@ export default class MainScene extends Phaser.Scene {
             spawnPos = this.spawnPoints[this.fromLocation];
         }
 
-        this.player = this.add.rectangle(spawnPos.x, spawnPos.y, 16, 32, 0x00aaff);
+        this.player = this.matter.add.sprite(spawnPos.x, spawnPos.y, 'player_idle');
+        this.player.setDisplaySize(DISPLAY_W, DISPLAY_H);
         
-        // Enable Matter Physics for the player so it collides with static walls
-        this.matter.add.gameObject(this.player, { isStatic: false, frictionAir: 0.1 });
+        // Create a smaller collision box centered near the bottom (feet)
+        this.player.setBody({
+            type: 'rectangle',
+            width: HITBOX_W,
+            height: HITBOX_H
+        });
+        
+        // Visual Offset (Crucial for Isometric)
+        this.player.setOrigin(0.5, 0.8);
+        
+        // Reapply physics properties
+        this.player.setFrictionAir(0.1);
         this.player.setFixedRotation(); // Keep player upright
         
         this.player.setDepth(spawnPos.y + 10);
 
-        // Swap in sprite when ready:
-        // this.player = this.add.sprite(center.x, center.y, 'player_sprite', 0);
-        // this.anims.create({ key: 'walk_down',  frames: this.anims.generateFrameNumbers('player_sprite', { start: 0,  end: 3  }), frameRate: 8, repeat: -1 });
-        // this.anims.create({ key: 'walk_left',  frames: this.anims.generateFrameNumbers('player_sprite', { start: 4,  end: 7  }), frameRate: 8, repeat: -1 });
-        // this.anims.create({ key: 'walk_right', frames: this.anims.generateFrameNumbers('player_sprite', { start: 8,  end: 11 }), frameRate: 8, repeat: -1 });
-        // this.anims.create({ key: 'walk_up',    frames: this.anims.generateFrameNumbers('player_sprite', { start: 12, end: 15 }), frameRate: 8, repeat: -1 });
+        // State tracking for idle direction
+        this.lastDirection = 's';
+        this.lastFlip = false;
+
+        // --- RUNNING ANIMATIONS (8 frames per row) ---
+        this.anims.create({ key: 'run-s',  frames: this.anims.generateFrameNumbers('player_run', { start: 0,  end: 7  }), frameRate: 10, repeat: -1 });
+        this.anims.create({ key: 'run-se', frames: this.anims.generateFrameNumbers('player_run', { start: 8,  end: 15 }), frameRate: 10, repeat: -1 });
+        this.anims.create({ key: 'run-e',  frames: this.anims.generateFrameNumbers('player_run', { start: 16, end: 23 }), frameRate: 10, repeat: -1 });
+        this.anims.create({ key: 'run-ne', frames: this.anims.generateFrameNumbers('player_run', { start: 24, end: 31 }), frameRate: 10, repeat: -1 });
+
+        // --- IDLING ANIMATIONS (12 frames per row) ---
+        this.anims.create({ key: 'idle-s',  frames: this.anims.generateFrameNumbers('player_idle', { start: 0,  end: 11 }), frameRate: 8, repeat: -1 });
+        this.anims.create({ key: 'idle-se', frames: this.anims.generateFrameNumbers('player_idle', { start: 12, end: 23 }), frameRate: 8, repeat: -1 });
+        this.anims.create({ key: 'idle-e',  frames: this.anims.generateFrameNumbers('player_idle', { start: 24, end: 35 }), frameRate: 8, repeat: -1 });
+        this.anims.create({ key: 'idle-ne', frames: this.anims.generateFrameNumbers('player_idle', { start: 36, end: 39 }), frameRate: 8, repeat: -1 });
 
         // ─── CAMERA ──────────────────────────────────────────────────────────
         this.cameras.main.fadeIn(1500, 0, 0, 0);
@@ -408,39 +442,10 @@ export default class MainScene extends Phaser.Scene {
 
         // ─── MAP NAVIGATION UI ───────────────────────────────────────────────
         const uiContainer = this.add.container(0, 0).setScrollFactor(0).setDepth(20000);
+        uiContainer.isUI = true;
         const navX = this.scale.width - 130;
-        
-        const locations = [
-            { name: 'Apartment', key: 'apartment', y: 50 },
-            { name: 'Park', key: 'park', y: 110 },
-            { name: 'Alley', key: 'alley', y: 170 },
-            { name: 'Beach', key: 'beach', y: 230 }
-        ];
 
-        locations.forEach(loc => {
-            const btn = this.add.rectangle(navX, loc.y, 200, 50, 0x111111, 0.8)
-                .setStrokeStyle(2, 0xd97706)
-                .setInteractive({ useHandCursor: true })
-                .on('pointerdown', () => {
-                    this.input.enabled = false;
-                    // Cinematic zoom in
-                    this.cameras.main.zoomTo(4, 1200, 'Sine.easeInOut');
-                    this.cameras.main.fadeOut(1200, 0, 0, 0);
-                    this.cameras.main.once('camerafadeoutcomplete', () => {
-                        this.scene.start('LocationScene', { locationKey: loc.key });
-                    });
-                })
-                .on('pointerover', () => btn.setFillStyle(0x333333, 0.9))
-                .on('pointerout', () => btn.setFillStyle(0x111111, 0.8));
-
-            const text = this.add.text(navX, loc.y, loc.name, {
-                fontSize: '22px',
-                fill: '#d97706',
-                fontFamily: 'serif'
-            }).setOrigin(0.5);
-
-            uiContainer.add([btn, text]);
-        });
+        createHUD(this);
 
         // Dev panel must be added LAST so its UI camera can ignore all existing objects
         addDevPanel(this);
@@ -474,6 +479,36 @@ export default class MainScene extends Phaser.Scene {
         } else {
             this.player.x += vx * moveScale;
             this.player.y += vy * moveScale;
+        }
+
+        // Animation logic
+        if (isUp && isRight) {
+            this.player.play('run-ne', true); this.player.setFlipX(false);
+            this.lastDirection = 'ne'; this.lastFlip = false;
+        } else if (isUp && isLeft) {
+            this.player.play('run-ne', true); this.player.setFlipX(true);
+            this.lastDirection = 'ne'; this.lastFlip = true;
+        } else if (isDown && isRight) {
+            this.player.play('run-se', true); this.player.setFlipX(true);
+            this.lastDirection = 'se'; this.lastFlip = true;
+        } else if (isDown && isLeft) {
+            this.player.play('run-se', true); this.player.setFlipX(false);
+            this.lastDirection = 'se'; this.lastFlip = false;
+        } else if (isUp) {
+            this.player.play('run-ne', true); this.player.setFlipX(false);
+            this.lastDirection = 'ne'; this.lastFlip = false;
+        } else if (isDown) {
+            this.player.play('run-s', true); this.player.setFlipX(false);
+            this.lastDirection = 's'; this.lastFlip = false;
+        } else if (isRight) {
+            this.player.play('run-e', true); this.player.setFlipX(false);
+            this.lastDirection = 'e'; this.lastFlip = false;
+        } else if (isLeft) {
+            this.player.play('run-e', true); this.player.setFlipX(true);
+            this.lastDirection = 'e'; this.lastFlip = true;
+        } else {
+            this.player.play(`idle-${this.lastDirection}`, true);
+            this.player.setFlipX(this.lastFlip);
         }
         
         this.player.setDepth(this.player.y + 10);

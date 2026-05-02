@@ -1,3 +1,5 @@
+import { useGameStore } from '../store/useGameStore';
+
 export const GamePhases = Object.freeze({
     BRIEFING: 'BRIEFING',
     INVESTIGATING: 'INVESTIGATING',
@@ -6,31 +8,27 @@ export const GamePhases = Object.freeze({
 });
 
 class GameManager {
-    constructor() {
-        this.reset();
+    get evidence() {
+        return useGameStore.getState().savedStoryProgress?.clues || {};
+    }
+
+    get evidenceList() {
+        return useGameStore.getState().savedStoryProgress?.cluesList || [];
+    }
+
+    get currentPhase() {
+        return useGameStore.getState().savedStoryProgress?.phase || GamePhases.BRIEFING;
     }
 
     reset() {
-        // Initialize State Variables: Track which evidence has been found
-        this.evidence = {
-            hasFoundLog: false,
-            hasFoundBoots: false,
-            hasFoundReceipt: false,
-            hasFoundPen: false
-        };
-
-        // Create the Evidence Array/List: Hold updated clues for Phase 3
-        this.evidenceList = [];
-
-        // Track the current game phase
-        this.currentPhase = GamePhases.BRIEFING;
+        useGameStore.getState().resetProgress();
     }
 
     // Helper to collect evidence and add to the list
     collectEvidence(evidenceKey, evidenceData) {
-        if (this.evidence.hasOwnProperty(evidenceKey) && !this.evidence[evidenceKey]) {
-            this.evidence[evidenceKey] = true;
-            this.evidenceList.push(evidenceData);
+        const clues = this.evidence;
+        if (clues.hasOwnProperty(evidenceKey) && !clues[evidenceKey]) {
+            useGameStore.getState().saveEvidence(evidenceKey, evidenceData);
             console.log(`Collected evidence: ${evidenceKey}`);
             return true;
         }
@@ -40,7 +38,7 @@ class GameManager {
     // Helper to change phases
     setPhase(phase) {
         if (Object.values(GamePhases).includes(phase)) {
-            this.currentPhase = phase;
+            useGameStore.getState().savePhase(phase);
             console.log(`Game phase changed to: ${phase}`);
         }
     }

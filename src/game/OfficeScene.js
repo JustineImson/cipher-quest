@@ -3,6 +3,8 @@ import DialogueController from './DialogueController';
 import { gameManager, GamePhases } from './GameManager';
 import { addDevPanel } from './DevPanel';
 import { bgmController } from '../engine/BGMController';
+import { useGameStore } from '../store/useGameStore';
+import { createHUD } from './HUD';
 
 const dialogueScript = [
     { speaker: 'System', text: "Last night, the City Hall Vault was breached. The master blueprints for the city's defenses are missing.", sprite: null },
@@ -81,27 +83,66 @@ export default class OfficeScene extends Phaser.Scene {
     }
 
     createUI(width, height) {
-        // "Go to City Map" Button
-        this.leaveBtn = this.add.rectangle(width - 150, 50, 250, 50, 0x111111, 0.8)
-            .setStrokeStyle(2, 0xd97706)
+        const btnX = 120;
+        const btnY = 95;
+        const btnW = 200;
+        const btnH = 40;
+
+        const btnShadow = this.add.rectangle(btnX + 4, btnY + 4, btnW, btnH, 0x000000, 0.6)
+            .setOrigin(0.5).setVisible(false);
+        btnShadow.isUI = true;
+
+        // "Go to City Map" Button (Hidden initially)
+        this.leaveBtn = this.add.rectangle(btnX, btnY, btnW, btnH, 0x1a1208, 0.95)
+            .setStrokeStyle(2, 0x8b6b32)
             .setInteractive({ useHandCursor: true })
             .on('pointerdown', () => {
                 if (!this.dialogueActive) {
-                    this.cameras.main.fadeOut(1000, 0, 0, 0);
-                    this.cameras.main.once('camerafadeoutcomplete', () => {
-                        this.scene.start('MainScene');
+                    this.tweens.add({
+                        targets: [this.leaveBtn, this.innerLine, this.leaveText],
+                        scaleX: 0.95, scaleY: 0.95, duration: 50, yoyo: true,
+                        onComplete: () => {
+                            this.cameras.main.fadeOut(1000, 0, 0, 0);
+                            this.cameras.main.once('camerafadeoutcomplete', () => {
+                                this.scene.start('MainScene');
+                            });
+                        }
                     });
                 }
             })
-            .on('pointerover', () => { if (!this.dialogueActive) this.leaveBtn.setFillStyle(0x333333, 0.9) })
-            .on('pointerout', () => { if (!this.dialogueActive) this.leaveBtn.setFillStyle(0x111111, 0.8) })
+            .on('pointerover', () => {
+                if (!this.dialogueActive) {
+                    this.leaveBtn.setFillStyle(0x2a1e0e, 1);
+                    this.tweens.add({ targets: [this.leaveBtn, this.innerLine, this.leaveText], scaleX: 1.05, scaleY: 1.05, duration: 150, ease: 'Sine.easeOut' });
+                }
+            })
+            .on('pointerout', () => {
+                if (!this.dialogueActive) {
+                    this.leaveBtn.setFillStyle(0x1a1208, 0.95);
+                    this.tweens.add({ targets: [this.leaveBtn, this.innerLine, this.leaveText], scaleX: 1, scaleY: 1, duration: 150, ease: 'Sine.easeOut' });
+                }
+            })
             .setVisible(false);
+        this.leaveBtn.isUI = true;
 
-        this.leaveText = this.add.text(width - 150, 50, 'Go to City Map', {
-            fontSize: '22px',
+        this.innerLine = this.add.rectangle(btnX, btnY, btnW - 8, btnH - 8, 0x000000, 0)
+            .setStrokeStyle(1, 0x8b6b32, 0.3)
+            .setOrigin(0.5).setVisible(false);
+        this.innerLine.isUI = true;
+
+        this.leaveText = this.add.text(btnX, btnY, '◄ Go to City Map', {
+            fontSize: '18px',
             fill: '#d97706',
-            fontFamily: 'serif'
+            fontFamily: 'serif',
+            fontStyle: 'bold',
+            letterSpacing: 1
         }).setOrigin(0.5).setVisible(false);
+        this.leaveText.isUI = true;
+
+        this.leaveElements = [btnShadow, this.leaveBtn, this.innerLine, this.leaveText];
+
+        createHUD(this);
+
         // Dev teleport panel
         addDevPanel(this);
     }
@@ -155,13 +196,11 @@ export default class OfficeScene extends Phaser.Scene {
         gameManager.setPhase(GamePhases.INVESTIGATING);
 
         // Show leave button
-        this.leaveBtn.setVisible(true);
-        this.leaveText.setVisible(true);
+        this.leaveElements.forEach(el => el.setVisible(true));
     }
 
     startInterrogation(width, height) {
-        this.leaveBtn.setVisible(false);
-        this.leaveText.setVisible(false);
+        this.leaveElements.forEach(el => el.setVisible(false));
 
         // Prompt
         this.promptText = this.add.text(width / 2, 100, 'Who is the culprit?', {
@@ -202,28 +241,42 @@ export default class OfficeScene extends Phaser.Scene {
         this.suspectImages.forEach(img => img.setVisible(false));
 
         if (suspectKey === 'Marcus') {
-            this.dialogueController.playDialogue('Marcus', 'Marcus', "Are you kidding me, Detective? Look at my setup. I crack firewalls from a couch.", () => {
-                this.dialogueController.playDialogue('Marcus', 'Marcus', "You think I'm going to physically break into the Mayor's office, steal blueprints, and then use a government corporate credit card to order my own pizza to the scene of the crime?", () => {
-                    this.dialogueController.playDialogue('Marcus', 'Marcus', "I'm a hacker, not an idiot. You're being played.", () => {
-                        this.showEndScreen('Game Over - Failed\nThe real culprit escaped.', false);
+            this.dialogueController.playDialogue('Marcus', 'Marcus', "Me? Breaking into City Hall? Detective, look at me. I haven't seen the sun in three days.", () => {
+                this.dialogueController.playDialogue('Marcus', 'Marcus', "If I wanted those blueprints, I'd have downloaded them through the Mayor's insecure Wi-Fi from my couch.", () => {
+                    this.dialogueController.playDialogue('Marcus', 'Marcus', "Someone ordered a pizza to my alley using a government corporate card? That's the sloppiest frame job I've ever seen.", () => {
+                        this.dialogueController.playDialogue('Marcus', 'Marcus', "Whoever set this up thinks you're stupid enough to fall for it. And I guess they were right.", () => {
+                            this.showEndScreen('Game Over - Failed\\nThe real culprit escaped.', false);
+                        });
                     });
                 });
             });
         } else if (suspectKey === 'Donovan') {
-            this.dialogueController.playDialogue('Donovan', 'Donovan', "Yeah, those are my boots in the park. So what? I reported them stolen from the gym locker room a week ago!", () => {
-                this.dialogueController.playDialogue('Donovan', 'Donovan', "You think I'm tip-toeing around City Hall pulling off some high-tech heist?", () => {
-                    this.dialogueController.playDialogue('Donovan', 'Donovan', "I bend steel for a living, I don't type on keyboards or wear fancy perfume. Go look at my timecards!", () => {
-                        this.showEndScreen('Game Over - Failed\nThe real culprit escaped.', false);
+            this.dialogueController.playDialogue('Donovan', 'Donovan', "You're locking me up over a pair of boots? I reported those stolen from the precinct gym last week!", () => {
+                this.dialogueController.playDialogue('Donovan', 'Donovan', "Do I look like a cat burglar to you? I weigh two-hundred and fifty pounds.", () => {
+                    this.dialogueController.playDialogue('Donovan', 'Donovan', "If I broke into the vault, I wouldn't pick the lock. I'd take the whole vault door with me.", () => {
+                        this.dialogueController.playDialogue('Donovan', 'Donovan', "Someone is playing you, Detective. And while you're standing here, the real thief is getting away.", () => {
+                            this.showEndScreen('Game Over - Failed\\nThe real culprit escaped.', false);
+                        });
                     });
                 });
             });
         } else if (suspectKey === 'Elena') {
-            this.dialogueController.playDialogue('Elena', 'Elena', "A coincidence. A hacker could have spoofed my ID.", () => {
-                this.dialogueController.playDialogue('detective', 'Detective', "Maybe. But a hacker like Marcus wouldn't use your City Hall Procurement Credit Card to order pizza to his own alleyway just to leave the receipt in the trash.", () => {
-                    this.dialogueController.playDialogue('detective', 'Detective', "You tried to frame him, but you used your own office budget to do it. And the final nail in the coffin...", () => {
-                        this.dialogueController.playDialogue('detective', 'Detective', "You burned the copied blueprints at the beach to destroy the evidence. But you dropped this. Sterling silver. Engraved with 'E.R.'", () => {
-                            this.dialogueController.playDialogue('detective', 'Detective', "You were meticulous about everyone else's tracks, Elena, but you forgot to cover your own.", () => {
-                                this.showEndScreen('Case Closed - Victory\nElena Rostova Apprehended.', true);
+            this.dialogueController.playDialogue('Elena', 'Elena', "This is absurd. The system logs showed an unauthorized terminal override. A hacker spoofed my ID.", () => {
+                this.dialogueController.playDialogue('detective', 'Detective', "That was the narrative you wanted us to believe. But hackers don't use a City Hall Procurement Card to buy pizza for a stakeout.", () => {
+                    this.dialogueController.playDialogue('Elena', 'Elena', "A stolen card! Easily cloned by someone in the underground!", () => {
+                        this.dialogueController.playDialogue('detective', 'Detective', "Maybe. But they also wouldn't trudge through the park wearing Donovan's stolen size-14 boots just to leave muddy tracks.", () => {
+                            this.dialogueController.playDialogue('detective', 'Detective', "Especially not tracks that smell faintly of expensive lavender perfume.", () => {
+                                this.dialogueController.playDialogue('Elena', 'Elena', "...You have no proof. Just circumstantial nonsense.", () => {
+                                    this.dialogueController.playDialogue('detective', 'Detective', "I do. You burned the physical blueprints at the beach to ensure there were no digital traces left.", () => {
+                                        this.dialogueController.playDialogue('detective', 'Detective', "But in your rush to destroy the evidence, you dropped something in the sand. A sterling silver pen. Engraved with 'E.R.'", () => {
+                                            this.dialogueController.playDialogue('Elena', 'Elena', "... I spent months planning this. The encryption, the framing... All ruined by a dropped pen?", () => {
+                                                this.dialogueController.playDialogue('detective', 'Detective', "You were meticulous about everyone else's tracks, Elena. You just forgot to cover your own. It's over.", () => {
+                                                    this.showEndScreen('Case Closed - Victory\\nElena Rostova Apprehended.', true);
+                                                });
+                                            });
+                                        });
+                                    });
+                                });
                             });
                         });
                     });
@@ -231,7 +284,6 @@ export default class OfficeScene extends Phaser.Scene {
             });
         }
     }
-
     showEndScreen(text, isVictory) {
         this.dialogueController.hide();
         const { width, height } = this.scale;
@@ -246,15 +298,31 @@ export default class OfficeScene extends Phaser.Scene {
             align: 'center'
         }).setOrigin(0.5).setDepth(1001);
 
-        const btn = this.add.rectangle(width / 2, height / 2 + 100, 200, 50, 0x333333).setDepth(1001)
+        const btn = this.add.rectangle(width / 2, height / 2 + 80, 200, 50, 0x1a1208).setStrokeStyle(2, 0x8b6b32).setDepth(1001)
             .setInteractive({ useHandCursor: true })
+            .on('pointerover', () => btn.setFillStyle(0x2a1e0e))
+            .on('pointerout', () => btn.setFillStyle(0x1a1208))
             .on('pointerdown', () => {
+                gameManager.reset();
                 this.cameras.main.fadeOut(1500, 0, 0, 0);
                 this.cameras.main.once('camerafadeoutcomplete', () => {
                     window.location.reload();
                 });
             });
 
-        this.add.text(width / 2, height / 2 + 100, 'Restart Game', { fontSize: '24px', fill: '#fff' }).setOrigin(0.5).setDepth(1002);
+        this.add.text(width / 2, height / 2 + 80, 'Restart Game', { fontSize: '24px', fill: '#d97706', fontFamily: 'serif' }).setOrigin(0.5).setDepth(1002);
+
+        const menuBtn = this.add.rectangle(width / 2, height / 2 + 150, 200, 50, 0x1a1208).setStrokeStyle(2, 0x8b6b32).setDepth(1001)
+            .setInteractive({ useHandCursor: true })
+            .on('pointerover', () => menuBtn.setFillStyle(0x2a1e0e))
+            .on('pointerout', () => menuBtn.setFillStyle(0x1a1208))
+            .on('pointerdown', () => {
+                this.cameras.main.fadeOut(1500, 0, 0, 0);
+                this.cameras.main.once('camerafadeoutcomplete', () => {
+                    window.dispatchEvent(new Event('returnToMainMenu'));
+                });
+            });
+
+        this.add.text(width / 2, height / 2 + 150, 'Main Menu', { fontSize: '24px', fill: '#d97706', fontFamily: 'serif' }).setOrigin(0.5).setDepth(1002);
     }
 }

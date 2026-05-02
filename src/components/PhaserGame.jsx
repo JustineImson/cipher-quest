@@ -1,14 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as Phaser from 'phaser';
 import MainScene from '../game/MainScene';
 import OfficeScene from '../game/OfficeScene';
 import LocationScene from '../game/LocationScene';
 import DeductionBoardScene from '../game/DeductionBoardScene';
 import StoryCipherOverlay from './StoryCipherOverlay';
+import PauseOverlay from './PauseOverlay';
 
-export default function PhaserGame() {
+export default function PhaserGame({ difficulty, startScene }) {
   const gameRef = useRef(null);
   const [activeCipherData, setActiveCipherData] = useState(null);
+  const navigate = useNavigate();
+
+  // Listen for the custom event to return to main menu
+  useEffect(() => {
+    const handleReturnToMenu = () => navigate('/');
+    window.addEventListener('returnToMainMenu', handleReturnToMenu);
+    return () => window.removeEventListener('returnToMainMenu', handleReturnToMenu);
+  }, [navigate]);
 
   // Listen for the custom event to open the Story Cipher
   useEffect(() => {
@@ -23,6 +33,10 @@ export default function PhaserGame() {
   }, []);
 
   useEffect(() => {
+    const sceneArray = startScene === 'MainScene' 
+      ? [MainScene, OfficeScene, LocationScene, DeductionBoardScene] 
+      : [OfficeScene, MainScene, LocationScene, DeductionBoardScene];
+
     const config = {
       type: Phaser.AUTO,
       parent: gameRef.current,
@@ -31,14 +45,14 @@ export default function PhaserGame() {
       physics: {
         default: 'matter',
         matter: {
-          debug: true, // Useful for testing player collisions and polygons
+          debug: false,
           gravity: { y: 0 } // Top-down isometric, so no gravity
         }
       },
       dom: {
         createContainer: true
       },
-      scene: [OfficeScene, MainScene, LocationScene, DeductionBoardScene]
+      scene: sceneArray
     };
 
     const game = new Phaser.Game(config);
@@ -81,6 +95,7 @@ export default function PhaserGame() {
           onSolve={handleSolveCipher}
         />
       )}
+      <PauseOverlay />
     </div>
   );
 }

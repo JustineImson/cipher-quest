@@ -1,19 +1,44 @@
 import { useNavigate } from 'react-router-dom';
 import { Settings, Trophy, BookOpen, Clock, Users, GraduationCap } from 'lucide-react';
 import { useState, useEffect } from 'react';
-
-const menuItems = [
-  { label: 'Tutorial', icon: GraduationCap, path: '/tutorial', tag: 'FILE-00' },
-  { label: 'Story Mode', icon: BookOpen, path: '/difficulty', tag: 'FILE-01' },
-  { label: 'Time Attack', icon: Clock, path: '/timeAttack', tag: 'FILE-02' },
-  { label: 'Multiplayer', icon: Users, path: '/multiplayer', tag: 'FILE-03' },
-  { label: 'Leaderboards', icon: Trophy, path: '/leaderboards', tag: 'FILE-04' },
-];
+import { useGameStore } from '../store/useGameStore';
+import { useSfx } from '../hooks/useSfx';
 
 export default function MainMenu() {
   const navigate = useNavigate();
+  const { savedStoryProgress, resetProgress } = useGameStore();
+  const { playClick } = useSfx();
   const [visible, setVisible] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState(null);
+
+  const menuItems = [
+    { label: 'Tutorial', icon: GraduationCap, path: '/tutorial', tag: 'FILE-00' }
+  ];
+
+  if (savedStoryProgress) {
+    menuItems.push({ label: 'Continue', icon: BookOpen, action: 'continue', tag: 'FILE-01A' });
+    menuItems.push({ label: 'New Game', icon: BookOpen, action: 'newGame', tag: 'FILE-01B' });
+  } else {
+    menuItems.push({ label: 'Story Mode', icon: BookOpen, action: 'newGame', tag: 'FILE-01' });
+  }
+
+  menuItems.push(
+    { label: 'Time Attack', icon: Clock, path: '/timeAttack', tag: 'FILE-02' },
+    { label: 'Multiplayer', icon: Users, path: '/multiplayer', tag: 'FILE-03' },
+    { label: 'Leaderboards', icon: Trophy, path: '/leaderboards', tag: 'FILE-04' }
+  );
+
+  const handleMenuClick = (item) => {
+    playClick();
+    if (item.action === 'newGame') {
+      resetProgress();
+      navigate('/difficulty', { state: { startScene: 'OfficeScene' } });
+    } else if (item.action === 'continue') {
+      navigate('/story', { state: { difficulty: savedStoryProgress.difficulty, startScene: 'MainScene' } });
+    } else {
+      navigate(item.path);
+    }
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 80);
@@ -340,9 +365,9 @@ export default function MainMenu() {
           <nav className={`cq-nav-panel ${visible ? 'show' : ''}`}>
             {menuItems.map((item, i) => (
               <button
-                key={item.path}
+                key={item.tag}
                 className={`cq-nav-item ${hoveredIdx === i ? 'active' : ''}`}
-                onClick={() => navigate(item.path)}
+                onClick={() => handleMenuClick(item)}
                 onMouseEnter={() => setHoveredIdx(i)}
                 onMouseLeave={() => setHoveredIdx(null)}
               >
@@ -361,7 +386,7 @@ export default function MainMenu() {
               Decipher the truth before<br />
               time runs out.
             </p>
-            <button className="cq-settings-btn" onClick={() => navigate('/settings')}>
+            <button className="cq-settings-btn" onClick={() => { playClick(); navigate('/settings'); }}>
               <Settings size={13} />
               Settings
             </button>

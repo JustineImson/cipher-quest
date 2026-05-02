@@ -1,6 +1,10 @@
+import { useSfx } from '../../hooks/useSfx';
+
 export default function Button({ children, onClick, variant = 'primary', className = '', isActive = false, ...props }) {
+  const { playClick } = useSfx();
+
   const baseStyles = "font-serif tracking-widest uppercase transition-all duration-300 shadow-md flex items-center justify-center gap-2 active:scale-95 focus:outline-none";
-  
+
   const variants = {
     primary: "bg-[#1e1208]/90 border border-[#7a5c2e] text-[#d4a843] hover:bg-[#2a1a0c] hover:border-[#c9a84c] hover:shadow-[0_0_15px_rgba(203,161,83,0.4)] hover:text-[#f5dfa0]",
     secondary: "bg-[#1e1208]/90 border border-[#7a5c2e] text-[#d4a843] hover:bg-[#2a1a0c] hover:border-[#c9a84c] hover:shadow-[0_0_15px_rgba(203,161,83,0.4)] hover:text-[#f5dfa0]",
@@ -9,9 +13,14 @@ export default function Button({ children, onClick, variant = 'primary', classNa
 
   const activeStyles = isActive ? "!border-b-[3px] !border-b-[#c9a84c] bg-[#2a1a0c] text-[#e8c97a]" : "";
 
+  const handleClick = (e) => {
+    playClick();
+    onClick?.(e);
+  };
+
   return (
-    <button 
-      onClick={onClick} 
+    <button
+      onClick={handleClick}
       className={`${baseStyles} ${variants[variant]} ${activeStyles} ${className}`}
       {...props}
     >

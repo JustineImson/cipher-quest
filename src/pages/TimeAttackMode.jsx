@@ -11,6 +11,7 @@ import VigenereInteractive from '../components/VigenereInteractive';
 import SubstitutionInteractive from '../components/SubstitutionInteractive';
 import { selectCipherMethod, validateAnswer } from '../engine/gameLogic';
 import { bgmController } from '../engine/BGMController';
+import { useSfx } from '../hooks/useSfx';
 
 export default function TimeAttackMode() {
   const navigate = useNavigate();
@@ -23,11 +24,11 @@ export default function TimeAttackMode() {
   const [gameState, setGameState] = useState('idle'); // idle, playing, game_over
   const [score, setScore] = useState(0);
   const [ciphersCracked, setCiphersCracked] = useState(0);
-  
+
   const [currentWord, setCurrentWord] = useState('');
   const [encryptedWord, setEncryptedWord] = useState('');
   const [cipherMethod, setCipherMethod] = useState({ name: '' });
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [userInput, setUserInput] = useState('');
   const [feedback, setFeedback] = useState(null); // 'correct' | 'wrong' | null
@@ -36,6 +37,7 @@ export default function TimeAttackMode() {
   const [devModeVisible, setDevModeVisible] = useState(false);
 
   const inputRef = useRef(null);
+  const { playClick } = useSfx();
 
   // Game Loop: Fetch Word
   const fetchNewWord = async () => {
@@ -46,14 +48,14 @@ export default function TimeAttackMode() {
       const res = await fetch(`http://localhost:3001/api/generate-word?difficulty=${settings.difficulty}`);
       if (!res.ok) throw new Error('Network response was not ok');
       const data = await res.json();
-      
+
       const word = data.word;
       setCurrentWord(word);
-      
+
       const cipher = selectCipherMethod(settings.difficulty);
       setCipherMethod(cipher);
       setEncryptedWord(cipher.applyCipher(word));
-      
+
       setIsLoading(false);
       // Auto-focus input when ready
       setTimeout(() => {
@@ -68,7 +70,7 @@ export default function TimeAttackMode() {
       setCipherMethod(cipher);
       setEncryptedWord(cipher.applyCipher(word));
       setIsLoading(false);
-       setTimeout(() => {
+      setTimeout(() => {
         if (inputRef.current) inputRef.current.focus();
       }, 0);
     }
@@ -103,20 +105,20 @@ export default function TimeAttackMode() {
 
     const targetWord = cipherMethod.isEncryptionMode ? encryptedWord : currentWord;
     const isCorrect = validateAnswer(userInput, targetWord);
-    
+
     if (isCorrect) {
       // Score System Formula: Correct answer = +100 base points. Time bonus = +(remaining seconds * 2).
       const pointsEarned = 100 + (timeLeft * 2);
       setScore(prev => prev + pointsEarned);
       setCiphersCracked(prev => prev + 1);
-      
+
       // Time Bonus based on difficulty
-      const timeBonus = settings.difficulty.toLowerCase() === 'easy' ? 5 : 
-                        settings.difficulty.toLowerCase() === 'medium' ? 10 : 15;
+      const timeBonus = settings.difficulty.toLowerCase() === 'easy' ? 5 :
+        settings.difficulty.toLowerCase() === 'medium' ? 10 : 15;
       addTime(timeBonus);
-      
+
       setFeedback('correct');
-      
+
       // Briefly show feedback then fetch next
       setTimeout(() => {
         fetchNewWord();
@@ -124,7 +126,7 @@ export default function TimeAttackMode() {
     } else {
       setScore(prev => Math.max(0, prev - 50)); // Penalty
       setFeedback('wrong');
-      
+
       setTimeout(() => {
         setFeedback(null);
         if (inputRef.current) inputRef.current.focus();
@@ -179,7 +181,7 @@ export default function TimeAttackMode() {
       setCiphersCracked(prev => prev + 1);
 
       const timeBonus = settings.difficulty.toLowerCase() === 'easy' ? 5 :
-                        settings.difficulty.toLowerCase() === 'medium' ? 10 : 15;
+        settings.difficulty.toLowerCase() === 'medium' ? 10 : 15;
       addTime(timeBonus);
 
       setFeedback('correct');
@@ -201,7 +203,7 @@ export default function TimeAttackMode() {
           <h1 className="text-4xl text-mystery-gold font-serif mb-4 uppercase tracking-widest drop-shadow-[0_0_8px_rgba(212,175,55,0.5)]">Time's Up!</h1>
           <p className="text-xl mb-2 text-gray-300 font-serif">Final Score: <span className="font-bold text-white text-3xl font-sans">{score}</span></p>
           <p className="text-lg mb-8 text-gray-400 font-serif">Ciphers Cracked: <span className="text-white font-semibold">{ciphersCracked}</span></p>
-          
+
           <div className="flex flex-col gap-4">
             <Button onClick={startGame} className="w-full">Play Again</Button>
             <Button onClick={() => navigate('/')} variant="ghost" className="w-full">Main Menu</Button>
@@ -234,10 +236,10 @@ export default function TimeAttackMode() {
         ) : (
           <div className="bg-gray-900/60 border border-mystery-gold p-12 py-16 rounded shadow-[0_0_40px_rgba(0,0,0,0.8)] relative max-w-2xl w-full text-center group backdrop-blur-md">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center bg-mystery-dark px-8 py-2 border border-mystery-gold rounded shadow-md pb-3 w-64">
-               <span className="text-mystery-gold text-sm tracking-[0.2em] font-serif uppercase border-b border-mystery-gold/30 pb-1 mb-1 w-full text-center">Cipher: {cipherMethod.name}</span>
-               <span className="text-blue-300 font-mono text-xs tracking-widest uppercase">Intel: {cipherMethod.key}</span>
+              <span className="text-mystery-gold text-sm tracking-[0.2em] font-serif uppercase border-b border-mystery-gold/30 pb-1 mb-1 w-full text-center">Cipher: {cipherMethod.name}</span>
+              <span className="text-blue-300 font-mono text-xs tracking-widest uppercase">Intel: {cipherMethod.key}</span>
             </div>
-            
+
             <p className="font-mono text-4xl sm:text-5xl md:text-6xl text-white tracking-[0.3em] font-light break-all selection:bg-mystery-gold/30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
               {cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
             </p>
@@ -308,7 +310,7 @@ export default function TimeAttackMode() {
         ) : (
           /* ── Standard ciphers: Text Input + Virtual Keyboard ── */
           <>
-            <input 
+            <input
               ref={inputRef}
               type="text"
               value={userInput}
@@ -317,13 +319,13 @@ export default function TimeAttackMode() {
               disabled={isLoading || gameState !== 'playing'}
               placeholder="DECIPHER THE TEXT..."
               className={`w-full max-w-lg bg-transparent border-b-2 outline-none text-3xl font-mono text-center transition-all pb-2 uppercase tracking-widest
-                ${feedback === 'correct' ? 'border-green-400 text-green-300 drop-shadow-[0_0_8px_rgba(74,222,128,0.8)]' : 
-                  feedback === 'wrong' ? 'border-red-500 text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse' : 
-                  'border-mystery-gold/50 text-white focus:border-mystery-gold hover:border-mystery-gold/80 placeholder:text-mystery-gold/20'}`}
+                ${feedback === 'correct' ? 'border-green-400 text-green-300 drop-shadow-[0_0_8px_rgba(74,222,128,0.8)]' :
+                  feedback === 'wrong' ? 'border-red-500 text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse' :
+                    'border-mystery-gold/50 text-white focus:border-mystery-gold hover:border-mystery-gold/80 placeholder:text-mystery-gold/20'}`}
               autoComplete="off"
               spellCheck="false"
             />
-            
+
             {/* Subtle effect for feedback */}
             <div className={`text-sm font-serif tracking-[0.4em] transition-opacity duration-300 ${feedback === 'correct' ? 'text-green-400 opacity-100' : feedback === 'wrong' ? 'text-red-500 opacity-100' : 'opacity-0'}`}>
               {feedback === 'correct' ? 'EXCELLENT' : 'INCORRECT'}
@@ -341,19 +343,20 @@ export default function TimeAttackMode() {
 
       {/* DevMode Panel */}
       <div className="fixed bottom-4 right-4 flex flex-col items-end z-50">
-        <button 
-          onClick={() => setDevModeVisible(!devModeVisible)} 
+        <button
+          onClick={() => { playClick(); setDevModeVisible(!devModeVisible); }}
           className="text-xs text-mystery-gold/30 hover:text-mystery-gold/80 transition-colors mb-2 font-mono"
         >
           {devModeVisible ? '[HIDE_DEV]' : '[DEV_TOOLS]'}
         </button>
-        
+
         {devModeVisible && (
           <div className="bg-black/90 border border-red-900/50 p-4 rounded text-xs flex flex-col gap-3 shadow-2xl backdrop-blur-md w-56 transition-all font-mono">
             <span className="text-red-500 font-bold uppercase tracking-widest border-b border-red-900/50 pb-2 text-center text-[10px]">Developer Access</span>
-            
-            <button 
+
+            <button
               onClick={() => {
+                playClick();
                 if (inputRef.current) {
                   setUserInput(cipherMethod.isEncryptionMode ? encryptedWord : currentWord);
                   inputRef.current.focus();
@@ -363,29 +366,29 @@ export default function TimeAttackMode() {
             >
               Autofill Answer
             </button>
-            <button 
-              onClick={fetchNewWord}
+            <button
+              onClick={() => { playClick(); fetchNewWord(); }}
               className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1.5 rounded transition-colors border border-red-900/30"
             >
               Skip Puzzle
             </button>
             <div className="py-2 border-t border-b border-red-900/50 text-center">
-              <span className="text-red-500/50 text-[10px] block mb-1">RAW TARGET:</span> 
+              <span className="text-red-500/50 text-[10px] block mb-1">RAW TARGET:</span>
               <span className="text-white font-bold tracking-widest">{cipherMethod.isEncryptionMode ? encryptedWord : currentWord}</span>
             </div>
             <div className="flex gap-2 w-full">
-               <button 
-                  onClick={() => addTime(15)}
-                  className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 font-bold"
-                >
-                  +15s
-                </button>
-                <button 
-                  onClick={() => addTime(-15)}
-                  className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 font-bold"
-                >
-                  -15s
-                </button>
+              <button
+                onClick={() => { playClick(); addTime(15); }}
+                className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 font-bold"
+              >
+                +15s
+              </button>
+              <button
+                onClick={() => { playClick(); addTime(-15); }}
+                className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 font-bold"
+              >
+                -15s
+              </button>
             </div>
           </div>
         )}

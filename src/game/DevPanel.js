@@ -73,10 +73,13 @@ export function addDevPanel(scene) {
         uiCam.setZoom(1);
         uiCam.setScroll(0, 0);
 
-        // Main camera ignores dev panel objects
-        panelObjects.forEach(obj => mainCam.ignore(obj));
+        // Identify all UI objects (Dev panel + any other game UI marked with isUI)
+        const uiObjects = scene.children.list.filter(child => panelObjects.includes(child) || child.isUI);
 
-        // UI camera ignores everything EXCEPT dev panel objects
-        uiCam.ignore(scene.children.list.filter(child => !panelObjects.includes(child)));
+        // Main camera ignores UI objects
+        uiObjects.forEach(obj => mainCam.ignore(obj));
+
+        // UI camera ignores everything EXCEPT UI objects
+        uiCam.ignore(scene.children.list.filter(child => !uiObjects.includes(child)));
     }
 }

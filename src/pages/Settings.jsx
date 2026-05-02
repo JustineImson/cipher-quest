@@ -2,10 +2,12 @@ import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../store/useGameStore';
 import { ArrowLeft, Volume2, Music, Settings as SettingsIcon } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+import { useSfx } from '../hooks/useSfx';
 
 export default function Settings() {
   const navigate = useNavigate();
   const { settings, updateSettings } = useGameStore();
+  const { playClick } = useSfx();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
@@ -278,7 +280,7 @@ export default function Settings() {
 
         <div className="st-layout">
           <div className={`st-header ${visible ? 'show' : ''}`}>
-            <button className="st-back" onClick={() => navigate(-1)}>
+            <button className="st-back" onClick={() => { playClick(); navigate(-1); }}>
               <ArrowLeft size={12} /> Back to Menu
             </button>
             <span className="st-eyebrow">— Apparatus Calibration —</span>
@@ -297,14 +299,14 @@ export default function Settings() {
                 <Music size={18} className="st-icon" /> Music
               </div>
               <div className="st-controls">
-                <button 
+                <button
                   className={`st-toggle ${settings.musicEnabled ? 'active' : 'inactive'}`}
-                  onClick={() => updateSettings({ musicEnabled: true })}
+                  onClick={() => { playClick(); updateSettings({ musicEnabled: true }); }}
                 >ON</button>
                 <span className="st-sep">/</span>
-                <button 
+                <button
                   className={`st-toggle ${!settings.musicEnabled ? 'active' : 'inactive'}`}
-                  onClick={() => updateSettings({ musicEnabled: false })}
+                  onClick={() => { playClick(); updateSettings({ musicEnabled: false }); }}
                 >OFF</button>
               </div>
             </div>
@@ -315,14 +317,14 @@ export default function Settings() {
                 <Volume2 size={18} className="st-icon" /> Sound FX
               </div>
               <div className="st-controls">
-                <button 
+                <button
                   className={`st-toggle ${settings.sfxEnabled ? 'active' : 'inactive'}`}
-                  onClick={() => updateSettings({ sfxEnabled: true })}
+                  onClick={() => { playClick(); updateSettings({ sfxEnabled: true }); }}
                 >ON</button>
                 <span className="st-sep">/</span>
-                <button 
+                <button
                   className={`st-toggle ${!settings.sfxEnabled ? 'active' : 'inactive'}`}
-                  onClick={() => updateSettings({ sfxEnabled: false })}
+                  onClick={() => { playClick(); updateSettings({ sfxEnabled: false }); }}
                 >OFF</button>
               </div>
             </div>
@@ -333,11 +335,11 @@ export default function Settings() {
                 <SettingsIcon size={18} className="st-icon" /> Master Volume
               </div>
               <div className="st-controls">
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="100" 
-                  value={settings.volume} 
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={settings.volume}
                   onChange={(e) => updateSettings({ volume: parseInt(e.target.value) })}
                   className="st-slider"
                 />
@@ -347,7 +349,7 @@ export default function Settings() {
 
           <div className={`st-footer ${visible ? 'show' : ''}`}>
             <p className="st-lore">
-              Adjust your apparatus cautiously.<br/>
+              Adjust your apparatus cautiously.<br />
               The right frequency may be the key to your survival.
             </p>
           </div>

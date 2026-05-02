@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from "react";
+import { useSfx } from "../hooks/useSfx";
 
 const ROWS = [
   ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
@@ -23,6 +24,8 @@ export default function VirtualKeyboard({
   disabledKeys = new Set(),
   className = "",
 }) {
+  const { playClick, playKeyTap } = useSfx();
+
   /* ── Physical keyboard listener ─────────────────────────────── */
   const handleKeyDown = useCallback(
     (e) => {
@@ -36,22 +39,25 @@ export default function VirtualKeyboard({
 
       if (key === "ENTER") {
         e.preventDefault();
+        playClick();
         onEnter?.();
         return;
       }
 
       if (key === "BACKSPACE") {
         e.preventDefault();
+        playKeyTap();
         onDelete?.();
         return;
       }
 
       if (/^[A-Z]$/.test(key) && !disabledKeys.has(key)) {
         e.preventDefault();
+        playKeyTap();
         onKeyPress?.(key);
       }
     },
-    [onKeyPress, onDelete, onEnter, disabledKeys]
+    [onKeyPress, onDelete, onEnter, disabledKeys, playClick, playKeyTap]
   );
 
   useEffect(() => {
@@ -75,7 +81,7 @@ export default function VirtualKeyboard({
                   key={letter}
                   type="button"
                   disabled={disabled}
-                  onClick={() => onKeyPress?.(letter)}
+                  onClick={() => { playKeyTap(); onKeyPress?.(letter); }}
                   className={`
                     /* ── sizing ── */
                     w-8 h-10 sm:w-10 sm:h-12 md:w-11 md:h-13
@@ -111,7 +117,7 @@ export default function VirtualKeyboard({
         {onEnter && (
           <button
             type="button"
-            onClick={() => onEnter()}
+            onClick={() => { playClick(); onEnter(); }}
             className="
               px-4 h-10 sm:px-5 sm:h-12
               text-xs sm:text-sm font-serif tracking-widest uppercase
@@ -146,7 +152,7 @@ export default function VirtualKeyboard({
 
         <button
           type="button"
-          onClick={() => onDelete?.()}
+          onClick={() => { playKeyTap(); onDelete?.(); }}
           className="
             px-4 h-10 sm:px-5 sm:h-12
             text-xs sm:text-sm font-serif tracking-widest uppercase

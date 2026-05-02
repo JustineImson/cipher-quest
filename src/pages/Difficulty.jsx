@@ -1,18 +1,23 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useGameStore } from '../store/useGameStore';
 import { Settings, ArrowLeft } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+import { useSfx } from '../hooks/useSfx';
 
 export default function Difficulty() {
   const navigate = useNavigate();
-  const { settings, updateSettings } = useGameStore();
+  const { state } = useLocation();
+  const { settings, updateSettings, startNewStory } = useGameStore();
+  const { playClick } = useSfx();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
 
   const handleSelectDifficulty = (diff) => {
+    playClick();
     updateSettings({ difficulty: diff });
-    navigate('/story', { state: { difficulty: diff } });
+    startNewStory(diff);
+    navigate('/story', { state: { difficulty: diff, startScene: state?.startScene } });
   };
 
   return (
@@ -261,7 +266,7 @@ export default function Difficulty() {
 
         <div className="df-layout">
           <div className={`df-header ${visible ? 'show' : ''}`}>
-            <button className="df-back" onClick={() => navigate(-1)}>
+            <button className="df-back" onClick={() => { playClick(); navigate(-1); }}>
               <ArrowLeft size={12} /> Back to Menu
             </button>
             <span className="df-eyebrow">— Investigation Parameters —</span>
@@ -274,21 +279,21 @@ export default function Difficulty() {
           </div>
 
           <div className={`df-options ${visible ? 'show' : ''}`}>
-            <button 
+            <button
               className={`df-btn ${settings.difficulty === 'Easy' ? 'active' : ''}`}
               onClick={() => handleSelectDifficulty('Easy')}
             >
               <span className="df-btn-title">Beginner</span>
               <span className="df-btn-desc">Shorter ciphers, forgiving deadlines.</span>
             </button>
-            <button 
+            <button
               className={`df-btn ${settings.difficulty === 'Medium' ? 'active' : ''}`}
               onClick={() => handleSelectDifficulty('Medium')}
             >
               <span className="df-btn-title">Moderate</span>
               <span className="df-btn-desc">Standard intercepts and timing.</span>
             </button>
-            <button 
+            <button
               className={`df-btn ${settings.difficulty === 'Hard' ? 'active' : ''}`}
               onClick={() => handleSelectDifficulty('Hard')}
             >
@@ -299,10 +304,10 @@ export default function Difficulty() {
 
           <div className={`df-footer ${visible ? 'show' : ''}`}>
             <p className="df-lore">
-              The game waits for your selection.<br/>
+              The game waits for your selection.<br />
               Prepare your mind for the intercepts.
             </p>
-            <button className="df-settings" onClick={() => navigate('/settings')}>
+            <button className="df-settings" onClick={() => { playClick(); navigate('/settings'); }}>
               <Settings size={12} /> Settings
             </button>
           </div>

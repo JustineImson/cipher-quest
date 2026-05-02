@@ -1,9 +1,10 @@
 import * as Phaser from 'phaser';
 import DialogueController from './DialogueController';
-import { gameManager } from './GameManager';
+import { gameManager, GamePhases } from './GameManager';
 import { bgmController } from '../engine/BGMController';
 import { StoryCiphers } from './CipherData';
 import { useGameStore } from '../store/useGameStore';
+import { createHUD } from './HUD';
 
 const arrivalTexts = {
     apartment: "Messy, urban, and completely disorganized. But there's a heavy security setup for a place like this. The culprit was definitely here, and they left in a hurry. I need to see what they missed in their rush.",
@@ -128,27 +129,59 @@ export default class LocationScene extends Phaser.Scene {
 
         // UI Container
         const uiContainer = this.add.container(0, 0).setDepth(100);
+        uiContainer.isUI = true;
 
-        const returnBtn = this.add.rectangle(150, 50, 200, 50, 0x111111, 0.8)
-            .setStrokeStyle(2, 0xd97706)
+        const btnX = 120;
+        const btnY = 95;
+        const btnW = 200;
+        const btnH = 40;
+
+        const btnShadow = this.add.rectangle(btnX + 4, btnY + 4, btnW, btnH, 0x000000, 0.6)
+            .setOrigin(0.5);
+        btnShadow.isUI = true;
+
+        const returnBtn = this.add.rectangle(btnX, btnY, btnW, btnH, 0x1a1208, 0.95)
+            .setStrokeStyle(2, 0x8b6b32)
             .setInteractive({ useHandCursor: true })
             .on('pointerdown', () => {
                 this.input.enabled = false;
-                this.cameras.main.fadeOut(1200, 0, 0, 0);
-                this.cameras.main.once('camerafadeoutcomplete', () => {
-                    this.scene.start('MainScene', { fromLocation: this.locationKey });
+                this.tweens.add({
+                    targets: [returnBtn, innerLine, returnText],
+                    scaleX: 0.95, scaleY: 0.95, duration: 50, yoyo: true,
+                    onComplete: () => {
+                        this.cameras.main.fadeOut(1200, 0, 0, 0);
+                        this.cameras.main.once('camerafadeoutcomplete', () => {
+                            this.scene.start('MainScene', { fromLocation: this.locationKey });
+                        });
+                    }
                 });
             })
-            .on('pointerover', () => returnBtn.setFillStyle(0x333333, 0.9))
-            .on('pointerout', () => returnBtn.setFillStyle(0x111111, 0.8));
+            .on('pointerover', () => {
+                returnBtn.setFillStyle(0x2a1e0e, 1);
+                this.tweens.add({ targets: [returnBtn, innerLine, returnText], scaleX: 1.05, scaleY: 1.05, duration: 150, ease: 'Sine.easeOut' });
+            })
+            .on('pointerout', () => {
+                returnBtn.setFillStyle(0x1a1208, 0.95);
+                this.tweens.add({ targets: [returnBtn, innerLine, returnText], scaleX: 1, scaleY: 1, duration: 150, ease: 'Sine.easeOut' });
+            });
 
-        const returnText = this.add.text(150, 50, 'Return to Map', {
-            fontSize: '20px',
+        const innerLine = this.add.rectangle(btnX, btnY, btnW - 8, btnH - 8, 0x000000, 0)
+            .setStrokeStyle(1, 0x8b6b32, 0.3)
+            .setOrigin(0.5);
+        innerLine.isUI = true;
+
+        const returnText = this.add.text(btnX, btnY, '◄ Return to Map', {
+            fontSize: '18px',
             fill: '#d97706',
-            fontFamily: 'serif'
+            fontFamily: 'serif',
+            fontStyle: 'bold',
+            letterSpacing: 1
         }).setOrigin(0.5);
 
-        uiContainer.add([returnBtn, returnText]);
+        uiContainer.add([btnShadow, returnBtn, innerLine, returnText]);
+
+        this.hud = createHUD(this);
+        this.evidenceText = this.hud.evidenceTrackerText;
 
         this.dialogueController = new DialogueController(this);
 
@@ -183,52 +216,97 @@ export default class LocationScene extends Phaser.Scene {
                 evidenceSprite.clearTint();
             })
             .on('pointerdown', () => {
-                // Pause this scene and trigger the React StoryCipherOverlay
-                this.scene.pause();
+                // Disable clicking again
+                evidenceSprite.disableInteractive();
+                
+                const difficulty = useGameStore.getState().settings.difficulty.toLowerCase();
+                const cipherData = StoryCiphers[this.locationKey][difficulty];
+
+                // Fly to center and scale up
+                this.tweens.add({
+                    targets: evidenceSprite,
+                    x: width / 2,
+                    y: height / 2,
+                    scaleX: (config.displayW / evidenceSprite.width) * 2,
+                    scaleY: (config.displayH / evidenceSprite.height) * 2,
+                    duration: 600,
+                    ease: 'Cubic.easeOut',
+                    onComplete: () => {
+                        this.scene.pause();
+                        window.dispatchEvent(new CustomEvent('openStoryCipher', { detail: cipherData }));
+                    }
+                });
                 
                 const handleCipherSolved = () => {
                     cleanup();
                     if (this.scene.isPaused()) this.scene.resume();
 
-                    // Collect evidence
-                    gameManager.collectEvidence(config.key, { name: config.file, location: this.locationKey });
-
-                    // Hide/Destroy the sprite
-                    evidenceSprite.destroy();
-
-                    // Trigger the dialogue
-                    const lines = Array.isArray(config.dialogue) ? config.dialogue : [config.dialogue];
-                    let lineIndex = 0;
-
-                    const showNext = () => {
-                        if (lineIndex < lines.length) {
-                            this.dialogueController.playDialogue('detective', 'Detective', lines[lineIndex], () => {
-                                lineIndex++;
-                                showNext();
-                            });
-                        } else {
-                            this.dialogueController.hide();
-
-                            // Check for endgame trigger
-                            if (gameManager.evidence.hasFoundLog &&
-                                gameManager.evidence.hasFoundBoots &&
-                                gameManager.evidence.hasFoundReceipt &&
-                                gameManager.evidence.hasFoundPen) {
-
-                                gameManager.setPhase('DEDUCTION');
-                                this.cameras.main.fadeOut(2000, 0, 0, 0);
-                                this.cameras.main.once('camerafadeoutcomplete', () => {
-                                    this.scene.start('DeductionBoardScene');
-                                });
+                    // Animate to Evidence Tracker HUD
+                    this.tweens.add({
+                        targets: evidenceSprite,
+                        x: 120, // Center of the HUD evidence tracker
+                        y: 40,
+                        scaleX: 0,
+                        scaleY: 0,
+                        alpha: 0,
+                        duration: 800,
+                        ease: 'Power2',
+                        onComplete: () => {
+                            // Collect evidence
+                            if (gameManager.collectEvidence(config.key, { name: config.file, location: this.locationKey })) {
+                                // The HUD subscription will automatically update the text and play the tablet pop animation
                             }
+
+                            evidenceSprite.destroy();
+
+                            // Trigger the dialogue
+                            const lines = Array.isArray(config.dialogue) ? config.dialogue : [config.dialogue];
+                            let lineIndex = 0;
+
+                            const showNext = () => {
+                                if (lineIndex < lines.length) {
+                                    this.dialogueController.playDialogue('detective', 'Detective', lines[lineIndex], () => {
+                                        lineIndex++;
+                                        showNext();
+                                    });
+                                } else {
+                                    this.dialogueController.hide();
+
+                                    if (gameManager.evidence.hasFoundLog &&
+                                        gameManager.evidence.hasFoundBoots &&
+                                        gameManager.evidence.hasFoundReceipt &&
+                                        gameManager.evidence.hasFoundPen) {
+
+                                        gameManager.setPhase('DEDUCTION');
+                                        this.cameras.main.fadeOut(2000, 0, 0, 0);
+                                        this.cameras.main.once('camerafadeoutcomplete', () => {
+                                            this.scene.start('DeductionBoardScene');
+                                        });
+                                    }
+                                }
+                            };
+                            showNext();
                         }
-                    };
-                    showNext();
+                    });
                 };
 
                 const handleCipherClosed = () => {
                     cleanup();
                     if (this.scene.isPaused()) this.scene.resume();
+                    
+                    // Return to original position
+                    this.tweens.add({
+                        targets: evidenceSprite,
+                        x: width * config.x,
+                        y: height * config.y,
+                        scaleX: config.displayW / evidenceSprite.width,
+                        scaleY: config.displayH / evidenceSprite.height,
+                        duration: 500,
+                        ease: 'Cubic.easeOut',
+                        onComplete: () => {
+                            evidenceSprite.setInteractive({ useHandCursor: true });
+                        }
+                    });
                 };
 
                 const cleanup = () => {
@@ -238,11 +316,6 @@ export default class LocationScene extends Phaser.Scene {
 
                 window.addEventListener('storyCipherSolved', handleCipherSolved);
                 window.addEventListener('storyCipherClosed', handleCipherClosed);
-
-                const difficulty = useGameStore.getState().settings.difficulty.toLowerCase();
-                const cipherData = StoryCiphers[this.locationKey][difficulty];
-
-                window.dispatchEvent(new CustomEvent('openStoryCipher', { detail: cipherData }));
             });
     }
 }

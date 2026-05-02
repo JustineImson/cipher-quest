@@ -1,226 +1,212 @@
 import React, { useState, useEffect } from 'react';
-    import { useNavigate } from 'react-router-dom';
-    import { ArrowLeft, Search, Lock, FileText, Clock, Users, BookOpen, Key, Grid, Shuffle, AlignLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Search, Lock, FileText, Clock, Users, BookOpen, Key, Grid, Shuffle, AlignLeft } from 'lucide-react';
 
-    // ── Content data ─────────────────────────────────────────────────────────────
+// ── Content data ─────────────────────────────────────────────────────────────
 
-    const INVESTIGATION_STEPS = [
-      {
-        icon: Search,
-        title: 'The Crime Scene',
-        tag: 'PHASE-01',
-        body: `You begin each case inside an isometric location — a dimly lit office, a rain-soaked alley, an abandoned warehouse. 
+const INVESTIGATION_STEPS = [
+  {
+    icon: Search,
+    title: 'The Crime Scene',
+    tag: 'PHASE-01',
+    body: `You begin each case inside an isometric location — a dimly lit office, a rain-soaked alley, an abandoned warehouse. 
 Move through the scene and click on objects of interest. Some are decoys; others contain encrypted evidence. 
 Your trained eye is your first tool.`,
-        tip: 'Tip: Look for objects that seem out of place — a displaced book, an open drawer, a flickering terminal.',
-      },
-      {
-        icon: Lock,
-        title: 'The Encryption',
-        tag: 'PHASE-02',
-        body: `Every piece of evidence has been scrambled by the perpetrator using a classical cipher. 
+    tip: 'Tip: Look for objects that seem out of place — a displaced book, an open drawer, a flickering terminal.',
+  },
+  {
+    icon: Lock,
+    title: 'The Encryption',
+    tag: 'PHASE-02',
+    body: `Every piece of evidence has been scrambled by the perpetrator using a classical cipher. 
 When you collect a clue, a Decryption Tablet opens. Identify the cipher type from the context clues provided, 
 then apply the correct decryption technique to reveal the hidden message.`,
-        tip: 'Tip: The cipher type is hinted at by the evidence label — "V-TABLE" means Vigenère, "RAIL-3" means Rail Fence.',
-      },
-      {
-        icon: FileText,
-        title: 'The Deduction Board',
-        tag: 'PHASE-03',
-        body: `Collect four decrypted clues to unlock the Deduction Board — your investigation's nerve centre. 
+    tip: 'Tip: The cipher type is hinted at by the evidence label — "V-TABLE" means Vigenère, "RAIL-3" means Rail Fence.',
+  },
+  {
+    icon: FileText,
+    title: 'The Deduction Board',
+    tag: 'PHASE-03',
+    body: `Collect four decrypted clues to unlock the Deduction Board — your investigation's nerve centre. 
 Here, all evidence is pinned and connected with red string. Review the pattern, identify inconsistencies, 
 and build the case against your prime suspect.`,
-        tip: 'Tip: Each clue contributes one letter to the suspect\'s code name. Arrange them correctly to proceed.',
-      },
-      {
-        icon: FileText,
-        title: 'The Interrogation',
-        tag: 'PHASE-04',
-        body: `Armed with your evidence, you confront the suspect in the interrogation room. 
+    tip: 'Tip: Each clue contributes one letter to the suspect\'s code name. Arrange them correctly to proceed.',
+  },
+  {
+    icon: FileText,
+    title: 'The Interrogation',
+    tag: 'PHASE-04',
+    body: `Armed with your evidence, you confront the suspect in the interrogation room. 
 Choose your questions wisely — every response from the suspect either confirms or contradicts a piece of your evidence. 
 One wrong accusation and the case goes cold.`,
-        tip: 'Tip: Cross-reference contradictions with your decrypted clues before making the final accusation.',
-      },
-    ];
+    tip: 'Tip: Cross-reference contradictions with your decrypted clues before making the final accusation.',
+  },
+];
 
-    const CIPHERS = [
-      {
-        icon: Key,
-        title: 'Vigenère Cipher',
-        tag: 'CIPHER-V',
-        difficulty: 'MODERATE',
-        body: `The Vigenère Cipher uses a repeating keyword to shift each letter of the plaintext by a different amount, making it far harder to crack than a simple Caesar shift.`,
-        howItWorks: [
-          'Choose a keyword, e.g. KEY.',
-          'Repeat the keyword above the message: KEY KEY KEY…',
-          'For each letter in the message, shift it forward by the position of the corresponding keyword letter (A=0, B=1, … Z=25).',
-          'To decrypt: shift each letter backward by the same keyword letter.',
-        ],
-        example: {
-          label: 'Example',
-          plaintext: 'ATTACK',
-          keyword: 'KEYKEY',
-          ciphertext: 'KXRXOT',
-          steps: [
-            'A + K(10) = K',
-            'T + E(4)  = X',
-            'T + Y(24) = R',
-            'A + K(10) = K',
-            'C + E(4)  = G  → wait, actually O — each shift wraps mod 26',
-            'K + Y(24) = I  → adjusted result: KXRXOT',
-          ],
-        },
-        inGame: 'Look for the keyword stamped on the evidence label. Use the Vigenère table on your tablet to decode column by column.',
-      },
-      {
-        icon: AlignLeft,
-        title: 'Rail Fence Cipher',
-        tag: 'CIPHER-R',
-        difficulty: 'BEGINNER',
-        body: `The Rail Fence Cipher is a transposition cipher — letters are not substituted, only rearranged. The message is written in a zig-zag pattern across a number of "rails", then read off row by row.`,
-        howItWorks: [
-          'Decide the number of rails, e.g. 3.',
-          'Write the message in a diagonal zig-zag: down 1 rail per letter, then back up.',
-          'Read each rail left-to-right: Rail 1, then Rail 2, then Rail 3.',
-          'To decrypt: work out where each position falls on each rail, then fill in the letters.',
-        ],
-        example: {
-          label: 'Example  (3 rails, message: WEAREDISCOVERED)',
-          rails: [
-            'Rail 1:  W . . . E . . . I . . . V . .',
-            'Rail 2:  . E . R . D . S . O . E . E .',
-            'Rail 3:  . . A . . . C . . . R . . . D',
-          ],
-          ciphertext: 'WEIVERDSOEEACRД  →  WEIERDSOEEACRD',
-        },
-        inGame: 'The evidence label shows "RAIL-N" where N is the number of rails. Count the rails and re-draw the zig-zag on your tablet.',
-      },
-      {
-        icon: Grid,
-        title: 'Columnar Transposition',
-        tag: 'CIPHER-C',
-        difficulty: 'ADVANCED',
-        body: `Columnar Transposition writes the message into a grid row by row, then reads the columns out in an order determined by the alphabetical ranking of a keyword. The result looks like garbled text with no obvious pattern.`,
-        howItWorks: [
-          'Write the message across rows of a grid whose width equals the keyword length.',
-          'Number each column by the alphabetical rank of its keyword letter (A=1, B=2, …).',
-          'Read the columns out in numerical order (smallest rank first).',
-          'To decrypt: calculate column lengths, fill columns in keyword order, then read rows.',
-        ],
-        example: {
-          label: 'Example  (keyword: CARGO, message: SENDHELP)',
-          grid: [
-            'C  A  R  G  O',
-            '─  ─  ─  ─  ─',
-            'S  E  N  D  H',
-            'E  L  P  X  X',
-          ],
-          columnOrder: 'Column rank: A(1) C(2) G(3) O(4) R(5)',
-          ciphertext: 'Read order 1→5:  EL · SE · DX · HX · NP  →  ELSEDXHXNP',
-        },
-        inGame: 'The keyword is embedded in the evidence. Reconstruct the grid dimensions, rank the keyword letters, and read columns in order.',
-      },
-      {
-        icon: Shuffle,
-        title: 'Keyword Mixed Alphabet',
-        tag: 'CIPHER-K',
-        difficulty: 'ADVANCED',
-        body: `A Keyword Mixed Alphabet substitutes each letter using a custom alphabet. The custom alphabet begins with the letters of a keyword (removing duplicates), followed by all remaining unused letters in standard order. Every letter maps 1-to-1 to a unique substitute.`,
-        howItWorks: [
-          'Take a keyword, e.g. CIPHER. Remove duplicate letters → C I P H E R.',
-          'Append remaining unused alphabet letters: A B D F G J K L M N O Q S T U V W X Y Z.',
-          'Custom alphabet: C I P H E R A B D F G J K L M N O Q S T U V W X Y Z.',
-          'A→C, B→I, C→P, D→H, E→E, F→R, … and so on.',
-          'To encrypt: substitute each plaintext letter with its custom-alphabet equivalent.',
-          'To decrypt: find the custom-alphabet letter and map it back to the standard position.',
-        ],
-        example: {
-          label: 'Example  (keyword: CIPHER)',
-          mapping: 'Standard:  A B C D E F G H I J K L M N O P Q R S T U V W X Y Z',
-          custom: 'Custom:    C I P H E R A B D F G J K L M N O Q S T U V W X Y Z',
-          plaintext: 'Encrypt CASE → PCQE',
-        },
-        inGame: 'The keyword is hidden inside the cipher message itself — often the first readable word. Build the custom alphabet on your tablet before substituting.',
-      },
-    ];
+const CIPHERS = [
+  {
+    icon: Key,
+    title: 'Vigenère Cipher',
+    tag: 'CIPHER-V',
+    difficulty: 'MODERATE',
+    body: `The Vigenère Cipher uses a repeating keyword to shift each letter of the plaintext by a different amount, making it far harder to crack than a simple Caesar shift.`,
+    howItWorks: [
+      'Choose a keyword, e.g. KEY.',
+      'Repeat the keyword above the message: KEY KEY KEY…',
+      'For each letter in the message, shift it forward by the position of the corresponding keyword letter (A=0, B=1, … Z=25).',
+      'To decrypt: shift each letter backward by the same keyword letter.',
+    ],
+    example: {
+      label: 'Example',
+      plaintext: 'ATTACK',
+      keyword: 'KEYKEY',
+      ciphertext: 'KXRXOT',
+      steps: [
+        'A + K(10) = K',
+        'T + E(4)  = X',
+        'T + Y(24) = R',
+        'A + K(10) = K',
+        'C + E(4)  = G  → wait, actually O — each shift wraps mod 26',
+        'K + Y(24) = I  → adjusted result: KXRXOT',
+      ],
+    },
+    inGame: 'Look for the keyword stamped on the evidence label. Use the Vigenère table on your tablet to decode column by column.',
+  },
+  {
+    icon: AlignLeft,
+    title: 'Rail Fence Cipher',
+    tag: 'CIPHER-R',
+    difficulty: 'BEGINNER',
+    body: `The Rail Fence Cipher is a transposition cipher — letters are not substituted, only rearranged. The message is written in a zig-zag pattern across a number of "rails", then read off row by row.`,
+    howItWorks: [
+      'Decide the number of rails, e.g. 3.',
+      'Write the message in a diagonal zig-zag: down 1 rail per letter, then back up.',
+      'Read each rail left-to-right: Rail 1, then Rail 2, then Rail 3.',
+      'To decrypt: work out where each position falls on each rail, then fill in the letters.',
+    ],
+    example: {
+      label: 'Example  (3 rails, message: WEAREDISCOVERED)',
+      rails: [
+        'Rail 1:  W . . . E . . . I . . . V . .',
+        'Rail 2:  . E . R . D . S . O . E . E .',
+        'Rail 3:  . . A . . . C . . . R . . . D',
+      ],
+      ciphertext: 'WEIVERDSOEEACRД  →  WEIERDSOEEACRD',
+    },
+    inGame: 'The evidence label shows "RAIL-N" where N is the number of rails. Count the rails and re-draw the zig-zag on your tablet.',
+  },
+  {
+    icon: Grid,
+    title: 'Columnar Transposition',
+    tag: 'CIPHER-C',
+    difficulty: 'ADVANCED',
+    body: `Columnar Transposition writes the message into a grid row by row, then reads the columns out in an order determined by the alphabetical ranking of a keyword. The result looks like garbled text with no obvious pattern.`,
+    howItWorks: [
+      'Write the message across rows of a grid whose width equals the keyword length.',
+      'Number each column by the alphabetical rank of its keyword letter (A=1, B=2, …).',
+      'Read the columns out in numerical order (smallest rank first).',
+      'To decrypt: calculate column lengths, fill columns in keyword order, then read rows.',
+    ],
+    example: {
+      label: 'Example  (keyword: CARGO, message: SENDHELP)',
+      grid: [
+        'C  A  R  G  O',
+        '─  ─  ─  ─  ─',
+        'S  E  N  D  H',
+        'E  L  P  X  X',
+      ],
+      columnOrder: 'Column rank: A(1) C(2) G(3) O(4) R(5)',
+      ciphertext: 'Read order 1→5:  EL · SE · DX · HX · NP  →  ELSEDXHXNP',
+    },
+    inGame: 'The keyword is embedded in the evidence. Reconstruct the grid dimensions, rank the keyword letters, and read columns in order.',
+  },
+  {
+    icon: Shuffle,
+    title: 'Keyword Mixed Alphabet',
+    tag: 'CIPHER-K',
+    difficulty: 'ADVANCED',
+    body: `A Keyword Mixed Alphabet substitutes each letter using a custom alphabet. The custom alphabet begins with the letters of a keyword (removing duplicates), followed by all remaining unused letters in standard order. Every letter maps 1-to-1 to a unique substitute.`,
+    howItWorks: [
+      'Take a keyword, e.g. CIPHER. Remove duplicate letters → C I P H E R.',
+      'Append remaining unused alphabet letters: A B D F G J K L M N O Q S T U V W X Y Z.',
+      'Custom alphabet: C I P H E R A B D F G J K L M N O Q S T U V W X Y Z.',
+      'A→C, B→I, C→P, D→H, E→E, F→R, … and so on.',
+      'To encrypt: substitute each plaintext letter with its custom-alphabet equivalent.',
+      'To decrypt: find the custom-alphabet letter and map it back to the standard position.',
+    ],
+    example: {
+      label: 'Example  (keyword: CIPHER)',
+      mapping: 'Standard:  A B C D E F G H I J K L M N O P Q R S T U V W X Y Z',
+      custom: 'Custom:    C I P H E R A B D F G J K L M N O Q S T U V W X Y Z',
+      plaintext: 'Encrypt CASE → PCQE',
+    },
+    inGame: 'The keyword is hidden inside the cipher message itself — often the first readable word. Build the custom alphabet on your tablet before substituting.',
+  },
+];
 
-    const MODES = [
-      {
-        icon: BookOpen,
-        title: 'Story Mode',
-        tag: 'MODE-01',
-        body: `A narrative-driven mystery set in rain-soaked 1888 London. Follow the trail of the Silent Cipher Killer — a phantom who encodes every clue in a different cipher. Interrogate suspects, navigate branching dialogue, and race to prevent the next crime before the clock strikes midnight.`,
-        details: ['3 acts · 9 crime scenes', 'Adaptive difficulty', 'Branching interrogation outcomes', 'Unlockable case files & lore'],
-      },
-      {
-        icon: Clock,
-        title: 'Time Attack',
-        tag: 'MODE-02',
-        body: `No narrative. No mercy. A random cipher appears and you have a shrinking timer. Decrypt as many intercepts as possible before time expires. Each correct answer adds bonus seconds; each wrong answer costs them. Scores are posted to the global leaderboard.`,
-        details: ['Random cipher rotation', 'Combo multiplier system', 'Global leaderboard ranking', 'Unlocks at 3 Story cases cleared'],
-      },
-      {
-        icon: Users,
-        title: 'Multiplayer',
-        tag: 'MODE-03',
-        body: `Face another investigator head-to-head. Both players receive the same cipher simultaneously. First to decrypt and submit the correct plaintext claims the round. Best of five rounds determines the victor. No hints. No mercy. Only instinct.`,
-        details: ['Real-time 1v1 decryption race', 'Shared cipher pool', 'Best-of-5 rounds', 'Ranking points on win'],
-      },
-    ];
+const MODES = [
+  {
+    icon: BookOpen,
+    title: 'Story Mode',
+    tag: 'MODE-01',
+    body: `A narrative-driven mystery set in rain-soaked 1888 London. Follow the trail of the Silent Cipher Killer — a phantom who encodes every clue in a different cipher. Interrogate suspects, navigate branching dialogue, and race to prevent the next crime before the clock strikes midnight.`,
+    details: ['3 acts · 9 crime scenes', 'Adaptive difficulty', 'Branching interrogation outcomes', 'Unlockable case files & lore'],
+  },
+  {
+    icon: Clock,
+    title: 'Time Attack',
+    tag: 'MODE-02',
+    body: `No narrative. No mercy. A random cipher appears and you have a shrinking timer. Decrypt as many intercepts as possible before time expires. Each correct answer adds bonus seconds; each wrong answer costs them. Scores are posted to the global leaderboard.`,
+    details: ['Random cipher rotation', 'Combo multiplier system', 'Global leaderboard ranking', 'Unlocks at 3 Story cases cleared'],
+  },
+  {
+    icon: Users,
+    title: 'Multiplayer',
+    tag: 'MODE-03',
+    body: `Face another investigator head-to-head. Both players receive the same cipher simultaneously. First to decrypt and submit the correct plaintext claims the round. Best of five rounds determines the victor. No hints. No mercy. Only instinct.`,
+    details: ['Real-time 1v1 decryption race', 'Shared cipher pool', 'Best-of-5 rounds', 'Ranking points on win'],
+  },
+];
 
-    // ── Shared sub-components ─────────────────────────────────────────────────────
+// ── Shared sub-components ─────────────────────────────────────────────────────
 
-    function DifficultyPip({ level }) {
-      const map = { BEGINNER: { pips: 1, color: '#5a9e6f' }, MODERATE: { pips: 2, color: '#c9a84c' }, ADVANCED: { pips: 3, color: '#8b1a1a' } };
-      const { pips, color } = map[level] || map['BEGINNER'];
-      return (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          {[1, 2, 3].map(i => (
-            <span key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: i <= pips ? color : 'rgba(255,255,255,0.12)', display: 'inline-block' }} />
-          ))}
-          <span style={{ fontFamily: 'Special Elite,monospace', fontSize: 9, letterSpacing: '0.2em', color, marginLeft: 4 }}>{level}</span>
-        </span>
-      );
-    }
+function DifficultyPip({ level }) {
+  const map = { BEGINNER: { pips: 1, color: '#5a9e6f' }, MODERATE: { pips: 2, color: '#c9a84c' }, ADVANCED: { pips: 3, color: '#8b1a1a' } };
+  const { pips, color } = map[level] || map['BEGINNER'];
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      {[1, 2, 3].map(i => (
+        <span key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: i <= pips ? color : 'rgba(255,255,255,0.12)', display: 'inline-block' }} />
+      ))}
+      <span style={{ fontFamily: 'Special Elite,monospace', fontSize: 9, letterSpacing: '0.2em', color, marginLeft: 4 }}>{level}</span>
+    </span>
+  );
+}
 
-    function Pin() {
-      return <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#8b1a1a', boxShadow: '0 0 5px rgba(180,30,30,0.5)', flexShrink: 0, display: 'inline-block' }} />;
-    }
+function Pin() {
+  return <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#8b1a1a', boxShadow: '0 0 5px rgba(180,30,30,0.5)', flexShrink: 0, display: 'inline-block' }} />;
+}
 
-    // ── Main component ────────────────────────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────────────────────
 
-    export default function Tutorial() {
-      const navigate = useNavigate();
-      const [activeTab, setActiveTab] = useState('investigation');
-      const [visible, setVisible] = useState(false);
-      const [openCipher, setOpenCipher] = useState(null);
+export default function Tutorial() {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('investigation');
+  const [visible, setVisible] = useState(false);
+  const [openCipher, setOpenCipher] = useState(null);
+  const { playClick } = useSfx();
 
-      useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
+  useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
 
-      const playClick = () => {
-        try {
-          const ctx = new (window.AudioContext || window.webkitAudioContext)();
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(700, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.06);
-          gain.gain.setValueAtTime(0.15, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(); osc.stop(ctx.currentTime + 0.06);
-        } catch (e) { }
-      };
+  const tabs = [
+    { id: 'investigation', label: 'The Investigation', sub: '4 phases' },
+    { id: 'toolkit', label: "Cipher Toolkit", sub: '4 ciphers' },
+    { id: 'modes', label: 'Game Modes', sub: '3 modes' },
+  ];
 
-      const tabs = [
-        { id: 'investigation', label: 'The Investigation', sub: '4 phases' },
-        { id: 'toolkit', label: "Cipher Toolkit", sub: '4 ciphers' },
-        { id: 'modes', label: 'Game Modes', sub: '3 modes' },
-      ];
-
-      return (
-        <>
-          <style>{`
+  return (
+    <>
+      <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Special+Elite&family=IM+Fell+English:ital@0;1&display=swap');
 
         :root {
@@ -629,183 +615,183 @@ One wrong accusation and the case goes cold.`,
         }
       `}</style>
 
-          <div className="tu-root">
-            <div className="tu-bg" />
-            <div className="tu-scrim" />
-            <div className="tu-bloom" />
-            <div className="tu-grain" />
+      <div className="tu-root">
+        <div className="tu-bg" />
+        <div className="tu-scrim" />
+        <div className="tu-bloom" />
+        <div className="tu-grain" />
 
-            <div className="tu-layout">
+        <div className="tu-layout">
 
-              {/* Header */}
-              <div className={`tu-header ${visible ? 'show' : ''}`}>
-                <div>
-                  <button className="tu-back" onClick={() => navigate('/')}>
-                    <ArrowLeft size={12} /> Return to Menu
-                  </button>
-                  <span className="tu-eyebrow">— Archive Access · CQ Division —</span>
-                  <h1 className="tu-title">Detective's Manual</h1>
-                </div>
-              </div>
+          {/* Header */}
+          <div className={`tu-header ${visible ? 'show' : ''}`}>
+            <div>
+              <button className="tu-back" onClick={() => navigate('/')}>
+                <ArrowLeft size={12} /> Return to Menu
+              </button>
+              <span className="tu-eyebrow">— Archive Access · CQ Division —</span>
+              <h1 className="tu-title">Detective's Manual</h1>
+            </div>
+          </div>
 
-              {/* Body */}
-              <div className={`tu-body ${visible ? 'show' : ''}`}>
+          {/* Body */}
+          <div className={`tu-body ${visible ? 'show' : ''}`}>
 
-                {/* Sidebar */}
-                <div className="tu-sidebar">
-                  {tabs.map(tab => (
-                    <button
-                      key={tab.id}
-                      className={`tu-tab ${activeTab === tab.id ? 'active' : ''}`}
-                      onClick={() => { if (activeTab !== tab.id) { playClick(); setActiveTab(tab.id); setOpenCipher(null); } }}
-                    >
-                      <span className="tu-tab-label">{tab.label}</span>
-                      <span className="tu-tab-sub">{tab.sub}</span>
-                    </button>
-                  ))}
-                </div>
+            {/* Sidebar */}
+            <div className="tu-sidebar">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  className={`tu-tab ${activeTab === tab.id ? 'active' : ''}`}
+                  onClick={() => { if (activeTab !== tab.id) { playClick(); setActiveTab(tab.id); setOpenCipher(null); } }}
+                >
+                  <span className="tu-tab-label">{tab.label}</span>
+                  <span className="tu-tab-sub">{tab.sub}</span>
+                </button>
+              ))}
+            </div>
 
-                {/* Content */}
-                <div className="tu-content">
+            {/* Content */}
+            <div className="tu-content">
 
-                  {/* ── Investigation ── */}
-                  {activeTab === 'investigation' && INVESTIGATION_STEPS.map((step, i) => (
-                    <div
-                      key={step.tag}
-                      className="tu-card"
-                      style={{ animationDelay: `${i * 80}ms` }}
-                    >
-                      <div className="tu-card-header">
-                        <div className="tu-card-title-row">
-                          <Pin />
-                          <step.icon size={14} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-                          <span className="tu-card-title">{step.title}</span>
-                        </div>
-                        <span className="tu-card-tag">{step.tag}</span>
-                      </div>
-                      <p className="tu-card-body">{step.body}</p>
-                      <div className="tu-tip">{step.tip}</div>
+              {/* ── Investigation ── */}
+              {activeTab === 'investigation' && INVESTIGATION_STEPS.map((step, i) => (
+                <div
+                  key={step.tag}
+                  className="tu-card"
+                  style={{ animationDelay: `${i * 80}ms` }}
+                >
+                  <div className="tu-card-header">
+                    <div className="tu-card-title-row">
+                      <Pin />
+                      <step.icon size={14} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                      <span className="tu-card-title">{step.title}</span>
                     </div>
-                  ))}
+                    <span className="tu-card-tag">{step.tag}</span>
+                  </div>
+                  <p className="tu-card-body">{step.body}</p>
+                  <div className="tu-tip">{step.tip}</div>
+                </div>
+              ))}
 
-                  {/* ── Cipher Toolkit ── */}
-                  {activeTab === 'toolkit' && CIPHERS.map((cipher, i) => {
-                    const isOpen = openCipher === cipher.tag;
-                    return (
-                      <div
-                        key={cipher.tag}
-                        className="tu-card"
-                        style={{ animationDelay: `${i * 80}ms` }}
-                      >
-                        <div className="tu-card-header">
-                          <div className="tu-card-title-row">
-                            <Pin />
-                            <cipher.icon size={14} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-                            <span className="tu-card-title">{cipher.title}</span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <DifficultyPip level={cipher.difficulty} />
-                            <span className="tu-card-tag">{cipher.tag}</span>
-                          </div>
-                        </div>
+              {/* ── Cipher Toolkit ── */}
+              {activeTab === 'toolkit' && CIPHERS.map((cipher, i) => {
+                const isOpen = openCipher === cipher.tag;
+                return (
+                  <div
+                    key={cipher.tag}
+                    className="tu-card"
+                    style={{ animationDelay: `${i * 80}ms` }}
+                  >
+                    <div className="tu-card-header">
+                      <div className="tu-card-title-row">
+                        <Pin />
+                        <cipher.icon size={14} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                        <span className="tu-card-title">{cipher.title}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <DifficultyPip level={cipher.difficulty} />
+                        <span className="tu-card-tag">{cipher.tag}</span>
+                      </div>
+                    </div>
 
-                        <p className="tu-card-body">{cipher.body}</p>
+                    <p className="tu-card-body">{cipher.body}</p>
 
-                        {/* How it works */}
-                        <div style={{ marginBottom: 4 }}>
-                          <span style={{ fontFamily: 'Special Elite,monospace', fontSize: 9, letterSpacing: '0.28em', color: 'var(--gold-dim)', textTransform: 'uppercase' }}>
-                            How It Works
-                          </span>
-                        </div>
-                        <ol className="tu-steps">
-                          {cipher.howItWorks.map((step, si) => (
-                            <li key={si}>
-                              <span className="tu-step-num">{String(si + 1).padStart(2, '0')}.</span>
-                              <span>{step}</span>
-                            </li>
-                          ))}
-                        </ol>
+                    {/* How it works */}
+                    <div style={{ marginBottom: 4 }}>
+                      <span style={{ fontFamily: 'Special Elite,monospace', fontSize: 9, letterSpacing: '0.28em', color: 'var(--gold-dim)', textTransform: 'uppercase' }}>
+                        How It Works
+                      </span>
+                    </div>
+                    <ol className="tu-steps">
+                      {cipher.howItWorks.map((step, si) => (
+                        <li key={si}>
+                          <span className="tu-step-num">{String(si + 1).padStart(2, '0')}.</span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ol>
 
-                        {/* Example — toggle */}
-                        <button
-                          className="tu-expand-btn"
-                          onClick={() => setOpenCipher(isOpen ? null : cipher.tag)}
-                        >
-                          {isOpen ? '▲ Hide Example' : '▼ Show Example'}
-                        </button>
+                    {/* Example — toggle */}
+                    <button
+                      className="tu-expand-btn"
+                      onClick={() => { playClick(); setOpenCipher(isOpen ? null : cipher.tag); }}
+                    >
+                      {isOpen ? '▲ Hide Example' : '▼ Show Example'}
+                    </button>
 
-                        {isOpen && (
-                          <div style={{ marginTop: 10 }}>
-                            {/* Vigenère */}
-                            {cipher.tag === 'CIPHER-V' && (
-                              <div className="tu-code">
-                                <span className="tu-code-label">{cipher.example.label}</span>
-                                {`Plaintext:   ${cipher.example.plaintext}\nKeyword:     ${cipher.example.keyword}\nCiphertext:  ${cipher.example.ciphertext}\n\nShift breakdown:\n`}
-                                {cipher.example.steps.map((s, si) => `  ${s}\n`).join('')}
-                              </div>
-                            )}
-                            {/* Rail Fence */}
-                            {cipher.tag === 'CIPHER-R' && (
-                              <div className="tu-code">
-                                <span className="tu-code-label">{cipher.example.label}</span>
-                                {cipher.example.rails.join('\n')}
-                                {`\n\nResult: ${cipher.example.ciphertext}`}
-                              </div>
-                            )}
-                            {/* Columnar */}
-                            {cipher.tag === 'CIPHER-C' && (
-                              <div className="tu-code">
-                                <span className="tu-code-label">{cipher.example.label}</span>
-                                {cipher.example.grid.join('\n')}
-                                {`\n\n${cipher.example.columnOrder}\nCiphertext: ${cipher.example.ciphertext}`}
-                              </div>
-                            )}
-                            {/* Keyword */}
-                            {cipher.tag === 'CIPHER-K' && (
-                              <div className="tu-code">
-                                <span className="tu-code-label">{cipher.example.label}</span>
-                                {`${cipher.example.mapping}\n${cipher.example.custom}\n\n${cipher.example.plaintext}`}
-                              </div>
-                            )}
+                    {isOpen && (
+                      <div style={{ marginTop: 10 }}>
+                        {/* Vigenère */}
+                        {cipher.tag === 'CIPHER-V' && (
+                          <div className="tu-code">
+                            <span className="tu-code-label">{cipher.example.label}</span>
+                            {`Plaintext:   ${cipher.example.plaintext}\nKeyword:     ${cipher.example.keyword}\nCiphertext:  ${cipher.example.ciphertext}\n\nShift breakdown:\n`}
+                            {cipher.example.steps.map((s, si) => `  ${s}\n`).join('')}
                           </div>
                         )}
+                        {/* Rail Fence */}
+                        {cipher.tag === 'CIPHER-R' && (
+                          <div className="tu-code">
+                            <span className="tu-code-label">{cipher.example.label}</span>
+                            {cipher.example.rails.join('\n')}
+                            {`\n\nResult: ${cipher.example.ciphertext}`}
+                          </div>
+                        )}
+                        {/* Columnar */}
+                        {cipher.tag === 'CIPHER-C' && (
+                          <div className="tu-code">
+                            <span className="tu-code-label">{cipher.example.label}</span>
+                            {cipher.example.grid.join('\n')}
+                            {`\n\n${cipher.example.columnOrder}\nCiphertext: ${cipher.example.ciphertext}`}
+                          </div>
+                        )}
+                        {/* Keyword */}
+                        {cipher.tag === 'CIPHER-K' && (
+                          <div className="tu-code">
+                            <span className="tu-code-label">{cipher.example.label}</span>
+                            {`${cipher.example.mapping}\n${cipher.example.custom}\n\n${cipher.example.plaintext}`}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-                        {/* In-game hint */}
-                        <div className="tu-ingame">
-                          <span className="tu-ingame-label">In-Game</span>
-                          <span className="tu-ingame-text">{cipher.inGame}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* ── Modes ── */}
-                  {activeTab === 'modes' && MODES.map((mode, i) => (
-                    <div
-                      key={mode.tag}
-                      className="tu-card"
-                      style={{ animationDelay: `${i * 80}ms` }}
-                    >
-                      <div className="tu-card-header">
-                        <div className="tu-card-title-row">
-                          <Pin />
-                          <mode.icon size={14} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-                          <span className="tu-card-title">{mode.title}</span>
-                        </div>
-                        <span className="tu-card-tag">{mode.tag}</span>
-                      </div>
-                      <p className="tu-card-body">{mode.body}</p>
-                      <div className="tu-pills">
-                        {mode.details.map(d => <span key={d} className="tu-pill">{d}</span>)}
-                      </div>
+                    {/* In-game hint */}
+                    <div className="tu-ingame">
+                      <span className="tu-ingame-label">In-Game</span>
+                      <span className="tu-ingame-text">{cipher.inGame}</span>
                     </div>
-                  ))}
+                  </div>
+                );
+              })}
 
+              {/* ── Modes ── */}
+              {activeTab === 'modes' && MODES.map((mode, i) => (
+                <div
+                  key={mode.tag}
+                  className="tu-card"
+                  style={{ animationDelay: `${i * 80}ms` }}
+                >
+                  <div className="tu-card-header">
+                    <div className="tu-card-title-row">
+                      <Pin />
+                      <mode.icon size={14} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                      <span className="tu-card-title">{mode.title}</span>
+                    </div>
+                    <span className="tu-card-tag">{mode.tag}</span>
+                  </div>
+                  <p className="tu-card-body">{mode.body}</p>
+                  <div className="tu-pills">
+                    {mode.details.map(d => <span key={d} className="tu-pill">{d}</span>)}
+                  </div>
                 </div>
-              </div>
+              ))}
 
             </div>
           </div>
-        </>
-      );
-    }
+
+        </div>
+      </div>
+    </>
+  );
+}
