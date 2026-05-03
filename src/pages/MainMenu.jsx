@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { Settings, Trophy, BookOpen, Clock, Users, GraduationCap } from 'lucide-react';
+import { Settings, Trophy, BookOpen, Clock, Users, GraduationCap, User } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import LoginModal from '../components/ui/LoginModal';
 import { useGameStore } from '../store/useGameStore';
 import { useSfx } from '../hooks/useSfx';
 
@@ -10,6 +11,19 @@ export default function MainMenu() {
   const { playClick } = useSfx();
   const [visible, setVisible] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const currentUser = useGameStore((state) => state.currentUser);
+  
+  const isLoggedIn = !!currentUser;
+
+  const handleProfileClick = () => {
+    playClick();
+    if (isLoggedIn) {
+      navigate('/profile');
+    } else {
+      setShowLoginModal(true);
+    }
+  };
 
   const menuItems = [
     { label: 'Tutorial', icon: GraduationCap, path: '/tutorial', tag: 'FILE-00' }
@@ -329,7 +343,6 @@ export default function MainMenu() {
           color: var(--gold-light);
         }
 
-        /* Pushpin dot decoration */
         .cq-pin {
           width: 8px;
           height: 8px;
@@ -337,6 +350,61 @@ export default function MainMenu() {
           background: var(--red-line);
           box-shadow: 0 0 6px rgba(180, 30, 30, 0.6);
           flex-shrink: 0;
+        }
+
+        /* ── Profile Button ── */
+        .cq-profile-wrap {
+          opacity: 0;
+          transition: opacity 1s ease;
+        }
+        .cq-profile-wrap.show { opacity: 1; }
+        
+        .cq-profile-btn {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 6px 12px 6px 6px;
+          background: rgba(26, 18, 8, 0.7);
+          border: 1px solid rgba(200, 160, 50, 0.6);
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s;
+          backdrop-filter: blur(3px);
+        }
+        .cq-profile-btn:hover {
+          background: rgba(40, 28, 10, 0.9);
+          border-color: var(--gold-light);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        
+        .cq-profile-icon-wrap {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          border: 1px solid var(--gold-dim);
+          background: rgba(0,0,0,0.4);
+          transition: border-color 0.2s;
+        }
+        .cq-profile-icon {
+          color: var(--gold-dim);
+          transition: color 0.2s;
+        }
+        .cq-profile-btn:hover .cq-profile-icon-wrap { border-color: var(--gold); }
+        .cq-profile-btn:hover .cq-profile-icon { color: var(--gold-light); }
+        
+        .cq-profile-label {
+          font-family: 'Special Elite', monospace;
+          font-size: 11px;
+          letter-spacing: 0.15em;
+          color: var(--gold);
+          transition: color 0.2s;
+        }
+        .cq-profile-btn:hover .cq-profile-label {
+          color: var(--gold-light);
         }
       `}</style>
 
@@ -349,6 +417,19 @@ export default function MainMenu() {
 
         {/* Content */}
         <div className="cq-layout">
+
+          {/* Top Right Profile Button */}
+          <div className={`absolute top-6 right-8 z-50 ${visible ? 'show' : ''} cq-profile-wrap`}>
+            <button 
+              className="cq-profile-btn"
+              onClick={handleProfileClick}
+            >
+              <div className="cq-profile-icon-wrap">
+                <User size={14} className="cq-profile-icon" />
+              </div>
+              <span className="cq-profile-label">AGENT PROFILE</span>
+            </button>
+          </div>
 
           {/* Title */}
           <div className={`cq-title-wrap ${visible ? 'show' : ''}`}>
@@ -394,6 +475,10 @@ export default function MainMenu() {
 
         </div>
       </div>
+      
+      {showLoginModal && (
+        <LoginModal onClose={() => setShowLoginModal(false)} />
+      )}
     </>
   );
 }

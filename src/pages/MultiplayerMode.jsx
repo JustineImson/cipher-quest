@@ -13,6 +13,7 @@ import { useMultiplayer } from '../hooks/useMultiplayer';
 import { bgmController } from '../engine/BGMController';
 import { ArrowLeft, Users, Zap, ShieldAlert, Key } from 'lucide-react';
 import { useSfx } from '../hooks/useSfx';
+import SocialOverlay from '../components/SocialOverlay';
 
 export default function MultiplayerMode() {
   const navigate = useNavigate();
@@ -407,6 +408,7 @@ export default function MultiplayerMode() {
           overflow: hidden;
           font-family: 'Special Elite', monospace;
           background: #0e0a04;
+          display: flex;
         }
 
         .mp-bg {
@@ -456,7 +458,7 @@ export default function MultiplayerMode() {
           height: 100%;
           display: flex;
           flex-direction: column;
-          padding: 20px;
+          padding: 100px 0 20px 20px;
           overflow-y: auto;
         }
       `}</style>
@@ -467,11 +469,15 @@ export default function MultiplayerMode() {
         <div className="mp-bloom" />
         <div className="mp-grain" />
 
-        <div className="mp-layout">
+        <div className="mp-layout flex-1">
           {multiplayerState === 'lobby' && renderLobby()}
           {multiplayerState === 'waiting' && renderWaiting()}
           {multiplayerState === 'finished' && renderFinished()}
           {multiplayerState === 'playing' && renderPlaying()}
+        </div>
+
+        <div className="h-full relative z-20 shrink-0">
+          <SocialOverlay />
         </div>
       </div>
     </>

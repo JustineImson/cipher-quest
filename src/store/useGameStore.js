@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { auth } from '../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export const useGameStore = create(
   persist(
@@ -14,6 +16,9 @@ export const useGameStore = create(
       playerProfile: {
         username: 'Investigator',
       },
+      
+      // Auth State
+      currentUser: null,
       
       // Game Lifecycle State: 'idle', 'playing', 'paused', 'game_over'
       gameState: 'idle',
@@ -30,6 +35,22 @@ export const useGameStore = create(
       savedStoryProgress: null, // null means no game in progress
 
       // Actions
+      initializeAuthListener: () => {
+        onAuthStateChanged(auth, (user) => {
+          if (user) {
+            set({ 
+              currentUser: { 
+                uid: user.uid,
+                email: user.email, 
+                username: user.displayName || 'Agent', 
+                friendCode: user.uid.substring(0, 6).toUpperCase() 
+              } 
+            });
+          } else {
+            set({ currentUser: null });
+          }
+        });
+      },
       updateSettings: (newSettings) => 
         set((state) => ({ settings: { ...state.settings, ...newSettings } })),
       setGameState: (newState) => 

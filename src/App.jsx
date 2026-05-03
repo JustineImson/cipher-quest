@@ -9,13 +9,22 @@ import Difficulty from './pages/Difficulty';
 import TimeAttackMode from './pages/TimeAttackMode';
 import MultiplayerMode from './pages/MultiplayerMode';
 import StoryMode from './pages/StoryMode';
+import Profile from './pages/Profile';
 import { bgmController } from './engine/BGMController';
+import { useGameStore } from './store/useGameStore';
 
 function App() {
   const location = useLocation();
+  const initializeAuthListener = useGameStore((state) => state.initializeAuthListener);
 
   useEffect(() => {
-    const menuRoutes = ['/', '/tutorial', '/settings', '/difficulty', '/leaderboards'];
+    if (initializeAuthListener) {
+      initializeAuthListener();
+    }
+  }, [initializeAuthListener]);
+
+  useEffect(() => {
+    const menuRoutes = ['/', '/tutorial', '/settings', '/difficulty', '/leaderboards', '/profile'];
     if (menuRoutes.includes(location.pathname)) {
       bgmController.play('bgm4');
     }
@@ -37,6 +46,7 @@ function App() {
           <Route path="/leaderboards" element={<Leaderboards />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/difficulty" element={<Difficulty />} />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </div>
     </div>

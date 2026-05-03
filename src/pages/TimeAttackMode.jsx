@@ -12,16 +12,18 @@ import SubstitutionInteractive from '../components/SubstitutionInteractive';
 import { selectCipherMethod, validateAnswer } from '../engine/gameLogic';
 import { bgmController } from '../engine/BGMController';
 import { useSfx } from '../hooks/useSfx';
+import { Pause } from 'lucide-react';
 
 export default function TimeAttackMode() {
   const navigate = useNavigate();
   const { settings } = useGameStore();
 
   // Timer: Grand timer starts at 60
-  const { timeLeft, start, addTime } = useTimer(60);
+  const { timeLeft, start, addTime, pause, resume } = useTimer(60);
 
   // Game/Round State
   const [gameState, setGameState] = useState('idle'); // idle, playing, game_over
+  const [isPaused, setIsPaused] = useState(false);
   const [score, setScore] = useState(0);
   const [ciphersCracked, setCiphersCracked] = useState(0);
 
@@ -137,7 +139,26 @@ export default function TimeAttackMode() {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       handleSubmit();
+    } else if (e.key === 'Escape' && gameState === 'playing') {
+      if (isPaused) {
+        handleResume();
+      } else {
+        handlePause();
+      }
     }
+  };
+
+  const handlePause = () => {
+    if (gameState !== 'playing') return;
+    playClick();
+    setIsPaused(true);
+    pause();
+  };
+
+  const handleResume = () => {
+    playClick();
+    setIsPaused(false);
+    resume();
   };
 
   // Virtual keyboard handlers
@@ -213,11 +234,37 @@ export default function TimeAttackMode() {
     );
   }
 
+  // Pause Overlay
+  if (isPaused) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center z-50 p-6 bg-black/80 backdrop-blur-md animate-[fadeIn_0.3s_ease-out]">
+        <div className="bg-[#1a1208]/95 border border-[#c9a84c] p-10 rounded shadow-[0_0_50px_rgba(0,0,0,1)] text-center max-w-md w-full relative overflow-hidden animate-[scaleIn_0.3s_ease-out]">
+          <h1 className="text-4xl text-[#e8c96a] font-['Playfair_Display'] mb-8 uppercase tracking-widest drop-shadow-[0_0_10px_rgba(201,168,76,0.5)]">Operation Paused</h1>
+
+          <div className="flex flex-col gap-5">
+            <Button onClick={handleResume} className="w-full">Continue Operation</Button>
+            <Button onClick={() => { playClick(); navigate('/settings'); }} variant="ghost" className="w-full text-[#7a6030] hover:text-[#c9a84c] border border-transparent hover:border-[#7a6030]/50">Mission Settings</Button>
+            <Button onClick={() => { playClick(); navigate('/'); }} variant="ghost" className="w-full text-[#8b1a1a] hover:text-red-400 border border-transparent hover:border-[#8b1a1a]/50">Abort to Hub</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Playing Mode
   return (
     <div className="flex flex-col h-full w-full p-6 max-w-4xl mx-auto relative z-10 transition-all">
+      {/* Fixed Top Right Pause Button */}
+      <button
+        onClick={handlePause}
+        className="fixed top-10 right-20 z-50 text-mystery-gold/70 hover:text-mystery-gold transition-colors p-4 bg-black/80 border-2 border-mystery-gold/50 hover:border-mystery-gold rounded-full shadow-[0_0_25px_rgba(0,0,0,0.9)] group backdrop-blur-md"
+        title="Pause Operation"
+      >
+        <Pause size={36} className="group-hover:scale-110 transition-transform" />
+      </button>
+
       {/* Top bar */}
-      <div className="flex justify-between items-center mb-10 w-full bg-black/40 p-4 border border-mystery-gold/30 rounded backdrop-blur-md shadow-lg shadow-black/50">
+      <div className="flex justify-between items-center mb-10 w-full bg-black/40 p-4 border border-mystery-gold/30 rounded backdrop-blur-md shadow-lg shadow-black/50 mt-4 md:mt-0">
         <Button onClick={() => navigate('/')} variant="ghost" className="text-sm">Abscind (Menu)</Button>
         <div className="text-2xl font-serif text-mystery-gold flex flex-col items-center">
           <span className="text-sm uppercase tracking-widest text-mystery-gold/70">Score</span>
