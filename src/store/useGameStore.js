@@ -58,21 +58,38 @@ export const useGameStore = create(
 
             // Load cloud save on login
             try {
-              const saveRef = doc(db, 'storyProgress', user.uid);
-              const saveSnap = await getDoc(saveRef);
-              if (saveSnap.exists()) {
-                const cloudData = saveSnap.data();
-                set({
-                  savedStoryProgress: cloudData.savedStoryProgress || null,
-                  collectedEvidence: cloudData.collectedEvidence || []
-                });
-              }
-            } catch (err) {
-              console.warn('Failed to load cloud save:', err);
+
+            // Debounce utility (module-level so it isn't recreated on every state update)
+            function debounce(func, wait) {
+              let timeout = null;
+              return (...args) => {
+                if (timeout) clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                  timeout = null;
+                  try {
+                    func(...args);
+                  } catch (e) {
+                    console.warn('Debounced function error:', e);
+                  }
+                }, wait);
+              };
             }
-          } else {
-            set({ currentUser: null });
-          }
+
+            // Debounced wrapper around syncProgressToCloud (2500ms)
+            const debouncedSync = debounce(() => useGameStore.getState().syncProgressToCloud(), 2500);
+
+            // Auto-sync story progress to cloud whenever it changes (debounced)
+            useGameStore.subscribe((state, prevState) => {
+              // Only attempt to sync if a user is currently logged in
+              if (!useGameStore.getState().currentUser) return;
+
+              if (
+                state.savedStoryProgress !== prevState.savedStoryProgress ||
+                state.collectedEvidence !== prevState.collectedEvidence
+              ) {
+                debouncedSync();
+              }
+            });
         });
       },
 
@@ -195,16 +212,35 @@ export const useGameStore = create(
 );
 
 // Auto-sync story progress to cloud whenever it changes
+// Debounce helper defined outside the store creator so it isn't recreated
+function debounce(fn, wait) {
+  let timeout = null;
+  return (...args) => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      timeout = null;
+      try {
+        fn(...args);
+      } catch (e) {
+        console.warn('Debounced function error:', e);
+      }
+    }, wait);
+  };
+}
+
+// Debounced wrapper around syncProgressToCloud (2500ms)
+const debouncedSync = debounce(() => useGameStore.getState().syncProgressToCloud(), 2500);
+
 useGameStore.subscribe(
   (state, prevState) => {
+    // Only run sync when a user is logged in
+    if (!useGameStore.getState().currentUser) return;
+
     if (
-      state.currentUser?.uid &&
-      (
-        state.savedStoryProgress !== prevState.savedStoryProgress ||
-        state.collectedEvidence !== prevState.collectedEvidence
-      )
+      state.savedStoryProgress !== prevState.savedStoryProgress ||
+      state.collectedEvidence !== prevState.collectedEvidence
     ) {
-      useGameStore.getState().syncProgressToCloud();
+      debouncedSync();
     }
   }
 );

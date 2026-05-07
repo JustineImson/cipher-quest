@@ -65,6 +65,16 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------------------
+    // leaderboards — public read for authenticated users,
+    // owner-only write (doc ID = uid).
+    // ------------------------------------------------------------------
+    match /leaderboards/{category}/entries/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    // ------------------------------------------------------------------
     // gameInvites
     // Same participant-guarded pattern as friendships.
     // ------------------------------------------------------------------

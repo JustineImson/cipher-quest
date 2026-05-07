@@ -145,7 +145,15 @@ export default class EndingScene extends Phaser.Scene {
     this.cameras.main.fadeOut(2000, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       // Show the post-game overlay via Zustand instead of transitioning to another scene
-      useGameStore.getState().setShowPostGameMenu(true);
+      // Force-flush cloud save before showing post-game menu
+      (async () => {
+        try {
+          await useGameStore.getState().syncProgressToCloud();
+        } catch (err) {
+          console.warn('Failed to sync progress at ending:', err);
+        }
+        useGameStore.getState().setShowPostGameMenu(true);
+      })();
     });
   }
 }

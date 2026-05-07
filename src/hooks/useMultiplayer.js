@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
+import fallbackPuzzles from '../data/fallbackPuzzles';
+import { selectCipherMethod } from '../engine/gameLogic';
 
 export function useMultiplayer(serverUrl = 'http://localhost:3001') {
   const socketRef = useRef(null);
@@ -18,6 +20,7 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
   const [cipherKey, setCipherKey] = useState('');
   
   const [matchResult, setMatchResult] = useState(null); // 'win', 'lose', 'draw', null
+  const roomDifficultyRef = useRef('easy');
 
   useEffect(() => {
     // Initialize socket
@@ -45,10 +48,25 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
     });
 
     socket.on('new_word_round', (data) => {
-      setCurrentWord(data.targetWord);
-      setEncryptedWord(data.encryptedWord);
-      setCipherName(data.cipherName);
-      setCipherKey(data.cipherKey);
+      // If server provides a valid round, use it. Otherwise fall back to local puzzles.
+      if (data && data.targetWord) {
+        setCurrentWord(data.targetWord);
+        setEncryptedWord(data.encryptedWord);
+        setCipherName(data.cipherName);
+        setCipherKey(data.cipherKey);
+      } else {
+        // Local fallback — pick a puzzle matching the chosen room difficulty (if any)
+        const diff = roomDifficultyRef.current || 'easy';
+        const pool = fallbackPuzzles[diff] || fallbackPuzzles.easy;
+        const puzzle = pool[Math.floor(Math.random() * pool.length)];
+        const cipher = selectCipherMethod(diff);
+        const plaintext = puzzle.plaintext;
+        const encrypted = cipher.applyCipher(plaintext);
+        setCurrentWord(plaintext);
+        setEncryptedWord(encrypted);
+        setCipherName(cipher.name);
+        setCipherKey(cipher.key);
+      }
     });
 
     socket.on('opponent_score_update', (data) => {
@@ -88,6 +106,7 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
 
   // Actions
   const createRoom = (difficulty) => {
+    roomDifficultyRef.current = difficulty || 'easy';
     socketRef.current.emit('create_room', { difficulty });
   };
 
@@ -99,7 +118,21 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
 
   const startGame = () => {
     if (isHost && roomCode) {
-      socketRef.current.emit('start_game', { roomCode });
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit('start_game', { roomCode });
+      } else {
+        // If server not connected, allow local-only play using fallback puzzles
+        setMultiplayerState('playing');
+        setOpponentScore(0);
+        const diff = roomDifficultyRef.current || 'easy';
+        const pool = fallbackPuzzles[diff] || fallbackPuzzles.easy;
+        const puzzle = pool[Math.floor(Math.random() * pool.length)];
+        const cipher = selectCipherMethod(diff);
+        setCurrentWord(puzzle.plaintext);
+        setEncryptedWord(cipher.applyCipher(puzzle.plaintext));
+        setCipherName(cipher.name);
+        setCipherKey(cipher.key);
+      }
     }
   };
 
@@ -110,9 +143,20 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
   };
 
   const nextRound = () => {
-    if (roomCode) {
+    if (socketRef.current && socketRef.current.connected && roomCode) {
       socketRef.current.emit('next_round', { roomCode });
+      return;
     }
+
+    // Local fallback round when server isn't available
+    const diff = roomDifficultyRef.current || 'easy';
+    const pool = fallbackPuzzles[diff] || fallbackPuzzles.easy;
+    const puzzle = pool[Math.floor(Math.random() * pool.length)];
+    const cipher = selectCipherMethod(diff);
+    setCurrentWord(puzzle.plaintext);
+    setEncryptedWord(cipher.applyCipher(puzzle.plaintext));
+    setCipherName(cipher.name);
+    setCipherKey(cipher.key);
   };
   
   const emitTimeout = () => {

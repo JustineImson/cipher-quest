@@ -1,44 +1,16 @@
 import { httpsCallable } from "firebase/functions";
 import { functions } from "./firebase";
-
-// Offline fallback word banks used when the Cloud Function is unreachable
-const FALLBACK_WORDS = {
-  easy: [
-    "MYSTERY", "CIPHER", "SHADOW", "AGENT", "CLUE", "AGENDA", "CRIME", "PROOF",
-    "ALIBI", "FALSE", "TRUTH", "VAULT", "GRACE", "BLOOD", "SCENE", "TRAIT",
-  ],
-  moderate: [
-    "BLACKMAIL", "CONSPIRE", "FRAUDSTER", "INTRIGUE", "SABOTAGE", "ABDUCTION",
-    "POISONER", "TREACHERY", "VILLAINY", "CRIMINAL", "BETRAYAL", "EVIDENCE",
-    "SHERLOCK", "FORENSIC", "HOMICIDE", "DEDUCTION",
-  ],
-  hard: [
-    "ASSASSINATION", "EXTORTIONIST", "MANIPULATION", "PERJURY",
-    "CONSPIRATOR", "SWINDLER", "TREASONOUS", "MASTERY",
-    "INTIMIDATION", "INCINERATION", "EXTRACTION", "SUBVERSION",
-  ],
-};
+import fallbackPuzzles from "../data/fallbackPuzzles";
 
 function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function generateLocalPuzzle(difficulty) {
+function getRandomFallback(difficulty) {
   const diff = (difficulty || "easy").toLowerCase();
-  const pool =
-    diff === "easy"
-      ? FALLBACK_WORDS.easy
-      : diff === "moderate" || diff === "medium"
-        ? FALLBACK_WORDS.moderate
-        : FALLBACK_WORDS.hard;
-
-  const word = pickRandom(pool);
-  const keys = ["KEY", "CAT", "MAP", "RUN", "HAT", "SUN", "BOX", "TOP"];
-  return {
-    plaintext: word,
-    key: pickRandom(keys),
-    clue: `Fallback clue: look closely at the letters.`,
-  };
+  if (diff === "easy") return pickRandom(fallbackPuzzles.easy);
+  if (diff === "moderate" || diff === "medium") return pickRandom(fallbackPuzzles.moderate);
+  return pickRandom(fallbackPuzzles.hard);
 }
 
 export async function generatePuzzleDetails(difficulty, theme) {
@@ -47,14 +19,43 @@ export async function generatePuzzleDetails(difficulty, theme) {
     generateCipherClue = httpsCallable(functions, "generateCipherClue");
   } catch (setupError) {
     console.error("Firebase Functions not available:", setupError);
-    return generateLocalPuzzle(difficulty);
+    console.warn('AI generation failed, using fallback puzzle');
+    return getRandomFallback(difficulty);
   }
 
   try {
     const result = await generateCipherClue({ difficulty, theme: theme || "general" });
-    return result.data;
+
+    let payload = result && result.data ? result.data : null;
+
+    // If the cloud function returned a JSON string, try to parse it safely
+    if (typeof payload === 'string') {
+      try {
+        payload = JSON.parse(payload);
+      } catch (parseErr) {
+        throw new Error('Failed to parse AI response JSON');
+      }
+    }
+
+    // Validate the expected fields are present and non-empty strings
+    // plaintext must be a single word (no spaces)
+    const validString = (v, singleWord = false) => {
+      if (typeof v !== 'string') return false;
+      if (v.trim().length === 0) return false;
+      if (singleWord && /\s/.test(v)) return false;
+      return true;
+    };
+    if (!payload || !validString(payload.plaintext, true) || !validString(payload.key) || !validString(payload.clue)) {
+      throw new Error('AI response missing required fields');
+    }
+
+    return {
+      plaintext: payload.plaintext,
+      key: payload.key,
+      clue: payload.clue,
+    };
   } catch (error) {
-    console.error("Cloud Function unavailable, using local fallback:", error);
-    return generateLocalPuzzle(difficulty);
+    console.warn('AI generation failed, using fallback puzzle', error);
+    return getRandomFallback(difficulty);
   }
 }

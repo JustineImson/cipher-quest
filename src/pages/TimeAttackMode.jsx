@@ -144,11 +144,11 @@ function TimeAttackMode() {
       submitTimeAttackScore(
         currentUser.uid,
         currentUser.username || currentUser.email || 'Anonymous',
-        ciphersCracked,
+        score,
         currentDifficulty
       );
     }
-  }, [gameState, currentUser, ciphersCracked, currentDifficulty]);
+  }, [gameState, currentUser, score, currentDifficulty]);
 
   // Handle Submission
   const handleSubmit = useCallback((e) => {

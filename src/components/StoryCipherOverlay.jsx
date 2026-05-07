@@ -7,6 +7,7 @@ import Button from './ui/Button';
 import { validateAnswer } from '../engine/gameLogic';
 import { bgmController } from '../engine/BGMController';
 import { useGameStore } from '../store/useGameStore';
+import { suspectEvidence } from '../data/StoryEvidence';
 
 export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
   const { unlockNextEvidence } = useGameStore();
@@ -27,7 +28,7 @@ export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
     };
   }, []);
 
-  const handleInteractiveComplete = (answer) => {
+  const handleInteractiveComplete = async (answer) => {
     if (isClosing) return;
 
     // Use our global validateAnswer or a simple string compare
@@ -39,6 +40,15 @@ export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
     if (isCorrect) {
       setFeedback('correct');
       unlockNextEvidence();
+      // If this unlocked the final evidence, force-flush the sync immediately
+      try {
+        const currentCount = useGameStore.getState().collectedEvidence?.length || 0;
+        if (currentCount >= suspectEvidence.length) {
+          await useGameStore.getState().syncProgressToCloud();
+        }
+      } catch (err) {
+        console.warn('Failed to force sync after final evidence:', err);
+      }
       setIsClosing(true);
       
       // Attempt to play success sound if it exists
