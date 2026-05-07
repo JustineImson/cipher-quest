@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ------------------------------------------------------------------
+    // users
+    // Owner has full read/write control. Authenticated users can read
+    // any profile (required for friend-code lookups). Write access is
+    // strictly limited to the owner's own document.
+    // NOTE: Firestore rules cannot restrict which fields are returned on
+    // read. If stricter field-level privacy is needed, migrate public
+    // fields (username, friendCode) into a separate publicProfiles
+    // collection and lock users down to owner-only reads.
+    // ------------------------------------------------------------------
+    match /users/{userId} {
+      allow read:   if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+
+    // ------------------------------------------------------------------
+    // storyProgress — owner-only access
+    // ------------------------------------------------------------------
+    match /storyProgress/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ------------------------------------------------------------------
+    // friendships
+    // Single-doc reads restricted to participants. List queries are
+    // permitted for any authenticated user because Firestore rules
+    // cannot inspect where-clause values; the client query itself
+    // filters the result set.
+    // ------------------------------------------------------------------
+    match /friendships/{friendshipId} {
+      allow get: if isAuthenticated() &&
+        (resource.data.senderId == request.auth.uid ||
+         resource.data.receiverId == request.auth.uid);
+
+      allow list: if isAuthenticated();
+
+      // Only the sender may create a pending request.
+      allow create: if isAuthenticated() &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.receiverId != request.auth.uid &&
+        request.resource.data.status == 'pending';
+
+      // Only the receiver may accept a pending request.
+      // senderId and receiverId must remain immutable.
+      allow update: if isAuthenticated() &&
+        resource.data.receiverId == request.auth.uid &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status == 'accepted' &&
+        resource.data.senderId == request.resource.data.senderId &&
+        resource.data.receiverId == request.resource.data.receiverId;
+    }
+
+    // ------------------------------------------------------------------
+    // gameInvites
+    // Same participant-guarded pattern as friendships.
+    // ------------------------------------------------------------------
+    match /gameInvites/{inviteId} {
+      allow get: if isAuthenticated() &&
+        (resource.data.senderId == request.auth.uid ||
+         resource.data.receiverId == request.auth.uid);
+
+      allow list: if isAuthenticated();
+
+      // Only the sender may create a pending invite.
+      allow create: if isAuthenticated() &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.receiverId != request.auth.uid &&
+        request.resource.data.status == 'pending';
+
+      // Only the receiver may resolve an invite.
+      // senderId, receiverId, and roomCode must remain unchanged.
+      allow update: if isAuthenticated() &&
+        resource.data.receiverId == request.auth.uid &&
+        resource.data.status == 'pending' &&
+        (request.resource.data.status == 'accepted' ||
+         request.resource.data.status == 'declined') &&
+        resource.data.senderId == request.resource.data.senderId &&
+        resource.data.receiverId == request.resource.data.receiverId &&
+        resource.data.roomCode == request.resource.data.roomCode;
+
+      // Either participant may delete an invite.
+      allow delete: if isAuthenticated() &&
+        (resource.data.senderId == request.auth.uid ||
+         resource.data.receiverId == request.auth.uid);
+    }
+  }
+}

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
-import { sendFriendRequest, listenToPendingRequests, acceptFriendRequest, listenToFriendsList } from '../services/socialService';
+import { sendFriendRequest, listenToPendingRequests, acceptFriendRequest, listenToFriendsList, sendGameInvite, listenToIncomingGameInvites, resolveGameInvite } from '../services/socialService';
 import { useSfx } from '../hooks/useSfx';
-import { Check, Users, Mail, UserPlus, AlertCircle } from 'lucide-react';
+import { Check, Users, Mail, UserPlus, AlertCircle, Swords, X } from 'lucide-react';
 
-export default function SocialOverlay() {
+export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvite = () => {} }) {
   const { currentUser } = useGameStore();
   const { playClick, playKeyTap } = useSfx();
 
@@ -15,6 +15,7 @@ export default function SocialOverlay() {
 
   const [pendingRequests, setPendingRequests] = useState([]);
   const [friends, setFriends] = useState([]);
+  const [incomingGameInvites, setIncomingGameInvites] = useState([]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -28,9 +29,14 @@ export default function SocialOverlay() {
       setFriends(friendList);
     });
 
+    const unsubInvites = listenToIncomingGameInvites(currentUser.uid, (invites) => {
+      setIncomingGameInvites(invites);
+    });
+
     return () => {
       unsubPending();
       unsubFriends();
+      unsubInvites();
     };
   }, [currentUser]);
 
@@ -75,6 +81,16 @@ export default function SocialOverlay() {
       await acceptFriendRequest(docId);
     } catch (err) {
       console.error('Failed to accept request:', err);
+    }
+  };
+
+  const handleSendGameInvite = async (friendUid) => {
+    playClick();
+    if (!activeRoomCode) return;
+    try {
+      await sendGameInvite(currentUser.uid, friendUid, activeRoomCode);
+    } catch (err) {
+      console.error('Failed to send game invite:', err);
     }
   };
 
@@ -130,6 +146,49 @@ export default function SocialOverlay() {
         </div>
       </div>
 
+      {/* Game Invites */}
+      {incomingGameInvites.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-xs text-[#5a9e6f] tracking-[0.2em] uppercase mb-3 flex items-center gap-2">
+            <Swords size={14}/> Incoming Duels 
+            <span className="bg-[#5a9e6f] text-white text-[10px] px-1.5 py-0.5 rounded-full shadow-[0_0_5px_#5a9e6f]">{incomingGameInvites.length}</span>
+          </h3>
+          
+          <div className="flex flex-col gap-3">
+            {incomingGameInvites.map((invite) => (
+              <div key={invite.id} className="bg-[#0a1a0f]/50 border border-[#5a9e6f]/30 p-3 flex flex-col gap-2 relative overflow-hidden animate-pulse">
+                <div className="absolute top-0 left-0 w-1 h-full bg-[#5a9e6f]"></div>
+                <div className="pl-2">
+                  <p className="text-sm text-[#e8c96a] font-['Playfair_Display'] truncate">{invite.senderUsername} challenges you</p>
+                  <p className="text-[9px] text-[#5a9e6f] tracking-widest font-mono">ROOM: {invite.roomCode}</p>
+                </div>
+                <div className="flex gap-2 mt-1">
+                  <button 
+                    onClick={() => {
+                       playClick();
+                       resolveGameInvite(invite.id, 'accepted');
+                       onAcceptGameInvite(invite.roomCode);
+                    }}
+                    className="flex-1 py-1.5 bg-[#0a1a0f]/80 border border-[#5a9e6f]/40 text-[#5a9e6f] text-[10px] tracking-widest uppercase hover:bg-[#5a9e6f] hover:text-[#0e0a04] transition-all flex justify-center items-center gap-1"
+                  >
+                    <Check size={10}/> Accept
+                  </button>
+                  <button 
+                    onClick={() => {
+                       playClick();
+                       resolveGameInvite(invite.id, 'declined');
+                    }}
+                    className="flex-1 py-1.5 bg-[#1a0f0f]/80 border border-[#8b1a1a]/40 text-[#8b1a1a] text-[10px] tracking-widest uppercase hover:bg-[#8b1a1a] hover:text-[#0e0a04] transition-all flex justify-center items-center gap-1"
+                  >
+                    <X size={10}/> Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Pending Wires */}
       <div className="mb-8">
         <h3 className="text-xs text-[#c9a84c] tracking-[0.2em] uppercase mb-3 flex items-center gap-2">
@@ -170,12 +229,22 @@ export default function SocialOverlay() {
           ) : (
             friends.map((friend) => (
               <div key={friend.id} className="bg-[#1a1208] border border-[#7a6030]/20 p-3 flex items-center justify-between hover:bg-[#2a1e0e] transition-colors group">
-                <div className="flex flex-col max-w-[70%]">
+                <div className="flex flex-col max-w-[55%]">
                   <span className="text-sm text-[#e8c96a] font-['Playfair_Display'] group-hover:text-[#fff] transition-colors truncate">{friend.username}</span>
                   <span className="text-[9px] text-[#7a6030] tracking-widest font-mono">{friend.friendCode}</span>
                 </div>
-                {/* Status indicator (green dot) */}
-                <div className="w-2 h-2 rounded-full bg-[#5a9e6f] shadow-[0_0_5px_#5a9e6f]"></div>
+                <div className="flex items-center gap-2">
+                  {activeRoomCode && (
+                     <button
+                       onClick={() => handleSendGameInvite(friend.friendUid)}
+                       className="text-[9px] bg-[#c9a84c]/10 text-[#c9a84c] border border-[#c9a84c]/30 px-2 py-1 hover:bg-[#c9a84c] hover:text-[#0e0a04] transition-all uppercase tracking-widest"
+                     >
+                       Invite
+                     </button>
+                  )}
+                  {/* Status indicator (green dot) */}
+                  <div className="w-2 h-2 rounded-full bg-[#5a9e6f] shadow-[0_0_5px_#5a9e6f]"></div>
+                </div>
               </div>
             ))
           )}

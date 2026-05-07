@@ -87,6 +87,7 @@ export default class DialogueController {
     playDialogue(spriteKey, speakerName, fullText, onCompleteCallback) {
         this.container.setVisible(true);
         this.onCompleteCallback = onCompleteCallback;
+        this.currentFullText = fullText;
 
         this.nameText.setText(speakerName);
         this.dialogueText.setText(''); // Clear previous text
@@ -105,6 +106,17 @@ export default class DialogueController {
         // Clear any existing typing timers
         if (this.typingTimer) this.typingTimer.remove();
 
+        // Remove any previous skip listener
+        this.scene.input.off('pointerdown', this._skipTypingHandler, this);
+
+        // Create a skip handler that finishes typing on click
+        this._skipTypingHandler = () => {
+            if (this.isTyping) {
+                this.completeTyping();
+            }
+        };
+        this.scene.input.on('pointerdown', this._skipTypingHandler, this);
+
         this.typingTimer = this.scene.time.addEvent({
             delay: 30, // Speed of typing (30ms per character)
             repeat: fullText.length - 1,
@@ -115,6 +127,9 @@ export default class DialogueController {
                 // If we reached the end of the text
                 if (currentChar === fullText.length) {
                     this.isTyping = false;
+                    // Remove the skip listener since typing is done
+                    this.scene.input.off('pointerdown', this._skipTypingHandler, this);
+
                     // Wait a moment, then allow the next line to be clicked
                     this.scene.time.delayedCall(500, () => {
                         // Attach a temporary click listener to advance the dialogue
@@ -132,8 +147,21 @@ export default class DialogueController {
             this.typingTimer.remove();
         }
         this.isTyping = false;
-        // The text is already being built character by character.
-        // If we want instant completion, we'd need to set the full text here.
+
+        // Remove the skip listener
+        this.scene.input.off('pointerdown', this._skipTypingHandler, this);
+
+        // Show the full text instantly
+        if (this.currentFullText) {
+            this.dialogueText.setText(this.currentFullText);
+        }
+
+        // Wait a moment, then allow click to advance
+        this.scene.time.delayedCall(500, () => {
+            this.scene.input.once('pointerdown', () => {
+                if (this.onCompleteCallback) this.onCompleteCallback();
+            });
+        });
     }
 
     hide() {

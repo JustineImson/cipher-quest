@@ -12,10 +12,11 @@ import {
  * @returns {object} { name: string, applyCipher: function }
  */
 export function selectCipherMethod(difficulty = 'easy') {
-  const normDifficulty = difficulty.toLowerCase();
+  const normDifficulty = (difficulty || 'easy').toLowerCase().trim();
+  const effectiveDifficulty = normDifficulty === 'moderate' ? 'medium' : normDifficulty;
   let choices = [];
 
-  if (normDifficulty === 'easy') {
+  if (effectiveDifficulty === 'easy') {
     const shift = Math.floor(Math.random() * 25) + 1;
     choices = [
       { name: 'Caesar Shift', key: `Shift: ${shift}`, applyCipher: (text) => caesarCipher(text, shift) },
@@ -28,7 +29,7 @@ export function selectCipherMethod(difficulty = 'easy') {
       { name: 'Vigenere', key: 'Keyword: KEY', applyCipher: (text) => vigenereCipher(text, 'KEY') },
       { name: 'Vigenere Encrypt', key: 'Keyword: FUN', applyCipher: (text) => vigenereCipher(text, 'FUN'), isEncryptionMode: true }
     ];
-  } else if (normDifficulty === 'medium') {
+  } else if (effectiveDifficulty === 'medium') {
     choices = [
       { name: 'Substitution', key: 'Keyword: SECRET', applyCipher: (text) => substitutionCipher(text, 'SECRET') },
       { name: 'Substitution Encrypt', key: 'Keyword: PUZZLE', applyCipher: (text) => substitutionCipher(text, 'PUZZLE'), isEncryptionMode: true },
@@ -39,7 +40,7 @@ export function selectCipherMethod(difficulty = 'easy') {
       { name: 'Vigenere', key: 'Keyword: CODE', applyCipher: (text) => vigenereCipher(text, 'CODE') },
       { name: 'Vigenere Encrypt', key: 'Keyword: HIDE', applyCipher: (text) => vigenereCipher(text, 'HIDE'), isEncryptionMode: true }
     ];
-  } else if (normDifficulty === 'hard') {
+  } else if (effectiveDifficulty === 'hard') {
     choices = [
       { name: 'Substitution', key: 'Keyword: OBFUSCATE', applyCipher: (text) => substitutionCipher(text, 'OBFUSCATE') },
       { name: 'Substitution Encrypt', key: 'Keyword: ENCRYPT', applyCipher: (text) => substitutionCipher(text, 'ENCRYPT'), isEncryptionMode: true },

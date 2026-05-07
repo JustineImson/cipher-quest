@@ -5,13 +5,23 @@ import MainScene from '../game/MainScene';
 import OfficeScene from '../game/OfficeScene';
 import LocationScene from '../game/LocationScene';
 import DeductionBoardScene from '../game/DeductionBoardScene';
+import IntroScene from '../game/IntroScene';
+import EndingScene from '../game/EndingScene';
 import StoryCipherOverlay from './StoryCipherOverlay';
 import PauseOverlay from './PauseOverlay';
+import DeductionBoardOverlay from './ui/DeductionBoardOverlay';
+import PostGameOverlay from './ui/PostGameOverlay';
+import { useGameStore } from '../store/useGameStore';
+import { useSfx } from '../hooks/useSfx';
 
 export default function PhaserGame({ difficulty, startScene }) {
   const gameRef = useRef(null);
+  const gameInstanceRef = useRef(null);
   const [activeCipherData, setActiveCipherData] = useState(null);
   const navigate = useNavigate();
+  const { unlockNextEvidence, collectedEvidence, toggleDeductionBoard } = useGameStore();
+  const { playClick } = useSfx();
+  const [devModeVisible, setDevModeVisible] = useState(false);
 
   // Listen for the custom event to return to main menu
   useEffect(() => {
@@ -33,9 +43,14 @@ export default function PhaserGame({ difficulty, startScene }) {
   }, []);
 
   useEffect(() => {
-    const sceneArray = startScene === 'MainScene' 
-      ? [MainScene, OfficeScene, LocationScene, DeductionBoardScene] 
-      : [OfficeScene, MainScene, LocationScene, DeductionBoardScene];
+    let sceneArray = [];
+    if (startScene === 'IntroScene') {
+      sceneArray = [IntroScene, MainScene, OfficeScene, LocationScene, DeductionBoardScene, EndingScene];
+    } else if (startScene === 'MainScene') {
+      sceneArray = [MainScene, OfficeScene, LocationScene, DeductionBoardScene, IntroScene, EndingScene];
+    } else {
+      sceneArray = [OfficeScene, MainScene, LocationScene, DeductionBoardScene, IntroScene, EndingScene];
+    }
 
     const config = {
       type: Phaser.AUTO,
@@ -56,6 +71,17 @@ export default function PhaserGame({ difficulty, startScene }) {
     };
 
     const game = new Phaser.Game(config);
+    gameInstanceRef.current = game;
+
+    // Listen for restart event from PostGameOverlay
+    const handleRestart = () => {
+      if (game) {
+        // Stop all running scenes and restart to IntroScene
+        game.scene.getScenes(true).forEach((s) => game.scene.stop(s.scene.key));
+        game.scene.start('IntroScene');
+      }
+    };
+    window.addEventListener('restartToIntro', handleRestart);
 
     const handleResize = () => {
       if (gameRef.current && game) {
@@ -69,8 +95,10 @@ export default function PhaserGame({ difficulty, startScene }) {
     }
 
     return () => {
+      window.removeEventListener('restartToIntro', handleRestart);
       resizeObserver.disconnect();
       game.destroy(true);
+      gameInstanceRef.current = null;
     };
   }, []);
 
@@ -96,6 +124,48 @@ export default function PhaserGame({ difficulty, startScene }) {
         />
       )}
       <PauseOverlay />
+      <DeductionBoardOverlay />
+      <PostGameOverlay />
+
+      {/* DevMode Panel for Story Mode */}
+      <div className="absolute bottom-4 right-4 flex flex-col items-end z-[200]">
+        <button
+          onClick={() => { playClick(); setDevModeVisible(!devModeVisible); }}
+          className="text-xs text-[#c9a84c]/30 hover:text-[#c9a84c]/80 transition-colors mb-2 font-mono drop-shadow-[0_0_2px_rgba(0,0,0,1)] bg-black/50 px-2 py-1 rounded"
+        >
+          {devModeVisible ? '[HIDE_DEV]' : '[DEV_TOOLS]'}
+        </button>
+
+        {devModeVisible && (
+          <div className="bg-black/90 border border-red-900/50 p-4 rounded text-xs flex flex-col gap-3 shadow-2xl backdrop-blur-md w-56 transition-all font-mono">
+            <span className="text-red-500 font-bold uppercase tracking-widest border-b border-red-900/50 pb-2 text-center text-[10px]">Story Developer</span>
+            
+            <button
+              onClick={() => { 
+                playClick(); 
+                unlockNextEvidence();
+                unlockNextEvidence();
+                unlockNextEvidence();
+                unlockNextEvidence();
+              }}
+              className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1.5 rounded transition-colors border border-red-900/30"
+            >
+              Unlock All Evidence
+            </button>
+            <button
+              onClick={() => { playClick(); window.dispatchEvent(new Event('forceDeductionScene')); }}
+              className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1.5 rounded transition-colors border border-red-900/30"
+            >
+              Force Open Board
+            </button>
+            
+            <div className="py-2 border-t border-red-900/50 text-center mt-1">
+              <span className="text-red-500/50 text-[10px] block mb-1">EVIDENCE COUNT:</span>
+              <span className="text-white font-bold tracking-widest">{collectedEvidence?.length || 0}/4</span>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

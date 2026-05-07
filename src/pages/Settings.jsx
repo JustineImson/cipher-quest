@@ -103,17 +103,25 @@ export default function Settings() {
           display: flex;
           align-items: center;
           gap: 8px;
-          background: none;
-          border: none;
+          background: rgba(30, 18, 8, 0.9);
+          border: 1px solid rgba(122, 92, 46, 0.5);
           color: var(--gold-dim);
           font-size: 11px;
           letter-spacing: 0.25em;
           text-transform: uppercase;
           cursor: pointer;
+          padding: 8px 16px;
+          border-radius: 4px;
+          transition: all 0.3s;
           margin-bottom: 24px;
-          transition: color 0.2s;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        .st-back:hover { color: var(--gold-light); }
+        .st-back:hover { 
+          color: var(--gold-light);
+          background: rgba(42, 26, 12, 1);
+          border-color: var(--gold);
+          box-shadow: 0 0 15px rgba(203,161,83,0.4);
+        }
 
         .st-eyebrow {
           font-size: 11px;

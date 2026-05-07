@@ -156,3 +156,68 @@ export const listenToFriendsList = (currentUid, callback) => {
     unsub2();
   };
 };
+
+/**
+ * Sends a game invite to a verified friend.
+ */
+export const sendGameInvite = async (senderUid, receiverUid, roomCode) => {
+  const invitesRef = collection(db, 'gameInvites');
+  
+  // Check if there is already a pending invite for this room
+  const check = query(invitesRef, 
+    where('senderId', '==', senderUid), 
+    where('receiverId', '==', receiverUid),
+    where('status', '==', 'pending')
+  );
+  const snap = await getDocs(check);
+  if (!snap.empty) {
+    throw new Error('An invite is already pending for this contact.');
+  }
+
+  await addDoc(invitesRef, {
+    senderId: senderUid,
+    receiverId: receiverUid,
+    roomCode,
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  });
+};
+
+/**
+ * Listens to incoming game invites for the current user.
+ */
+export const listenToIncomingGameInvites = (currentUid, callback) => {
+  const q = query(
+    collection(db, 'gameInvites'),
+    where('receiverId', '==', currentUid),
+    where('status', '==', 'pending')
+  );
+
+  return onSnapshot(q, async (snapshot) => {
+    const invitesPromises = snapshot.docs.map(async (docSnap) => {
+      const data = docSnap.data();
+      const senderData = await fetchUserData(data.senderId);
+      return {
+        id: docSnap.id,
+        ...data,
+        senderUsername: senderData.username,
+        senderFriendCode: senderData.friendCode
+      };
+    });
+
+    const invites = await Promise.all(invitesPromises);
+    callback(invites);
+  });
+};
+
+/**
+ * Resolves a game invite (accepted or declined).
+ */
+export const resolveGameInvite = async (inviteId, status) => {
+  const docRef = doc(db, 'gameInvites', inviteId);
+  await updateDoc(docRef, { 
+    status,
+    resolvedAt: new Date().toISOString()
+  });
+};
+

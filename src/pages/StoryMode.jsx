@@ -31,7 +31,7 @@ const DifficultyMenu = ({ setDifficulty }) => (
 export default function StoryMode() {
   const location = useLocation();
   const [difficulty, setDifficulty] = useState(location.state?.difficulty || null);
-  const startScene = location.state?.startScene || 'OfficeScene';
+  const startScene = location.state?.startScene || 'IntroScene';
 
   return <>{difficulty ? <PhaserGame difficulty={difficulty} startScene={startScene} /> : <DifficultyMenu setDifficulty={setDifficulty} />}</>;
 }

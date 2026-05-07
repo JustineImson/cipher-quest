@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, LogOut } from 'lucide-react';
 import { useSfx } from '../hooks/useSfx';
+import Button from '../components/ui/Button';
 import { useGameStore } from '../store/useGameStore';
 import { logoutUser } from '../services/authService';
 
@@ -29,12 +30,12 @@ export default function Profile() {
       <div className="flex flex-col items-center justify-center w-full h-full bg-[#1a1208] text-[#8b1a1a] font-['Special_Elite']">
         <div className="absolute inset-0 bg-[url('/mainMenuBg.png')] bg-cover bg-center z-0 opacity-20" />
         <p className="z-10 text-2xl tracking-widest uppercase animate-pulse">Access Denied / Loading Profile...</p>
-        <button 
+        <Button 
           onClick={handleBack}
-          className="mt-8 z-10 text-[#c9a84c] border border-[#7a6030] px-6 py-2 hover:bg-[#c9a84c]/10 transition-colors"
+          className="mt-8 z-10 !text-xs !py-2 !px-6"
         >
           Return
-        </button>
+        </Button>
       </div>
     );
   }
@@ -48,15 +49,13 @@ export default function Profile() {
 
       {/* Top Bar Navigation */}
       <div className="relative z-30 flex items-center justify-between px-8 py-6 border-b border-[#7a6030]/30 bg-[#0a0703]/60 backdrop-blur-sm">
-        <button
+        <Button
           onClick={handleBack}
-          className="flex items-center gap-3 text-[#c9a84c] hover:text-[#e8c96a] transition-colors group"
+          className="!text-xs !py-2 !px-4"
         >
-          <div className="p-2 border border-[#7a6030]/50 rounded group-hover:border-[#c9a84c] transition-colors">
-            <ArrowLeft size={18} />
-          </div>
-          <span className="tracking-[0.2em] text-sm uppercase">Return to Menu</span>
-        </button>
+          <ArrowLeft size={14} />
+          Return to Menu
+        </Button>
 
         <div className="flex flex-col items-end">
           <h2 className="font-['Playfair_Display'] text-2xl text-[#e8c96a] tracking-widest font-bold">AGENT PROFILE</h2>

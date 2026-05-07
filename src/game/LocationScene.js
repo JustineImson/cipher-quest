@@ -198,6 +198,19 @@ export default class LocationScene extends Phaser.Scene {
                 });
             }
         }
+
+        const handleForceDeduction = () => {
+            if (this.scene.isActive('LocationScene')) {
+                this.cameras.main.fadeOut(500, 0, 0, 0);
+                this.cameras.main.once('camerafadeoutcomplete', () => {
+                    this.scene.start('DeductionBoardScene');
+                });
+            }
+        };
+        window.addEventListener('forceDeductionScene', handleForceDeduction);
+        this.events.on('shutdown', () => {
+            window.removeEventListener('forceDeductionScene', handleForceDeduction);
+        });
     }
 
     placeEvidence(width, height) {

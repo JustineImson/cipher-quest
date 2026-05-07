@@ -14,10 +14,12 @@ import { bgmController } from '../engine/BGMController';
 import { ArrowLeft, Users, Zap, ShieldAlert, Key } from 'lucide-react';
 import { useSfx } from '../hooks/useSfx';
 import SocialOverlay from '../components/SocialOverlay';
+import DifficultySplash from '../components/ui/DifficultySplash';
+import { submitMultiplayerResult } from '../services/leaderboardService';
 
 export default function MultiplayerMode() {
   const navigate = useNavigate();
-  const { settings } = useGameStore();
+  const { settings, incrementPuzzlesSolved, resetProgression, currentUser } = useGameStore();
 
   const {
     multiplayerState, roomCode, isHost, playersCount, opponentScore,
@@ -32,6 +34,7 @@ export default function MultiplayerMode() {
 
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const inputRef = useRef(null);
+  const hasSubmittedRef = useRef(false);
   const { playClick } = useSfx();
 
   // Timer: 60s cap for the match
@@ -46,10 +49,26 @@ export default function MultiplayerMode() {
     }
   }, [timeLeft, multiplayerState]);
 
+  // Submit multiplayer result to leaderboard when match finishes
+  useEffect(() => {
+    if (multiplayerState === 'finished' && !hasSubmittedRef.current && currentUser?.uid) {
+      hasSubmittedRef.current = true;
+      const wins = matchResult === 'win' ? 1 : 0;
+      const losses = matchResult === 'lose' ? 1 : 0;
+      submitMultiplayerResult(
+        currentUser.uid,
+        currentUser.username || currentUser.email || 'Anonymous',
+        wins,
+        losses
+      );
+    }
+  }, [multiplayerState, matchResult, currentUser]);
+
   // When game starts
   useEffect(() => {
     bgmController.play('bgm1');
     if (multiplayerState === 'playing') {
+      resetProgression();
       setScore(0);
       setUserInput('');
       setFeedback(null);
@@ -75,9 +94,13 @@ export default function MultiplayerMode() {
     const isCorrect = sanitize(userInput) === sanitize(targetWord);
 
     if (isCorrect) {
-      const newScore = score + 100;
+      // Points based on difficulty: Easy=100, Moderate=250, Hard=600
+      const currentDiff = useGameStore.getState().currentDifficulty.toLowerCase();
+      const pointsEarned = currentDiff === 'easy' ? 100 : currentDiff === 'moderate' ? 250 : 600;
+      const newScore = score + pointsEarned;
       setScore(newScore);
-      submitScore(newScore); // Broadcast score and check for 500 milestone
+      submitScore(newScore);
+      incrementPuzzlesSolved();
 
       setFeedback('correct');
       setTimeout(() => {
@@ -141,9 +164,13 @@ export default function MultiplayerMode() {
     const isCorrect = sanitize(answer) === sanitize(targetWord);
 
     if (isCorrect) {
-      const newScore = score + 100;
+      // Points based on difficulty: Easy=100, Moderate=250, Hard=600
+      const currentDiff = useGameStore.getState().currentDifficulty.toLowerCase();
+      const pointsEarned = currentDiff === 'easy' ? 100 : currentDiff === 'moderate' ? 250 : 600;
+      const newScore = score + pointsEarned;
       setScore(newScore);
       submitScore(newScore);
+      incrementPuzzlesSolved();
 
       setFeedback('correct');
       setTimeout(() => {
@@ -209,9 +236,9 @@ export default function MultiplayerMode() {
         </div>
       </div>
 
-      <button onClick={() => { playClick(); navigate('/'); }} className="mt-12 flex items-center gap-2 text-[var(--gold-dim)] hover:text-[var(--gold-light)] transition-colors uppercase tracking-[0.2em] text-[11px] font-mono">
-        <ArrowLeft size={12} /> Disconnect & Return
-      </button>
+      <Button onClick={() => { playClick(); navigate('/'); }} className="mt-12 !text-[11px] !py-2 !px-4">
+        <ArrowLeft size={14} /> Disconnect & Return
+      </Button>
     </div>
   );
 
@@ -246,9 +273,9 @@ export default function MultiplayerMode() {
           </div>
         )}
       </div>
-      <button onClick={() => { playClick(); resetLobby(); navigate('/'); }} className="mt-8 text-[var(--gold-dim)] hover:text-[var(--gold-light)] transition-colors uppercase tracking-[0.2em] text-[10px] font-mono border-b border-transparent hover:border-[var(--gold-dim)] pb-1">
+      <Button onClick={() => { playClick(); resetLobby(); navigate('/'); }} className="mt-8 !text-[10px] !py-2 !px-4">
         Abort Mission
-      </button>
+      </Button>
     </div>
   );
 
@@ -464,6 +491,7 @@ export default function MultiplayerMode() {
       `}</style>
 
       <div className="mp-root">
+        <DifficultySplash />
         <div className="mp-bg" />
         <div className="mp-scrim" />
         <div className="mp-bloom" />
@@ -477,7 +505,10 @@ export default function MultiplayerMode() {
         </div>
 
         <div className="h-full relative z-20 shrink-0">
-          <SocialOverlay />
+          <SocialOverlay 
+             activeRoomCode={isHost && multiplayerState === 'waiting' ? roomCode : null}
+             onAcceptGameInvite={(code) => joinRoom(code)}
+          />
         </div>
       </div>
     </>

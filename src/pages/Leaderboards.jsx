@@ -2,15 +2,11 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Trophy, ArrowLeft, Medal, Star } from 'lucide-react';
 import { useSfx } from '../hooks/useSfx';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { fetchTimeAttackLeaderboard, fetchMultiplayerLeaderboard } from '../services/leaderboardService';
 
-// ── Mock data ────────────────────────────────────────────────────────────────
-const TABS = ['Story Mode', 'Time Attack', 'Multiplayer'];
-
-const MOCK_DATA = {
-  'Story Mode': [],
-  'Time Attack': [],
-  'Multiplayer': [],
-};
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+const TABS = ['Time Attack', 'Multiplayer'];
 
 const BADGE_STYLES = {
   gold: { color: '#e8c96a', glow: 'rgba(232,201,106,0.5)', label: '1ST' },
@@ -20,12 +16,39 @@ const BADGE_STYLES = {
 
 export default function Leaderboards() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('Story Mode');
+  const [activeTab, setActiveTab] = useState('Time Attack');
   const [visible, setVisible] = useState(false);
   const [animKey, setAnimKey] = useState(0);
+  const [rows, setRows] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { playClick } = useSfx();
 
   useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
+
+  // Fetch leaderboard data from Firestore on mount and when tab changes
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+
+    const fetchData = async () => {
+      try {
+        const data = activeTab === 'Time Attack'
+          ? await fetchTimeAttackLeaderboard(10)
+          : await fetchMultiplayerLeaderboard(10);
+        if (!cancelled) {
+          setRows(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch leaderboard:', err);
+        if (!cancelled) setRows([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    fetchData();
+    return () => { cancelled = true; };
+  }, [activeTab]);
 
   const switchTab = (tab) => {
     if (tab === activeTab) return;
@@ -33,8 +56,6 @@ export default function Leaderboards() {
     setActiveTab(tab);
     setAnimKey(k => k + 1);
   };
-
-  const rows = MOCK_DATA[activeTab];
 
   return (
     <>
@@ -143,19 +164,26 @@ export default function Leaderboards() {
           display: flex;
           align-items: center;
           gap: 8px;
-          background: none;
-          border: none;
+          background: rgba(30, 18, 8, 0.9);
+          border: 1px solid rgba(122, 92, 46, 0.5);
           color: var(--gold-dim);
           font-family: 'Special Elite', monospace;
-          font-size: 12px;
-          letter-spacing: 0.22em;
+          font-size: 11px;
+          letter-spacing: 0.25em;
           text-transform: uppercase;
           cursor: pointer;
-          padding: 0;
+          padding: 8px 16px;
+          border-radius: 4px;
+          transition: all 0.3s;
           margin-bottom: 20px;
-          transition: color 0.2s;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        .lb-back:hover { color: var(--gold-light); }
+        .lb-back:hover { 
+          color: var(--gold-light);
+          background: rgba(42, 26, 12, 1);
+          border-color: var(--gold);
+          box-shadow: 0 0 15px rgba(203,161,83,0.4);
+        }
 
         .lb-eyebrow {
           font-size: 11px;
@@ -434,11 +462,19 @@ export default function Leaderboards() {
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 ? (
+              {isLoading ? (
                 <tr>
                   <td colSpan="5">
                     <div className="lb-empty-state">
-                      Awaiting Database Connection...
+                      <LoadingSpinner text="Accessing Archives..." />
+                    </div>
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan="5">
+                    <div className="lb-empty-state">
+                      No records found. Be the first to make the board.
                     </div>
                   </td>
                 </tr>

@@ -4,7 +4,6 @@ import { gameManager, GamePhases } from './GameManager';
 import { addDevPanel } from './DevPanel';
 import { bgmController } from '../engine/BGMController';
 import { useGameStore } from '../store/useGameStore';
-import { createHUD } from './HUD';
 
 const dialogueScript = [
     { speaker: 'System', text: "Last night, the City Hall Vault was breached. The master blueprints for the city's defenses are missing.", sprite: null },
@@ -83,68 +82,84 @@ export default class OfficeScene extends Phaser.Scene {
     }
 
     createUI(width, height) {
-        const btnX = 120;
-        const btnY = 95;
-        const btnW = 200;
-        const btnH = 40;
+        // ─── PAUSE BUTTON ────────────────────────────────────────────────
+        const pauseX = width - 40;
+        const pauseY = 40;
+        const radius = 24;
 
-        const btnShadow = this.add.rectangle(btnX + 4, btnY + 4, btnW, btnH, 0x000000, 0.6)
-            .setOrigin(0.5).setVisible(false);
-        btnShadow.isUI = true;
+        const pShadow = this.add.circle(pauseX + 4, pauseY + 4, radius, 0x000000, 0.6)
+            .setScrollFactor(0).setDepth(19999);
+        pShadow.isUI = true;
 
-        // "Go to City Map" Button (Hidden initially)
-        this.leaveBtn = this.add.rectangle(btnX, btnY, btnW, btnH, 0x1a1208, 0.95)
+        const pauseBtn = this.add.circle(pauseX, pauseY, radius, 0x1a1208, 0.95)
             .setStrokeStyle(2, 0x8b6b32)
             .setInteractive({ useHandCursor: true })
-            .on('pointerdown', () => {
-                if (!this.dialogueActive) {
-                    this.tweens.add({
-                        targets: [this.leaveBtn, this.innerLine, this.leaveText],
-                        scaleX: 0.95, scaleY: 0.95, duration: 50, yoyo: true,
-                        onComplete: () => {
-                            this.cameras.main.fadeOut(1000, 0, 0, 0);
-                            this.cameras.main.once('camerafadeoutcomplete', () => {
-                                this.scene.start('MainScene');
-                            });
-                        }
-                    });
+            .setScrollFactor(0).setDepth(20000);
+        pauseBtn.isUI = true;
+
+        const pInner = this.add.circle(pauseX, pauseY, radius - 4, 0x000000, 0)
+            .setStrokeStyle(1, 0x8b6b32, 0.4)
+            .setScrollFactor(0).setDepth(20000);
+        pInner.isUI = true;
+
+        const bar1 = this.add.rectangle(pauseX - 5, pauseY, 6, 16, 0xd97706)
+            .setScrollFactor(0).setDepth(20000);
+        bar1.isUI = true;
+
+        const bar2 = this.add.rectangle(pauseX + 5, pauseY, 6, 16, 0xd97706)
+            .setScrollFactor(0).setDepth(20000);
+        bar2.isUI = true;
+
+        pauseBtn.on('pointerdown', () => {
+            this.tweens.add({
+                targets: [pauseBtn, pInner, bar1, bar2],
+                scale: 0.9,
+                duration: 50,
+                yoyo: true,
+                onComplete: () => {
+                    useGameStore.getState().togglePause();
+                    this.scene.pause();
                 }
-            })
-            .on('pointerover', () => {
-                if (!this.dialogueActive) {
-                    this.leaveBtn.setFillStyle(0x2a1e0e, 1);
-                    this.tweens.add({ targets: [this.leaveBtn, this.innerLine, this.leaveText], scaleX: 1.05, scaleY: 1.05, duration: 150, ease: 'Sine.easeOut' });
-                }
-            })
-            .on('pointerout', () => {
-                if (!this.dialogueActive) {
-                    this.leaveBtn.setFillStyle(0x1a1208, 0.95);
-                    this.tweens.add({ targets: [this.leaveBtn, this.innerLine, this.leaveText], scaleX: 1, scaleY: 1, duration: 150, ease: 'Sine.easeOut' });
-                }
-            })
-            .setVisible(false);
-        this.leaveBtn.isUI = true;
+            });
+        });
 
-        this.innerLine = this.add.rectangle(btnX, btnY, btnW - 8, btnH - 8, 0x000000, 0)
-            .setStrokeStyle(1, 0x8b6b32, 0.3)
-            .setOrigin(0.5).setVisible(false);
-        this.innerLine.isUI = true;
+        pauseBtn.on('pointerover', () => {
+            pauseBtn.setFillStyle(0x2a1e0e, 1);
+            bar1.setFillStyle(0xffd700);
+            bar2.setFillStyle(0xffd700);
+            this.tweens.add({ targets: [bar1, bar2], scaleY: 1.2, duration: 150, ease: 'Sine.easeOut' });
+        });
 
-        this.leaveText = this.add.text(btnX, btnY, '◄ Go to City Map', {
-            fontSize: '18px',
-            fill: '#d97706',
-            fontFamily: 'serif',
-            fontStyle: 'bold',
-            letterSpacing: 1
-        }).setOrigin(0.5).setVisible(false);
-        this.leaveText.isUI = true;
+        pauseBtn.on('pointerout', () => {
+            pauseBtn.setFillStyle(0x1a1208, 0.95);
+            bar1.setFillStyle(0xd97706);
+            bar2.setFillStyle(0xd97706);
+            this.tweens.add({ targets: [bar1, bar2], scaleY: 1, duration: 150, ease: 'Sine.easeOut' });
+        });
 
-        this.leaveElements = [btnShadow, this.leaveBtn, this.innerLine, this.leaveText];
-
-        createHUD(this);
+        // Sync unpause from the React PauseOverlay
+        const unsubscribe = useGameStore.subscribe((state, prevState) => {
+            if (prevState.isStoryPaused && !state.isStoryPaused) {
+                if (this.scene.isPaused()) this.scene.resume();
+            }
+        });
+        this.events.once('shutdown', () => unsubscribe());
 
         // Dev teleport panel
         addDevPanel(this);
+
+        const handleForceDeduction = () => {
+            if (this.scene.isActive('OfficeScene')) {
+                this.cameras.main.fadeOut(500, 0, 0, 0);
+                this.cameras.main.once('camerafadeoutcomplete', () => {
+                    this.scene.start('DeductionBoardScene');
+                });
+            }
+        };
+        window.addEventListener('forceDeductionScene', handleForceDeduction);
+        this.events.on('shutdown', () => {
+            window.removeEventListener('forceDeductionScene', handleForceDeduction);
+        });
     }
 
     showNextLine() {
@@ -195,8 +210,13 @@ export default class OfficeScene extends Phaser.Scene {
         // Transition to investigating phase so briefing doesn't replay
         gameManager.setPhase(GamePhases.INVESTIGATING);
 
-        // Show leave button
-        this.leaveElements.forEach(el => el.setVisible(true));
+        // Auto-redirect to city map after a short pause
+        this.time.delayedCall(500, () => {
+            this.cameras.main.fadeOut(1500, 0, 0, 0);
+            this.cameras.main.once('camerafadeoutcomplete', () => {
+                this.scene.start('MainScene');
+            });
+        });
     }
 
     startInterrogation(width, height) {
@@ -286,43 +306,10 @@ export default class OfficeScene extends Phaser.Scene {
     }
     showEndScreen(text, isVictory) {
         this.dialogueController.hide();
-        const { width, height } = this.scale;
 
-        this.add.rectangle(0, 0, width, height, 0x000000, 0.8).setOrigin(0, 0).setDepth(1000);
-
-        this.add.text(width / 2, height / 2 - 50, text, {
-            fontSize: '48px',
-            fill: isVictory ? '#10b981' : '#ef4444',
-            fontFamily: 'serif',
-            fontStyle: 'bold',
-            align: 'center'
-        }).setOrigin(0.5).setDepth(1001);
-
-        const btn = this.add.rectangle(width / 2, height / 2 + 80, 200, 50, 0x1a1208).setStrokeStyle(2, 0x8b6b32).setDepth(1001)
-            .setInteractive({ useHandCursor: true })
-            .on('pointerover', () => btn.setFillStyle(0x2a1e0e))
-            .on('pointerout', () => btn.setFillStyle(0x1a1208))
-            .on('pointerdown', () => {
-                gameManager.reset();
-                this.cameras.main.fadeOut(1500, 0, 0, 0);
-                this.cameras.main.once('camerafadeoutcomplete', () => {
-                    window.location.reload();
-                });
-            });
-
-        this.add.text(width / 2, height / 2 + 80, 'Restart Game', { fontSize: '24px', fill: '#d97706', fontFamily: 'serif' }).setOrigin(0.5).setDepth(1002);
-
-        const menuBtn = this.add.rectangle(width / 2, height / 2 + 150, 200, 50, 0x1a1208).setStrokeStyle(2, 0x8b6b32).setDepth(1001)
-            .setInteractive({ useHandCursor: true })
-            .on('pointerover', () => menuBtn.setFillStyle(0x2a1e0e))
-            .on('pointerout', () => menuBtn.setFillStyle(0x1a1208))
-            .on('pointerdown', () => {
-                this.cameras.main.fadeOut(1500, 0, 0, 0);
-                this.cameras.main.once('camerafadeoutcomplete', () => {
-                    window.dispatchEvent(new Event('returnToMainMenu'));
-                });
-            });
-
-        this.add.text(width / 2, height / 2 + 150, 'Main Menu', { fontSize: '24px', fill: '#d97706', fontFamily: 'serif' }).setOrigin(0.5).setDepth(1002);
+        this.cameras.main.fadeOut(2000, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('EndingScene', { isWin: isVictory });
+        });
     }
 }

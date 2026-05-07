@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Lock, FileText, Clock, Users, BookOpen, Key, Grid, Shuffle, AlignLeft } from 'lucide-react';
+import { useSfx } from '../hooks/useSfx';
 
 // ── Content data ─────────────────────────────────────────────────────────────
 
@@ -304,19 +305,26 @@ export default function Tutorial() {
           display: flex;
           align-items: center;
           gap: 8px;
-          background: none;
-          border: none;
+          background: rgba(30, 18, 8, 0.9);
+          border: 1px solid rgba(122, 92, 46, 0.5);
           color: var(--gold-dim);
           font-family: 'Special Elite', monospace;
           font-size: 11px;
           letter-spacing: 0.25em;
           text-transform: uppercase;
           cursor: pointer;
-          padding: 0;
-          transition: color 0.2s;
+          padding: 8px 16px;
+          border-radius: 4px;
+          transition: all 0.3s;
           margin-bottom: 6px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        .tu-back:hover { color: var(--gold-light); }
+        .tu-back:hover { 
+          color: var(--gold-light);
+          background: rgba(42, 26, 12, 1);
+          border-color: var(--gold);
+          box-shadow: 0 0 15px rgba(203,161,83,0.4);
+        }
 
         .tu-eyebrow {
           font-size: 10px;

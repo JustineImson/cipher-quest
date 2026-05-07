@@ -6,8 +6,10 @@ import SubstitutionInteractive from './SubstitutionInteractive';
 import Button from './ui/Button';
 import { validateAnswer } from '../engine/gameLogic';
 import { bgmController } from '../engine/BGMController';
+import { useGameStore } from '../store/useGameStore';
 
 export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
+  const { unlockNextEvidence } = useGameStore();
   const [feedback, setFeedback] = useState(null); // 'correct' | 'wrong' | null
   const [isClosing, setIsClosing] = useState(false);
 
@@ -36,6 +38,7 @@ export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
 
     if (isCorrect) {
       setFeedback('correct');
+      unlockNextEvidence();
       setIsClosing(true);
       
       // Attempt to play success sound if it exists

@@ -46,7 +46,7 @@ export default function MainMenu() {
     playClick();
     if (item.action === 'newGame') {
       resetProgress();
-      navigate('/difficulty', { state: { startScene: 'OfficeScene' } });
+      navigate('/difficulty', { state: { startScene: 'IntroScene' } });
     } else if (item.action === 'continue') {
       navigate('/story', { state: { difficulty: savedStoryProgress.difficulty, startScene: 'MainScene' } });
     } else {

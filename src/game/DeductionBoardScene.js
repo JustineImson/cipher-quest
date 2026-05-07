@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import { gameManager, GamePhases } from './GameManager';
 import { addDevPanel } from './DevPanel';
 import { bgmController } from '../engine/BGMController';
+import { useGameStore } from '../store/useGameStore';
 
 export default class DeductionBoardScene extends Phaser.Scene {
     constructor() {
@@ -105,7 +106,7 @@ export default class DeductionBoardScene extends Phaser.Scene {
         this.tweens.add({ targets: [titleText, subtitleText, ruleGfx], alpha: 1, duration: 1200, delay: 400, ease: 'Sine.easeOut' });
 
         // ── Evidence cards ───────────────────────────────────────────────
-        const evidence = gameManager.evidenceList;
+        const evidence = useGameStore.getState().collectedEvidence || [];
         const cardW = 320;
         const cardH = 90;
         const cols = Math.min(evidence.length, 2);
@@ -133,7 +134,18 @@ export default class DeductionBoardScene extends Phaser.Scene {
             const card = this.add.rectangle(cx, cy, cardW, cardH, 0x1c150a, 0.92)
                 .setOrigin(0, 0)
                 .setStrokeStyle(1, 0x5a4010, 1)
-                .setAlpha(0);
+                .setAlpha(0)
+                .setInteractive({ useHandCursor: true });
+
+            card.on('pointerover', () => {
+                card.setFillStyle(0x2a1e08, 0.95);
+            });
+            card.on('pointerout', () => {
+                card.setFillStyle(0x1c150a, 0.92);
+            });
+            card.on('pointerdown', () => {
+                window.dispatchEvent(new CustomEvent('openEvidenceNotebook', { detail: ev }));
+            });
 
             // Accent left bar
             this.add.rectangle(cx, cy, 5, cardH, 0xe8c84a, 1)
@@ -152,7 +164,7 @@ export default class DeductionBoardScene extends Phaser.Scene {
             }).setOrigin(0.5).setAlpha(0).setData('fadeDelay', delay);
 
             // Evidence name
-            this.add.text(cx + 52, cy + 18, ev.name, {
+            this.add.text(cx + 52, cy + 18, ev.title, {
                 fontSize: '18px',
                 fontFamily: '"Georgia", serif',
                 color: '#e8dcc0',
@@ -161,7 +173,7 @@ export default class DeductionBoardScene extends Phaser.Scene {
             }).setOrigin(0, 0).setAlpha(0).setData('fadeDelay', delay);
 
             // Location label
-            this.add.text(cx + 52, cy + 52, `\u{1F4CC}  Found at: ${ev.location}`, {
+            this.add.text(cx + 52, cy + 52, `\u{1F4CC}  Item Ref: ${ev.id?.toUpperCase() || ''}`, {
                 fontSize: '12px',
                 fontFamily: '"Courier New", monospace',
                 color: '#8b7a50',

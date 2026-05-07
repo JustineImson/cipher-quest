@@ -449,6 +449,19 @@ export default class MainScene extends Phaser.Scene {
 
         // Dev panel must be added LAST so its UI camera can ignore all existing objects
         addDevPanel(this);
+
+        const handleForceDeduction = () => {
+            if (this.scene.isActive('MainScene')) {
+                this.cameras.main.fadeOut(500, 0, 0, 0);
+                this.cameras.main.once('camerafadeoutcomplete', () => {
+                    this.scene.start('DeductionBoardScene');
+                });
+            }
+        };
+        window.addEventListener('forceDeductionScene', handleForceDeduction);
+        this.events.on('shutdown', () => {
+            window.removeEventListener('forceDeductionScene', handleForceDeduction);
+        });
     }
 
     update() {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../store/useGameStore';
 import { useTimer } from '../hooks/useTimer';
@@ -13,10 +13,24 @@ import { selectCipherMethod, validateAnswer } from '../engine/gameLogic';
 import { bgmController } from '../engine/BGMController';
 import { useSfx } from '../hooks/useSfx';
 import { Pause } from 'lucide-react';
+import DifficultySplash from '../components/ui/DifficultySplash';
+import { generatePuzzleDetails } from '../services/aiGenerator';
+import { submitTimeAttackScore } from '../services/leaderboardService';
+import ErrorBoundary from '../components/ErrorBoundary';
 
-export default function TimeAttackMode() {
+// Word-length rules per difficulty (pure function — keep outside component)
+const isWordLengthValid = (word, difficulty) => {
+  const len = (word || '').replace(/[^a-zA-Z]/g, '').length;
+  const diff = (difficulty || 'easy').toLowerCase();
+  if (diff === 'easy') return len >= 5 && len <= 8;
+  if (diff === 'moderate' || diff === 'medium') return len >= 9 && len <= 14;
+  if (diff === 'hard') return len >= 15;
+  return true;
+};
+
+function TimeAttackMode() {
   const navigate = useNavigate();
-  const { settings } = useGameStore();
+  const { settings, incrementPuzzlesSolved, resetProgression, currentDifficulty, puzzlesSolved, setDifficulty, currentUser } = useGameStore();
 
   // Timer: Grand timer starts at 60
   const { timeLeft, start, addTime, pause, resume } = useTimer(60);
@@ -29,7 +43,7 @@ export default function TimeAttackMode() {
 
   const [currentWord, setCurrentWord] = useState('');
   const [encryptedWord, setEncryptedWord] = useState('');
-  const [cipherMethod, setCipherMethod] = useState({ name: '' });
+  const [cipherMethod, setCipherMethod] = useState({ name: '', isEncryptionMode: false, applyCipher: (t) => t });
 
   const [isLoading, setIsLoading] = useState(false);
   const [userInput, setUserInput] = useState('');
@@ -39,44 +53,65 @@ export default function TimeAttackMode() {
   const [devModeVisible, setDevModeVisible] = useState(false);
 
   const inputRef = useRef(null);
+  const hasSubmittedRef = useRef(false);
   const { playClick } = useSfx();
 
   // Game Loop: Fetch Word
-  const fetchNewWord = async () => {
+  const fetchNewWord = useCallback(async (attempt = 1) => {
     setIsLoading(true);
     setUserInput('');
     setFeedback(null);
+
+    const activeDiff = useGameStore.getState().currentDifficulty || 'easy';
+
     try {
-      const res = await fetch(`http://localhost:3001/api/generate-word?difficulty=${settings.difficulty}`);
-      if (!res.ok) throw new Error('Network response was not ok');
-      const data = await res.json();
+      const data = await generatePuzzleDetails(activeDiff, 'victorian noir detective');
+      const word = data?.plaintext;
 
-      const word = data.word;
-      setCurrentWord(word);
+      if (!word || typeof word !== 'string') {
+        throw new Error('Invalid word returned from generator');
+      }
 
-      const cipher = selectCipherMethod(settings.difficulty);
+      const cleanWord = word.toUpperCase().replace(/[^A-Z]/g, '');
+
+      // Retry up to 3 times if word length doesn't match difficulty
+      if (!isWordLengthValid(cleanWord, activeDiff) && attempt < 3) {
+        return fetchNewWord(attempt + 1);
+      }
+
+      setCurrentWord(cleanWord);
+
+      const cipher = selectCipherMethod(activeDiff);
+      if (!cipher || typeof cipher.applyCipher !== 'function') {
+        throw new Error('Invalid cipher method selected');
+      }
       setCipherMethod(cipher);
-      setEncryptedWord(cipher.applyCipher(word));
+      setEncryptedWord(cipher.applyCipher(cleanWord));
 
       setIsLoading(false);
-      // Auto-focus input when ready
       setTimeout(() => {
         if (inputRef.current) inputRef.current.focus();
       }, 0);
     } catch (err) {
-      console.error("Fetch error:", err);
-      // Fallback for development if backend fails
-      const word = "FALLBACK";
-      setCurrentWord(word);
-      const cipher = selectCipherMethod(settings.difficulty);
-      setCipherMethod(cipher);
-      setEncryptedWord(cipher.applyCipher(word));
+      console.error('Fetch error:', err);
+      // Defensive fallback: always reset to a safe state
+      const fallbackWord = 'FALLBACK';
+      setCurrentWord(fallbackWord);
+      try {
+        const cipher = selectCipherMethod(activeDiff);
+        setCipherMethod(cipher || { name: 'Caesar Shift', key: 'Shift: 3', applyCipher: (t) => t, isEncryptionMode: false });
+        setEncryptedWord((cipher?.applyCipher || ((t) => t))(fallbackWord));
+      } catch (fallbackErr) {
+        console.error('Fallback cipher failed:', fallbackErr);
+        setCipherMethod({ name: 'Caesar Shift', key: 'Shift: 3', applyCipher: (t) => t, isEncryptionMode: false });
+        setEncryptedWord(fallbackWord);
+      }
       setIsLoading(false);
       setTimeout(() => {
         if (inputRef.current) inputRef.current.focus();
       }, 0);
     }
-  };
+  }, []);
 
   // Start initialization
   useEffect(() => {
@@ -86,6 +121,8 @@ export default function TimeAttackMode() {
   }, []); // Run once on mount
 
   const startGame = () => {
+    hasSubmittedRef.current = false;
+    resetProgression();
     setScore(0);
     setCiphersCracked(0);
     setGameState('playing');
@@ -100,8 +137,21 @@ export default function TimeAttackMode() {
     }
   }, [timeLeft, gameState]);
 
+  // Submit score to leaderboard on game over
+  useEffect(() => {
+    if (gameState === 'game_over' && !hasSubmittedRef.current && currentUser?.uid) {
+      hasSubmittedRef.current = true;
+      submitTimeAttackScore(
+        currentUser.uid,
+        currentUser.username || currentUser.email || 'Anonymous',
+        ciphersCracked,
+        currentDifficulty
+      );
+    }
+  }, [gameState, currentUser, ciphersCracked, currentDifficulty]);
+
   // Handle Submission
-  const handleSubmit = (e) => {
+  const handleSubmit = useCallback((e) => {
     if (e) e.preventDefault();
     if (!userInput.trim() || gameState !== 'playing') return;
 
@@ -109,14 +159,15 @@ export default function TimeAttackMode() {
     const isCorrect = validateAnswer(userInput, targetWord);
 
     if (isCorrect) {
-      // Score System Formula: Correct answer = +100 base points. Time bonus = +(remaining seconds * 2).
-      const pointsEarned = 100 + (timeLeft * 2);
+      // Points based on difficulty: Easy=100, Moderate=250, Hard=600
+      const currentDiff = (useGameStore.getState().currentDifficulty || 'easy').toLowerCase();
+      const pointsEarned = currentDiff === 'easy' ? 100 : currentDiff === 'moderate' ? 250 : 600;
       setScore(prev => prev + pointsEarned);
       setCiphersCracked(prev => prev + 1);
+      incrementPuzzlesSolved();
 
-      // Time Bonus based on difficulty
-      const timeBonus = settings.difficulty.toLowerCase() === 'easy' ? 5 :
-        settings.difficulty.toLowerCase() === 'medium' ? 10 : 15;
+      // Time increment: Easy=2min, Moderate=1min, Hard=30s
+      const timeBonus = currentDiff === 'easy' ? 120 : currentDiff === 'moderate' ? 60 : 30;
       addTime(timeBonus);
 
       setFeedback('correct');
@@ -134,9 +185,22 @@ export default function TimeAttackMode() {
         if (inputRef.current) inputRef.current.focus();
       }, 600);
     }
-  };
+  }, [userInput, gameState, cipherMethod, encryptedWord, currentWord, addTime, incrementPuzzlesSolved, fetchNewWord]);
 
-  const handleKeyDown = (e) => {
+  const handlePause = useCallback(() => {
+    if (gameState !== 'playing') return;
+    playClick();
+    setIsPaused(true);
+    pause();
+  }, [gameState, playClick, pause]);
+
+  const handleResume = useCallback(() => {
+    playClick();
+    setIsPaused(false);
+    resume();
+  }, [playClick, resume]);
+
+  const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter') {
       handleSubmit();
     } else if (e.key === 'Escape' && gameState === 'playing') {
@@ -146,24 +210,11 @@ export default function TimeAttackMode() {
         handlePause();
       }
     }
-  };
-
-  const handlePause = () => {
-    if (gameState !== 'playing') return;
-    playClick();
-    setIsPaused(true);
-    pause();
-  };
-
-  const handleResume = () => {
-    playClick();
-    setIsPaused(false);
-    resume();
-  };
+  }, [handleSubmit, gameState, isPaused, handleResume, handlePause]);
 
   // Virtual keyboard handlers
-  const handleVirtualKeyPress = (key) => setUserInput(prev => prev + key);
-  const handleVirtualDelete = () => setUserInput(prev => prev.slice(0, -1));
+  const handleVirtualKeyPress = useCallback((key) => setUserInput(prev => prev + key), []);
+  const handleVirtualDelete = useCallback(() => setUserInput(prev => prev.slice(0, -1)), []);
 
   // Columnar Transposition detection
   const isColumnar = cipherMethod.name?.startsWith('Columnar');
@@ -190,19 +241,22 @@ export default function TimeAttackMode() {
     : '';
 
   // Handler for Interactive Components completion (Columnar, Rail Fence)
-  const handleInteractiveComplete = (answer) => {
+  const handleInteractiveComplete = useCallback((answer) => {
     if (gameState !== 'playing') return;
 
     const targetWord = cipherMethod.isEncryptionMode ? encryptedWord : currentWord;
     const isCorrect = validateAnswer(answer, targetWord);
 
     if (isCorrect) {
-      const pointsEarned = 100 + (timeLeft * 2);
+      // Points based on difficulty: Easy=100, Moderate=250, Hard=600
+      const currentDiff = (useGameStore.getState().currentDifficulty || 'easy').toLowerCase();
+      const pointsEarned = currentDiff === 'easy' ? 100 : currentDiff === 'moderate' ? 250 : 600;
       setScore(prev => prev + pointsEarned);
       setCiphersCracked(prev => prev + 1);
+      incrementPuzzlesSolved();
 
-      const timeBonus = settings.difficulty.toLowerCase() === 'easy' ? 5 :
-        settings.difficulty.toLowerCase() === 'medium' ? 10 : 15;
+      // Time increment: Easy=2min, Moderate=1min, Hard=30s
+      const timeBonus = currentDiff === 'easy' ? 120 : currentDiff === 'moderate' ? 60 : 30;
       addTime(timeBonus);
 
       setFeedback('correct');
@@ -214,7 +268,7 @@ export default function TimeAttackMode() {
       setFeedback('wrong');
       setTimeout(() => setFeedback(null), 600);
     }
-  };
+  }, [gameState, cipherMethod, encryptedWord, currentWord, addTime, incrementPuzzlesSolved, fetchNewWord]);
 
   // UI Renders
   if (gameState === 'game_over') {
@@ -254,6 +308,7 @@ export default function TimeAttackMode() {
   // Playing Mode
   return (
     <div className="flex flex-col h-full w-full p-6 max-w-4xl mx-auto relative z-10 transition-all">
+      <DifficultySplash />
       {/* Fixed Top Right Pause Button */}
       <button
         onClick={handlePause}
@@ -265,7 +320,7 @@ export default function TimeAttackMode() {
 
       {/* Top bar */}
       <div className="flex justify-between items-center mb-10 w-full bg-black/40 p-4 border border-mystery-gold/30 rounded backdrop-blur-md shadow-lg shadow-black/50 mt-4 md:mt-0">
-        <Button onClick={() => navigate('/')} variant="ghost" className="text-sm">Abscind (Menu)</Button>
+        <Button onClick={() => navigate('/')} className="text-sm">Abscind (Menu)</Button>
         <div className="text-2xl font-serif text-mystery-gold flex flex-col items-center">
           <span className="text-sm uppercase tracking-widest text-mystery-gold/70">Score</span>
           <span className="drop-shadow-[0_0_5px_rgba(212,175,55,0.8)]">{score}</span>
@@ -398,14 +453,44 @@ export default function TimeAttackMode() {
         </button>
 
         {devModeVisible && (
-          <div className="bg-black/90 border border-red-900/50 p-4 rounded text-xs flex flex-col gap-3 shadow-2xl backdrop-blur-md w-56 transition-all font-mono">
+          <div className="bg-black/90 border border-red-900/50 p-4 rounded text-xs flex flex-col gap-3 shadow-2xl backdrop-blur-md w-64 transition-all font-mono">
             <span className="text-red-500 font-bold uppercase tracking-widest border-b border-red-900/50 pb-2 text-center text-[10px]">Developer Access</span>
+
+            {/* Progression Status */}
+            <div className="py-2 border-b border-red-900/50 flex flex-col gap-1">
+              <div className="flex justify-between">
+                <span className="text-red-500/70">Diff:</span>
+                <span className="text-red-300 uppercase font-bold">{currentDifficulty}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-red-500/70">Solves:</span>
+                <span className="text-red-300 font-bold">{puzzlesSolved}</span>
+              </div>
+              <button
+                onClick={() => { playClick(); incrementPuzzlesSolved(); }}
+                className="mt-1 bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors border border-red-900/30"
+              >
+                Force +1 Solve
+              </button>
+            </div>
+
+            {/* Force Difficulty */}
+            <div className="flex gap-1 w-full border-b border-red-900/50 pb-2">
+              <button onClick={() => { playClick(); setDifficulty('easy'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">EZ</button>
+              <button onClick={() => { playClick(); setDifficulty('moderate'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">MOD</button>
+              <button onClick={() => { playClick(); setDifficulty('hard'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">HRD</button>
+            </div>
 
             <button
               onClick={() => {
                 playClick();
-                if (inputRef.current) {
-                  setUserInput(cipherMethod.isEncryptionMode ? encryptedWord : currentWord);
+                const correctAnswer = cipherMethod.isEncryptionMode ? encryptedWord : currentWord;
+                // For interactive cipher components, call completion handler directly.
+                // For text input, populate the field and focus it.
+                if (isColumnar || isRailFence || isVigenere || isSubstitution) {
+                  handleInteractiveComplete(correctAnswer);
+                } else if (inputRef.current) {
+                  setUserInput(correctAnswer);
                   inputRef.current.focus();
                 }
               }}
@@ -442,5 +527,13 @@ export default function TimeAttackMode() {
       </div>
 
     </div>
+  );
+}
+
+export default function TimeAttackModeWrapped() {
+  return (
+    <ErrorBoundary>
+      <TimeAttackMode />
+    </ErrorBoundary>
   );
 }
