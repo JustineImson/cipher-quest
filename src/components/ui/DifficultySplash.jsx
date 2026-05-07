@@ -15,7 +15,7 @@ export default function DifficultySplash() {
   const config = diffConfig[currentDifficulty] || diffConfig.easy;
 
   return (
-    <div className="absolute inset-0 z-[100] flex items-center justify-center pointer-events-none overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none overflow-hidden">
       <style>{`
         @keyframes splashIn {
           0% { opacity: 0; }

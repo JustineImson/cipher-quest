@@ -307,7 +307,8 @@ function TimeAttackMode() {
 
   // Playing Mode
   return (
-    <div className="flex flex-col h-full w-full p-6 max-w-4xl mx-auto relative z-10 transition-all">
+    <div className="flex flex-col h-full w-full relative z-10 transition-all overflow-y-auto">
+      <div className="max-w-4xl mx-auto w-full p-6">
       <DifficultySplash />
       {/* Fixed Top Right Pause Button */}
       <button
@@ -526,6 +527,7 @@ function TimeAttackMode() {
         )}
       </div>
 
+      </div>
     </div>
   );
 }
