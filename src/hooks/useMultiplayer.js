@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
+import { auth } from '../services/firebase';
 import fallbackPuzzles from '../data/fallbackPuzzles';
 import { selectCipherMethod } from '../engine/gameLogic';
 
@@ -21,98 +22,123 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
   
   const [matchResult, setMatchResult] = useState(null); // 'win', 'lose', 'draw', null
   const roomDifficultyRef = useRef('easy');
+  const clientUidRef = useRef(null);
 
   useEffect(() => {
-    // Initialize socket
-    socketRef.current = io(serverUrl);
+    let mounted = true;
+    let socket = null;
 
-    const socket = socketRef.current;
-
-    // Listeners
-    socket.on('room_created', (data) => {
-      setRoomCode(data.roomCode);
-      setIsHost(true);
-      setMultiplayerState('waiting');
-      setPlayersCount(1);
-    });
-
-    socket.on('player_joined', (data) => {
-      setPlayersCount(data.playerCount);
-      // If we joined, we also get this, so updating state
-      setMultiplayerState('waiting');
-    });
-
-    socket.on('game_started', () => {
-      setMultiplayerState('playing');
-      setOpponentScore(0);
-    });
-
-    socket.on('new_word_round', (data) => {
-      // If server provides a valid round, use it. Otherwise fall back to local puzzles.
-      if (data && data.targetWord) {
-        setCurrentWord(data.targetWord);
-        setEncryptedWord(data.encryptedWord);
-        setCipherName(data.cipherName);
-        setCipherKey(data.cipherKey);
-      } else {
-        // Local fallback — pick a puzzle matching the chosen room difficulty (if any)
-        const diff = roomDifficultyRef.current || 'easy';
-        const pool = fallbackPuzzles[diff] || fallbackPuzzles.easy;
-        const puzzle = pool[Math.floor(Math.random() * pool.length)];
-        const cipher = selectCipherMethod(diff);
-        const plaintext = puzzle.plaintext;
-        const encrypted = cipher.applyCipher(plaintext);
-        setCurrentWord(plaintext);
-        setEncryptedWord(encrypted);
-        setCipherName(cipher.name);
-        setCipherKey(cipher.key);
+    const init = async () => {
+      // Require a logged-in Firebase user before connecting
+      if (!auth.currentUser) {
+        alert('You must be logged in to play multiplayer');
+        return;
       }
-    });
 
-    socket.on('opponent_score_update', (data) => {
-      setOpponentScore(data.score);
-    });
+      try {
+        const token = await auth.currentUser.getIdToken();
+        clientUidRef.current = auth.currentUser.uid;
 
-    socket.on('match_over', (data) => {
-      setMultiplayerState('finished');
-      if (data.isDraw) {
-         setMatchResult('draw');
-      } else {
-         setMatchResult(socket.id === data.winnerId ? 'win' : 'lose');
+        socket = io(serverUrl, { auth: { token } });
+        socketRef.current = socket;
+
+        // Listeners
+        socket.on('room_created', (data) => {
+          setRoomCode(data.roomCode);
+          setIsHost(true);
+          setMultiplayerState('waiting');
+          setPlayersCount(1);
+        });
+
+        socket.on('player_joined', (data) => {
+          setPlayersCount(data.playerCount);
+          setMultiplayerState('waiting');
+        });
+
+        socket.on('game_started', () => {
+          setMultiplayerState('playing');
+          setOpponentScore(0);
+        });
+
+        socket.on('new_word_round', (data) => {
+          if (data && data.targetWord) {
+            setCurrentWord(data.targetWord);
+            setEncryptedWord(data.encryptedWord);
+            setCipherName(data.cipherName);
+            setCipherKey(data.cipherKey);
+          } else {
+            const diff = roomDifficultyRef.current || 'easy';
+            const pool = fallbackPuzzles[diff] || fallbackPuzzles.easy;
+            const puzzle = pool[Math.floor(Math.random() * pool.length)];
+            const cipher = selectCipherMethod(diff);
+            const plaintext = puzzle.plaintext;
+            const encrypted = cipher.applyCipher(plaintext);
+            setCurrentWord(plaintext);
+            setEncryptedWord(encrypted);
+            setCipherName(cipher.name);
+            setCipherKey(cipher.key);
+          }
+        });
+
+        socket.on('opponent_score_update', (data) => {
+          setOpponentScore(data.score);
+        });
+
+        socket.on('match_over', (data) => {
+          setMultiplayerState('finished');
+          if (data.isDraw) {
+            setMatchResult('draw');
+          } else {
+            const winnerUid = data.winnerUid || data.winnerId;
+            setMatchResult(clientUidRef.current && winnerUid === clientUidRef.current ? 'win' : 'lose');
+          }
+        });
+
+        socket.on('player_left', () => {
+          setMultiplayerState((prev) => {
+            if (prev === 'playing') {
+              setMatchResult('win');
+              return 'finished';
+            } else {
+              setPlayersCount(1);
+              return prev;
+            }
+          });
+        });
+
+        socket.on('error', (err) => {
+          alert(err.message || 'Multiplayer error');
+        });
+      } catch (err) {
+        console.error('Failed to initialize multiplayer socket:', err);
       }
-    });
+    };
 
-    socket.on('player_left', () => {
-      // Opponent disconnected, instantly win if playing
-      setMultiplayerState((prev) => {
-        if (prev === 'playing') {
-           setMatchResult('win'); // Forfeit
-           return 'finished';
-        } else {
-           setPlayersCount(1);
-           return prev;
-        }
-      });
-    });
-
-    socket.on('error', (err) => {
-      alert(err.message);
-    });
+    init();
 
     return () => {
-      socket.disconnect();
+      mounted = false;
+      if (socketRef.current) socketRef.current.disconnect();
     };
   }, [serverUrl]);
 
   // Actions
   const createRoom = (difficulty) => {
     roomDifficultyRef.current = difficulty || 'easy';
+    if (!socketRef.current || !socketRef.current.connected) {
+      alert('Not connected to multiplayer server');
+      return;
+    }
     socketRef.current.emit('create_room', { difficulty });
   };
 
   const joinRoom = (code) => {
     setRoomCode(code);
     setIsHost(false);
+    if (!socketRef.current || !socketRef.current.connected) {
+      alert('Not connected to multiplayer server');
+      return;
+    }
     socketRef.current.emit('join_room', { roomCode: code });
   };
 
@@ -137,6 +163,11 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
   };
 
   const submitScore = (score) => {
+    if (!socketRef.current || !socketRef.current.connected) {
+      // If not connected, handle scoring locally or ignore
+      console.warn('submitScore: not connected to server');
+      return;
+    }
     if (roomCode) {
       socketRef.current.emit('submit_score', { roomCode, score });
     }
@@ -160,6 +191,10 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
   };
   
   const emitTimeout = () => {
+    if (!socketRef.current || !socketRef.current.connected) {
+      console.warn('emitTimeout: not connected to server');
+      return;
+    }
     if (roomCode) {
       socketRef.current.emit('timeout', { roomCode });
     }

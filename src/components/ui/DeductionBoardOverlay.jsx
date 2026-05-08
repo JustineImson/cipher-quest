@@ -3,13 +3,16 @@ import { useGameStore } from '../../store/useGameStore';
 import { X, FileText, Search } from 'lucide-react';
 
 export default function DeductionBoardOverlay() {
-  const { isDeductionBoardOpen, toggleDeductionBoard, collectedEvidence } = useGameStore();
+  const { isDeductionBoardOpen, toggleDeductionBoard, savedStoryProgress } = useGameStore();
+  const collectedEvidence = savedStoryProgress?.cluesList || [];
   const [selectedEvidence, setSelectedEvidence] = useState(null);
 
   useEffect(() => {
     const handleOpenEvidence = (e) => {
       setSelectedEvidence(e.detail);
-      useGameStore.getState().setDeductionBoardOpen(true);
+      if (!useGameStore.getState().isDeductionBoardOpen) {
+        useGameStore.getState().setDeductionBoardOpen(true);
+      }
     };
 
     window.addEventListener('openEvidenceNotebook', handleOpenEvidence);
@@ -36,7 +39,7 @@ export default function DeductionBoardOverlay() {
         <div className="flex-1 bg-[#e8dcc0] m-2 md:mr-4 md:my-4 rounded shadow-inner p-6 overflow-y-auto relative z-20 h-full"
              style={{ backgroundImage: 'radial-gradient(#d8ccb0 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
           
-          <div className="flex justify-between items-start mb-6 border-b-2 border-[#7a6030] pb-4">
+            <div className="flex justify-between items-start mb-6 border-b-2 border-[#7a6030] pb-4">
             <div>
               <h2 className="font-serif text-3xl text-[#2a1c11] uppercase tracking-widest font-black drop-shadow-sm">Case File</h2>
               <p className="font-mono text-xs text-[#5a4225] tracking-widest uppercase mt-1">Acquired Intel ({collectedEvidence?.length || 0}/4)</p>

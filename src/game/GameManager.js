@@ -1,4 +1,5 @@
 import { useGameStore } from '../store/useGameStore';
+import { suspectEvidence } from '../data/StoryEvidence';
 
 export const GamePhases = Object.freeze({
     BRIEFING: 'BRIEFING',
@@ -28,8 +29,29 @@ class GameManager {
     collectEvidence(evidenceKey, evidenceData) {
         const clues = this.evidence;
         if (clues.hasOwnProperty(evidenceKey) && !clues[evidenceKey]) {
-            useGameStore.getState().saveEvidence(evidenceKey, evidenceData);
+            // Try to resolve a full suspectEvidence entry from the provided evidenceData
+            let fullEntry = null;
+            if (evidenceData && evidenceData.name) {
+                // suspectEvidence ids are like 'ev_log' — match by suffix
+                fullEntry = suspectEvidence.find(ev => ev.id && ev.id.endsWith(`_${evidenceData.name}`));
+            }
+
+            const payload = fullEntry
+                ? { ...fullEntry, location: evidenceData?.location }
+                : { id: `ev_${evidenceData?.name || 'unknown'}`, title: evidenceData?.name || 'Evidence', location: evidenceData?.location };
+
+            useGameStore.getState().saveEvidence(evidenceKey, payload);
             console.log(`Collected evidence: ${evidenceKey}`);
+
+            // If we've collected all evidence, attempt an immediate cloud sync
+            try {
+                if (this.evidenceList.length >= suspectEvidence.length) {
+                    useGameStore.getState().syncProgressToCloud();
+                }
+            } catch (e) {
+                console.warn('Error while syncing progress after final evidence:', e);
+            }
+
             return true;
         }
         return false;

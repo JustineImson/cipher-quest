@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import admin from 'firebase-admin';
 import { selectCipherMethod } from '../src/engine/gameLogic.js';
 
 const app = express();
@@ -17,6 +18,36 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"]
   }
 });
+
+// Initialize Firebase Admin SDK from base64-encoded service account JSON
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    try {
+        const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT, 'base64').toString());
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount)
+        });
+
+        // Socket.IO middleware to verify Firebase ID tokens
+        io.use(async (socket, next) => {
+            const token = socket.handshake.auth?.token;
+            if (!token) return next(new Error('Authentication required'));
+            try {
+                const decoded = await admin.auth().verifyIdToken(token);
+                socket.uid = decoded.uid; // attach uid to socket for use in events
+                next();
+            } catch (err) {
+                console.error('Token verification failed:', err);
+                next(new Error('Invalid token'));
+            }
+        });
+    } catch (err) {
+        console.error('Failed to initialize Firebase Admin:', err);
+    }
+} else {
+    console.warn('FIREBASE_SERVICE_ACCOUNT not set — socket authentication disabled');
+    // Attach null uid for unauthenticated sockets (legacy/dev)
+    io.use((socket, next) => { socket.uid = null; next(); });
+}
 
 const words = {
   easy: [
@@ -61,9 +92,10 @@ io.on('connection', (socket) => {
     socket.on('create_room', ({ difficulty }) => {
         const roomCode = generateRoomCode();
         rooms[roomCode] = {
-            hostId: socket.id,
+            hostSocketId: socket.id,
+            hostUid: socket.uid,
             difficulty: difficulty,
-            players: [{ id: socket.id, score: 0 }],
+            players: [{ socketId: socket.id, uid: socket.uid, score: 0 }],
             status: 'waiting'
         };
         socket.join(roomCode);
@@ -74,7 +106,7 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (room && room.status === 'waiting') {
             if (room.players.length < 2) {
-                room.players.push({ id: socket.id, score: 0 });
+                room.players.push({ socketId: socket.id, uid: socket.uid, score: 0 });
                 socket.join(roomCode);
                 io.to(roomCode).emit('player_joined', { playerCount: room.players.length });
             } else {
@@ -109,7 +141,8 @@ io.on('connection', (socket) => {
 
     socket.on('start_game', ({ roomCode }) => {
         const room = rooms[roomCode];
-        if (room && room.hostId === socket.id) {
+        // Always verify host by authenticated uid when available
+        if (room && ((room.hostUid && room.hostUid === socket.uid) || (room.hostSocketId && room.hostSocketId === socket.id))) {
             room.status = 'playing';
             io.to(roomCode).emit('game_started');
             
@@ -130,15 +163,17 @@ io.on('connection', (socket) => {
     socket.on('submit_score', ({ roomCode, score }) => {
         const room = rooms[roomCode];
         if (room && room.status === 'playing') {
-            const playerIndex = room.players.findIndex(p => p.id === socket.id);
+            const playerIndex = room.players.findIndex(p => p.socketId === socket.id);
             if (playerIndex !== -1) {
+                // Always use socket.uid/server-side identity — never trust client-supplied uid
                 room.players[playerIndex].score = score;
                 socket.to(roomCode).emit('opponent_score_update', { score });
                 
                 // Winning limit check natively on backend
                 if (score >= 500) {
                     room.status = 'finished';
-                    io.to(roomCode).emit('match_over', { winnerId: socket.id });
+                    const winnerUid = room.players[playerIndex].uid;
+                    io.to(roomCode).emit('match_over', { winnerUid });
                 }
             }
         }
@@ -153,29 +188,30 @@ io.on('connection', (socket) => {
             const p1 = room.players[0];
             const p2 = room.players[1];
             
-            let winnerId = null;
+            let winnerUid = null;
             if (p2 && p1.score !== p2.score) {
-                 winnerId = p1.score > p2.score ? p1.id : p2.id;
+                 winnerUid = p1.score > p2.score ? p1.uid : p2.uid;
             } else if (!p2) {
-                 winnerId = p1.id;
+                 winnerUid = p1.uid;
             }
 
-            io.to(roomCode).emit('match_over', { winnerId, isDraw: p1.score === (p2?.score || 0) });
+            io.to(roomCode).emit('match_over', { winnerUid, isDraw: p1.score === (p2?.score || 0) });
         }
     });
 
     socket.on('disconnect', () => {
         console.log(`Socket disconnected: ${socket.id}`);
         for (const [roomCode, room] of Object.entries(rooms)) {
-            const playerIndex = room.players.findIndex(p => p.id === socket.id);
+            const playerIndex = room.players.findIndex(p => p.socketId === socket.id);
             if (playerIndex !== -1) {
-                room.players.splice(playerIndex, 1);
-                io.to(roomCode).emit('player_left', { message: 'Opponent disconnected' });
+                const removed = room.players.splice(playerIndex, 1);
+                io.to(roomCode).emit('player_left', { message: 'Opponent disconnected', uid: removed[0]?.uid });
                 
                 if (room.players.length === 0) {
                     delete rooms[roomCode];
-                } else if (room.hostId === socket.id && room.players.length > 0) {
-                    room.hostId = room.players[0].id; // Reassign host
+                } else if (room.hostSocketId === socket.id && room.players.length > 0) {
+                    room.hostSocketId = room.players[0].socketId; // Reassign host (socket)
+                    room.hostUid = room.players[0].uid; // Reassign host uid
                 }
             }
         }

@@ -106,7 +106,7 @@ export default class DeductionBoardScene extends Phaser.Scene {
         this.tweens.add({ targets: [titleText, subtitleText, ruleGfx], alpha: 1, duration: 1200, delay: 400, ease: 'Sine.easeOut' });
 
         // ── Evidence cards ───────────────────────────────────────────────
-        const evidence = useGameStore.getState().collectedEvidence || [];
+        const evidence = useGameStore.getState().savedStoryProgress?.cluesList || [];
         const cardW = 320;
         const cardH = 90;
         const cols = Math.min(evidence.length, 2);

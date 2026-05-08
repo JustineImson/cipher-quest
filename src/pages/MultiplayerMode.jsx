@@ -29,8 +29,10 @@ export default function MultiplayerMode() {
 
   // Shared Game State
   const [score, setScore] = useState(0);
+  const [ciphersCracked, setCiphersCracked] = useState(0);
   const [userInput, setUserInput] = useState('');
   const [feedback, setFeedback] = useState(null);
+  const [isGlitching, setIsGlitching] = useState(false);
 
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const inputRef = useRef(null);
@@ -59,10 +61,11 @@ export default function MultiplayerMode() {
         currentUser.uid,
         currentUser.username || currentUser.email || 'Anonymous',
         wins,
-        losses
+        losses,
+        ciphersCracked
       );
     }
-  }, [multiplayerState, matchResult, currentUser]);
+  }, [multiplayerState, matchResult, currentUser, ciphersCracked]);
 
   // When game starts
   useEffect(() => {
@@ -70,6 +73,7 @@ export default function MultiplayerMode() {
     if (multiplayerState === 'playing') {
       resetProgression();
       setScore(0);
+      setCiphersCracked(0);
       setUserInput('');
       setFeedback(null);
       start(60);
@@ -78,8 +82,12 @@ export default function MultiplayerMode() {
 
   // Auto focus input when cipher changes
   useEffect(() => {
-    if (encryptedWord && inputRef.current) {
-      inputRef.current.focus();
+    if (encryptedWord) {
+      setIsGlitching(true);
+      setTimeout(() => setIsGlitching(false), 500);
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
     }
   }, [encryptedWord]);
 
@@ -101,10 +109,13 @@ export default function MultiplayerMode() {
       setScore(newScore);
       submitScore(newScore);
       incrementPuzzlesSolved();
+      setCiphersCracked(prev => prev + 1);
 
       setFeedback('correct');
+      setIsGlitching(true);
       setTimeout(() => {
         setFeedback(null);
+        setIsGlitching(false);
         nextRound(); // Request new word from server
       }, 500);
       setUserInput('');
@@ -171,10 +182,13 @@ export default function MultiplayerMode() {
       setScore(newScore);
       submitScore(newScore);
       incrementPuzzlesSolved();
+      setCiphersCracked(prev => prev + 1);
 
       setFeedback('correct');
+      setIsGlitching(true);
       setTimeout(() => {
         setFeedback(null);
+        setIsGlitching(false);
         nextRound();
       }, 500);
       setUserInput('');
@@ -335,17 +349,38 @@ export default function MultiplayerMode() {
       </div>
 
       {/* Center Box */}
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[200px]">
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[200px] w-full relative">
         {!encryptedWord ? (
           <LoadingSpinner text="Synchronizing Cryptographs..." />
         ) : (
-          <div className="bg-[rgba(8,5,2,0.8)] border border-[var(--gold-dim)] p-12 py-16 shadow-[0_0_40px_rgba(0,0,0,0.9)] relative max-w-3xl w-full text-center mt-4">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center bg-[#1a1208] px-8 py-2 border border-[var(--gold-dim)] shadow-md pb-3 w-72">
-              <span className="text-[var(--gold-light)] text-[11px] tracking-[0.2em] font-mono uppercase border-b border-[rgba(201,168,76,0.2)] pb-2 mb-2 w-full text-center flex justify-center items-center gap-2"><Zap size={12} /> {cipherName}</span>
+          <div className={`bg-[rgba(8,5,2,0.8)] border p-12 py-16 relative max-w-3xl w-full text-center mt-4 transition-all duration-300
+            ${feedback === 'wrong' ? 'animate-shake border-[var(--red)] shadow-[0_0_40px_rgba(139,26,26,0.6)]' :
+              feedback === 'correct' ? 'border-[#5a9e6f] shadow-[0_0_40px_rgba(90,158,111,0.4)]' :
+              'border-[var(--gold-dim)] shadow-[0_0_40px_rgba(0,0,0,0.9)]'}
+          `}>
+            
+            {/* Feedback Overlays */}
+            {feedback === 'correct' && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#5a9e6f]/10 rounded pointer-events-none">
+                <span className="text-5xl md:text-6xl font-serif text-[#5a9e6f] opacity-90 drop-shadow-[0_0_20px_rgba(90,158,111,1)] animate-stamp uppercase tracking-widest border-4 border-[#5a9e6f]/80 px-8 py-4 rounded-lg transform -rotate-12 bg-black/40 backdrop-blur-sm">
+                  DECRYPTED
+                </span>
+              </div>
+            )}
+            {feedback === 'wrong' && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-[var(--red)]/10 rounded pointer-events-none">
+                <span className="text-5xl md:text-6xl font-serif text-[var(--red)] opacity-90 drop-shadow-[0_0_20px_rgba(139,26,26,1)] animate-stamp uppercase tracking-widest border-4 border-[var(--red)]/80 px-8 py-4 rounded-lg transform rotate-12 bg-black/40 backdrop-blur-sm">
+                  FAILED
+                </span>
+              </div>
+            )}
+
+            <div className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center bg-[#1a1208] px-8 py-2 border shadow-md pb-3 w-72 transition-colors duration-300 ${feedback === 'wrong' ? 'border-[var(--red)]' : feedback === 'correct' ? 'border-[#5a9e6f]' : 'border-[var(--gold-dim)]'}`}>
+              <span className={`text-[11px] tracking-[0.2em] font-mono uppercase border-b pb-2 mb-2 w-full text-center flex justify-center items-center gap-2 transition-colors duration-300 ${feedback === 'wrong' ? 'text-[var(--red)] border-[var(--red)]/30' : feedback === 'correct' ? 'text-[#5a9e6f] border-[#5a9e6f]/30' : 'text-[var(--gold-light)] border-[rgba(201,168,76,0.2)]'}`}><Zap size={12} /> {cipherName}</span>
               <span className="text-[#a09070] font-serif italic text-sm tracking-widest uppercase">Intel: {cipherKey}</span>
             </div>
 
-            <p className="font-serif text-3xl sm:text-4xl md:text-5xl text-[var(--cream)] tracking-[0.2em] font-bold break-all selection:bg-[var(--gold-dim)] selection:text-[#0e0a04] leading-relaxed drop-shadow-md">
+            <p className={`font-serif text-3xl sm:text-4xl md:text-5xl text-[var(--cream)] tracking-[0.2em] font-bold break-all selection:bg-[var(--gold-dim)] selection:text-[#0e0a04] leading-relaxed drop-shadow-md ${isGlitching ? 'animate-glitch' : ''}`}>
               {isEncryptionMode ? currentWord : encryptedWord}
             </p>
           </div>
@@ -505,9 +540,9 @@ export default function MultiplayerMode() {
         </div>
 
         <div className="h-full relative z-20 shrink-0">
-          <SocialOverlay 
-             activeRoomCode={isHost && multiplayerState === 'waiting' ? roomCode : null}
-             onAcceptGameInvite={(code) => joinRoom(code)}
+          <SocialOverlay
+            activeRoomCode={isHost && multiplayerState === 'waiting' ? roomCode : null}
+            onAcceptGameInvite={(code) => joinRoom(code)}
           />
         </div>
       </div>

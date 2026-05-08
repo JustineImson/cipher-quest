@@ -3,41 +3,106 @@ import { useGameStore } from '../store/useGameStore';
 export function createHUD(scene) {
     const width = scene.scale.width;
     
-    // ─── EVIDENCE TRACKER ────────────────────────────────────────────────────────
-    const plateX = 20;
-    const plateY = 20;
-    const plateW = 200;
-    const plateH = 46;
+    // ─── EVIDENCE NOTEBOOK TAB ───────────────────────────────────────────────────
+    const tabW = 220;
+    const tabH = 46;
+    const tabX = (width / 2) - (tabW / 2);
+    const tabY = 0; // Stick to top edge
 
     // Shadow
-    const shadow = scene.add.rectangle(plateX + 4, plateY + 4, plateW, plateH, 0x000000, 0.6)
+    const shadow = scene.add.rectangle(tabX + 4, tabY, tabW, tabH + 4, 0x000000, 0.6)
         .setOrigin(0).setScrollFactor(0).setDepth(19999);
     shadow.isUI = true;
 
-    // Main Dark Leather Plate
-    const plate = scene.add.rectangle(plateX, plateY, plateW, plateH, 0x1a1208, 0.95)
-        .setStrokeStyle(2, 0x8b6b32) // Outer gold border
-        .setOrigin(0).setScrollFactor(0).setDepth(20000);
-    plate.isUI = true;
+    // Main Tab Background (Leather-like)
+    const tabBg = scene.add.rectangle(tabX, tabY, tabW, tabH, 0x2a1c11, 0.95)
+        .setStrokeStyle(3, 0x8b6b32)
+        .setOrigin(0).setScrollFactor(0).setDepth(20000)
+        .setInteractive({ useHandCursor: true });
+    tabBg.isUI = true;
 
     // Decorative inner border
-    const innerPlate = scene.add.rectangle(plateX + 4, plateY + 4, plateW - 8, plateH - 8, 0x000000, 0)
-        .setStrokeStyle(1, 0x8b6b32, 0.3)
+    const innerTab = scene.add.rectangle(tabX + 4, tabY + 4, tabW - 8, tabH - 6, 0x000000, 0)
+        .setStrokeStyle(1, 0x8b6b32, 0.5)
         .setOrigin(0).setScrollFactor(0).setDepth(20000);
-    innerPlate.isUI = true;
+    innerTab.isUI = true;
+
+    // Notebook Icon (Unicode)
+    const iconText = scene.add.text(tabX + 15, tabY + 10, '📓', {
+        fontSize: '22px'
+    }).setOrigin(0).setScrollFactor(0).setDepth(20000);
+    iconText.isUI = true;
 
     // Text Label
-    const labelText = scene.add.text(plateX + 15, plateY + 12, 'CLUES:', {
-        fontSize: '18px', fill: '#8b6b32', fontFamily: 'serif', fontStyle: 'bold', letterSpacing: 2
+    const labelText = scene.add.text(tabX + 45, tabY + 14, 'CASE FILE', {
+        fontSize: '16px', fill: '#8b6b32', fontFamily: 'serif', fontStyle: 'bold', letterSpacing: 1
     }).setOrigin(0).setScrollFactor(0).setDepth(20000);
     labelText.isUI = true;
 
-    // Counter Text
+    // Counter Text Container
+    const counterBg = scene.add.rectangle(tabX + 155, tabY + 8, 48, 30, 0x1a1208, 1)
+        .setStrokeStyle(1, 0x8b6b32)
+        .setOrigin(0).setScrollFactor(0).setDepth(20000);
+    counterBg.isUI = true;
+
     const cluesCount = Object.values(useGameStore.getState().savedStoryProgress?.clues || {}).filter(Boolean).length;
-    const countText = scene.add.text(plateX + 110, plateY + 11, `${cluesCount} / 4`, {
-        fontSize: '22px', fill: '#e8dcc0', fontFamily: 'monospace', fontStyle: 'bold'
+    const countText = scene.add.text(tabX + 163, tabY + 13, `${cluesCount}/4`, {
+        fontSize: '18px', fill: '#e8dcc0', fontFamily: 'monospace', fontStyle: 'bold'
     }).setOrigin(0).setScrollFactor(0).setDepth(20000);
     countText.isUI = true;
+
+    // Tab Interactivity
+    const tabElements = [tabBg, innerTab, iconText, labelText, counterBg, countText];
+    
+    // Initial state to slide down from top
+    tabElements.forEach(el => el.setY(el.y - tabH - 10));
+    scene.tweens.add({
+        targets: tabElements,
+        y: `+=${tabH + 10}`,
+        duration: 800,
+        ease: 'Bounce.easeOut',
+        delay: 500
+    });
+
+    tabBg.on('pointerdown', () => {
+        // Prevent redundant opens and rapid double-clicks
+        if (useGameStore.getState().isDeductionBoardOpen) return;
+
+        // Temporarily disable the tab to avoid repeated clicks during the animation
+        tabBg.disableInteractive();
+
+        // Click animation (pulls down slightly)
+        scene.tweens.add({
+            targets: tabElements,
+            y: '+=6',
+            duration: 50,
+            yoyo: true,
+            onComplete: () => {
+                try {
+                    if (!useGameStore.getState().isDeductionBoardOpen) {
+                        useGameStore.getState().setDeductionBoardOpen(true);
+                    }
+                } catch (err) {
+                    console.warn('Failed to open deduction board:', err);
+                }
+
+                // Re-enable interaction after the short animation
+                scene.time.delayedCall(150, () => tabBg.setInteractive({ useHandCursor: true }));
+            }
+        });
+    });
+
+    tabBg.on('pointerover', () => {
+        tabBg.setFillStyle(0x3a2618, 1);
+        labelText.setColor('#ffd700');
+        scene.tweens.add({ targets: tabBg, scaleX: 1.02, scaleY: 1.02, duration: 150, ease: 'Sine.easeOut' });
+    });
+
+    tabBg.on('pointerout', () => {
+        tabBg.setFillStyle(0x2a1c11, 0.95);
+        labelText.setColor('#8b6b32');
+        scene.tweens.add({ targets: tabBg, scaleX: 1, scaleY: 1, duration: 150, ease: 'Sine.easeOut' });
+    });
 
     // ─── PAUSE BUTTON ────────────────────────────────────────────────────────────
     const pauseX = width - 40; // Center X
@@ -100,26 +165,36 @@ export function createHUD(scene) {
         scene.tweens.add({ targets: [bar1, bar2], scaleY: 1, duration: 150, ease: 'Sine.easeOut' });
     });
 
-    const tabletElements = [shadow, plate, innerPlate, labelText, countText];
-
     // ─── STATE SYNC ─────────────────────────────────────────────────────────────
     const unsubscribe = useGameStore.subscribe((state, prevState) => {
         // Handle unpause from React overlay
-        if (prevState.isStoryPaused && !state.isStoryPaused) {
-            if (scene.scene.isPaused()) scene.scene.resume();
+        try {
+            if (prevState.isStoryPaused && !state.isStoryPaused) {
+                if (scene.scene.isPaused()) scene.scene.resume();
+            }
+
+            // Handle Deduction Board Pause/Resume
+            if (!prevState.isDeductionBoardOpen && state.isDeductionBoardOpen) {
+                if (!scene.scene.isPaused()) scene.scene.pause();
+            }
+            if (prevState.isDeductionBoardOpen && !state.isDeductionBoardOpen && !state.isStoryPaused) {
+                if (scene.scene.isPaused()) scene.scene.resume();
+            }
+        } catch (err) {
+            console.warn('Error while handling deduction board pause/resume:', err);
         }
-        
+
         // Handle evidence updates automatically
         const oldCount = Object.values(prevState.savedStoryProgress?.clues || {}).filter(Boolean).length;
         const newCount = Object.values(state.savedStoryProgress?.clues || {}).filter(Boolean).length;
         
         if (newCount !== oldCount) {
-            countText.setText(`${newCount} / 4`);
+            countText.setText(`${newCount}/4`);
             
-            // Pop animation for the tablet
+            // Pop animation for the tab
             if (newCount > oldCount) {
                 scene.tweens.add({
-                    targets: tabletElements,
+                    targets: tabElements,
                     scaleX: 1.08,
                     scaleY: 1.08,
                     duration: 150,
@@ -129,8 +204,10 @@ export function createHUD(scene) {
 
                 // Flash the text gold then back
                 countText.setColor('#ffd700');
+                counterBg.setStrokeStyle(2, 0xffd700);
                 scene.time.delayedCall(300, () => {
                     countText.setColor('#e8dcc0');
+                    counterBg.setStrokeStyle(1, 0x8b6b32);
                 });
             }
         }

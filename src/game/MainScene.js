@@ -206,8 +206,22 @@ export default class MainScene extends Phaser.Scene {
                     }
                 }
 
-                // If this is an access trigger, check if evidence is already found
+                // Compute polygon screen points and centroid up-front so we can always
+                // register a spawn point for the access location even if the trigger
+                // itself will be hidden because the evidence has already been collected.
+                const points = obj.polygon.map(p => tiledIsoToScreen(obj.x + p.x, obj.y + p.y));
+                // Shift the polygons down by tileH / 2 to perfectly match the object sprite Y-alignment
+                const shifted = points.map(pt => ({ x: pt.x, y: pt.y + (tileH / 2) }));
+
+                // compute centroid
+                const cx = shifted.reduce((s, p) => s + p.x, 0) / shifted.length;
+                const cy = shifted.reduce((s, p) => s + p.y, 0) / shifted.length;
+
+                // Always register spawn point for access locations so returning players
+                // can be placed at the correct spot even when the trigger is removed.
                 if (isAccessTrigger && locationKey) {
+                    this.spawnPoints[locationKey] = { x: cx, y: cy };
+
                     const evidenceMap = {
                         apartment: 'hasFoundLog',
                         park: 'hasFoundBoots',
@@ -216,22 +230,10 @@ export default class MainScene extends Phaser.Scene {
                     };
                     const evKey = evidenceMap[locationKey];
                     if (evKey && gameManager.evidence[evKey]) {
-                        // Evidence found: skip rendering polygon and skip creating sensor body
+                        // Evidence already found: don't render the trigger or add a sensor body,
+                        // but we've stored the spawn point above so the player can still return here.
                         return;
                     }
-                }
-
-                const points = obj.polygon.map(p => tiledIsoToScreen(obj.x + p.x, obj.y + p.y));
-                
-                // Shift the polygons down by tileH / 2 to perfectly match the object sprite Y-alignment
-                const shifted = points.map(pt => ({ x: pt.x, y: pt.y + (tileH / 2) }));
-
-                // compute centroid
-                const cx = shifted.reduce((s, p) => s + p.x, 0) / shifted.length;
-                const cy = shifted.reduce((s, p) => s + p.y, 0) / shifted.length;
-
-                if (isAccessTrigger && locationKey) {
-                    this.spawnPoints[locationKey] = { x: cx, y: cy };
                 }
 
                 // Visually render access triggers so they are visible
@@ -286,7 +288,16 @@ export default class MainScene extends Phaser.Scene {
                 }
             }
 
+            const { x, y } = tiledIsoToScreen(obj.x, obj.y);
+            const w = obj.width || 64;
+            const h = obj.height || 64;
+            const labelName = locationKey ? `access_${locationKey}` : 'access';
+
+            // Register spawn point even if evidence already found so the player
+            // will return to the correct tile after leaving a location.
             if (locationKey) {
+                this.spawnPoints[locationKey] = { x, y: y + tileH / 2 };
+
                 const evidenceMap = {
                     apartment: 'hasFoundLog',
                     park: 'hasFoundBoots',
@@ -298,15 +309,6 @@ export default class MainScene extends Phaser.Scene {
                     // Evidence found: skip creating the access body entirely
                     return;
                 }
-            }
-
-            const { x, y } = tiledIsoToScreen(obj.x, obj.y);
-            const w = obj.width || 64;
-            const h = obj.height || 64;
-            const labelName = locationKey ? `access_${locationKey}` : 'access';
-
-            if (locationKey) {
-                this.spawnPoints[locationKey] = { x, y: y + tileH / 2 };
             }
 
             this.matter.add.rectangle(x, y + tileH / 2, w, h, { isStatic: true, isSensor: true, label: labelName });

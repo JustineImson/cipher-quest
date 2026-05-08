@@ -18,10 +18,10 @@ export const useGameStore = create(
       playerProfile: {
         username: 'Investigator',
       },
-      
+
       // Auth State
       currentUser: null,
-      
+
       // Game Lifecycle State: 'idle', 'playing', 'paused', 'game_over'
       gameState: 'idle',
 
@@ -48,48 +48,31 @@ export const useGameStore = create(
       initializeAuthListener: () => {
         onAuthStateChanged(auth, async (user) => {
           if (user) {
-            const userData = { 
+            const userData = {
               uid: user.uid,
-              email: user.email, 
-              username: user.displayName || 'Agent', 
-              friendCode: user.uid.substring(0, 6).toUpperCase() 
+              email: user.email,
+              username: user.displayName || 'Agent',
+              friendCode: user.uid.substring(0, 6).toUpperCase()
             };
             set({ currentUser: userData });
 
             // Load cloud save on login
             try {
-
-            // Debounce utility (module-level so it isn't recreated on every state update)
-            function debounce(func, wait) {
-              let timeout = null;
-              return (...args) => {
-                if (timeout) clearTimeout(timeout);
-                timeout = setTimeout(() => {
-                  timeout = null;
-                  try {
-                    func(...args);
-                  } catch (e) {
-                    console.warn('Debounced function error:', e);
-                  }
-                }, wait);
-              };
-            }
-
-            // Debounced wrapper around syncProgressToCloud (2500ms)
-            const debouncedSync = debounce(() => useGameStore.getState().syncProgressToCloud(), 2500);
-
-            // Auto-sync story progress to cloud whenever it changes (debounced)
-            useGameStore.subscribe((state, prevState) => {
-              // Only attempt to sync if a user is currently logged in
-              if (!useGameStore.getState().currentUser) return;
-
-              if (
-                state.savedStoryProgress !== prevState.savedStoryProgress ||
-                state.collectedEvidence !== prevState.collectedEvidence
-              ) {
-                debouncedSync();
+              const saveRef = doc(db, 'storyProgress', user.uid);
+              const saveSnap = await getDoc(saveRef);
+              if (saveSnap.exists()) {
+                const cloudData = saveSnap.data();
+                set({
+                  savedStoryProgress: cloudData.savedStoryProgress || null,
+                  collectedEvidence: cloudData.collectedEvidence || []
+                });
               }
-            });
+            } catch (err) {
+              console.warn('Failed to load cloud save:', err);
+            }
+          } else {
+            set({ currentUser: null });
+          }
         });
       },
 
@@ -108,9 +91,9 @@ export const useGameStore = create(
           console.warn('Failed to sync progress to cloud:', err);
         }
       },
-      updateSettings: (newSettings) => 
+      updateSettings: (newSettings) =>
         set((state) => ({ settings: { ...state.settings, ...newSettings } })),
-      setGameState: (newState) => 
+      setGameState: (newState) =>
         set({ gameState: newState }),
 
       // Time Attack Progression Actions
@@ -150,9 +133,9 @@ export const useGameStore = create(
       setShowDifficultySplash: (show) => set({ showDifficultySplash: show }),
       toggleDifficultySplash: () => set((state) => ({ showDifficultySplash: !state.showDifficultySplash })),
 
-      setMultiplayerState: (newMultiplayerState) => 
-        set((state) => ({ 
-          multiplayer: { ...state.multiplayer, ...newMultiplayerState } 
+      setMultiplayerState: (newMultiplayerState) =>
+        set((state) => ({
+          multiplayer: { ...state.multiplayer, ...newMultiplayerState }
         })),
 
       // Story Mode Actions
@@ -178,15 +161,22 @@ export const useGameStore = create(
             hasFoundPen: false
           },
           cluesList: []
-        }
+        },
+        collectedEvidence: []
       }),
       saveEvidence: (key, data) => set((state) => {
         if (!state.savedStoryProgress) return state;
+
+        const existingList = state.savedStoryProgress.cluesList || [];
+        // Avoid duplicates by id when possible
+        const alreadyExists = data && data.id ? existingList.some(item => item.id === data.id) : false;
+        const newCluesList = alreadyExists ? existingList : [...existingList, data];
+
         return {
           savedStoryProgress: {
             ...state.savedStoryProgress,
             clues: { ...state.savedStoryProgress.clues, [key]: true },
-            cluesList: [...state.savedStoryProgress.cluesList, data]
+            cluesList: newCluesList
           }
         };
       }),
@@ -196,13 +186,13 @@ export const useGameStore = create(
           savedStoryProgress: { ...state.savedStoryProgress, phase }
         };
       }),
-      resetProgress: () => set({ savedStoryProgress: null, isStoryPaused: false }),
+      resetProgress: () => set({ savedStoryProgress: null, isStoryPaused: false, collectedEvidence: [] }),
       setShowPostGameMenu: (show) => set({ showPostGameMenu: show }),
     }),
     {
       name: 'aegis-game-storage', // Storage key 
-      partialize: (state) => ({ 
-        settings: state.settings, 
+      partialize: (state) => ({
+        settings: state.settings,
         playerProfile: state.playerProfile,
         savedStoryProgress: state.savedStoryProgress,
         collectedEvidence: state.collectedEvidence

@@ -16,7 +16,7 @@ import {
  * Submit a Time Attack score.
  * Only writes if the new score is strictly higher than the user's existing entry.
  */
-export async function submitTimeAttackScore(uid, username, score, difficulty) {
+export async function submitTimeAttackScore(uid, username, score, difficulty, cases) {
   if (!uid) return;
   try {
     const entryRef = doc(db, 'leaderboards', 'timeAttack', 'entries', uid);
@@ -34,6 +34,7 @@ export async function submitTimeAttackScore(uid, username, score, difficulty) {
       username: username || 'Anonymous',
       score,
       difficulty: difficulty || 'easy',
+      cases: cases || 0,
       createdAt: serverTimestamp()
     });
   } catch (err) {
@@ -45,7 +46,7 @@ export async function submitTimeAttackScore(uid, username, score, difficulty) {
  * Submit a multiplayer match result.
  * Upserts the user's document and atomically increments wins or losses.
  */
-export async function submitMultiplayerResult(uid, username, wins, losses) {
+export async function submitMultiplayerResult(uid, username, wins, losses, casesCracked) {
   if (!uid) return;
   try {
     const entryRef = doc(db, 'leaderboards', 'multiplayer', 'entries', uid);
@@ -59,6 +60,7 @@ export async function submitMultiplayerResult(uid, username, wins, losses) {
 
     if (wins > 0) updates.wins = increment(wins);
     if (losses > 0) updates.losses = increment(losses);
+    if (casesCracked > 0) updates.cases = increment(casesCracked);
 
     if (existingSnap.exists()) {
       await setDoc(entryRef, updates, { merge: true });
@@ -67,6 +69,7 @@ export async function submitMultiplayerResult(uid, username, wins, losses) {
         ...updates,
         wins: wins || 0,
         losses: losses || 0,
+        cases: casesCracked || 0,
         createdAt: serverTimestamp()
       });
     }
@@ -92,7 +95,7 @@ export async function fetchTimeAttackLeaderboard(limitCount = 10) {
       name: data.username || 'Unknown',
       score: data.score || 0,
       time: data.difficulty || '-',
-      cases: '-',
+      cases: data.cases !== undefined ? data.cases : '-',
       badge: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : null
     };
   });
@@ -117,7 +120,7 @@ export async function fetchMultiplayerLeaderboard(limitCount = 10) {
       name: data.username || 'Unknown',
       score: wins,
       time: `${wins}W / ${losses}L`,
-      cases: '-',
+      cases: data.cases !== undefined ? data.cases : '-',
       badge: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : null
     };
   });

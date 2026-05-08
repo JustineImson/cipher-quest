@@ -10,7 +10,6 @@ import { useGameStore } from '../store/useGameStore';
 import { suspectEvidence } from '../data/StoryEvidence';
 
 export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
-  const { unlockNextEvidence } = useGameStore();
   const [feedback, setFeedback] = useState(null); // 'correct' | 'wrong' | null
   const [isClosing, setIsClosing] = useState(false);
 
@@ -39,23 +38,11 @@ export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
 
     if (isCorrect) {
       setFeedback('correct');
-      unlockNextEvidence();
-      // If this unlocked the final evidence, force-flush the sync immediately
-      try {
-        const currentCount = useGameStore.getState().collectedEvidence?.length || 0;
-        if (currentCount >= suspectEvidence.length) {
-          await useGameStore.getState().syncProgressToCloud();
-        }
-      } catch (err) {
-        console.warn('Failed to force sync after final evidence:', err);
-      }
       setIsClosing(true);
-      
-      // Attempt to play success sound if it exists
-      const audio = new Audio('/sounds/success.mp3'); // Try a direct path if we want
-      audio.play().catch(e => {
-          // Ignore error if audio doesn't exist
-      });
+
+      // Play success sound if available
+      const audio = new Audio('/sounds/success.mp3');
+      audio.play().catch(() => {});
 
       setTimeout(() => {
         onSolve();
