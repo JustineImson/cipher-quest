@@ -28,89 +28,78 @@ export default function SubstitutionInteractive({
   // 2. State Setup
   const [legendGrid, setLegendGrid] = useState(() => Array(26).fill(""));
   const [activeLegendIndex, setActiveLegendIndex] = useState(0);
-  const [isLegendUnlocked, setIsLegendUnlocked] = useState(false);
+  const [legendComplete, setLegendComplete] = useState(false);
   const [finalAnswer, setFinalAnswer] = useState("");
   const [legendError, setLegendError] = useState(false);
+  const [hoveredIndex, setHoveredIndex] = useState(null);
 
   // Reset state if inputs change
   useEffect(() => {
     setLegendGrid(Array(26).fill(""));
     setActiveLegendIndex(0);
-    setIsLegendUnlocked(false);
+    setLegendComplete(false);
     setFinalAnswer("");
     setLegendError(false);
+    setHoveredIndex(null);
   }, [text, mode, keyword]);
 
   // 3. Derived State
   const usedLetters = useMemo(() => {
     const used = new Set();
     // Only disable letters if we are still building the legend
-    if (isLegendUnlocked) return used;
+    if (legendComplete) return used;
     
     for (const letter of legendGrid) {
       if (letter) used.add(letter);
     }
     return used;
-  }, [legendGrid, isLegendUnlocked]);
+  }, [legendGrid, legendComplete]);
 
-  // 4. Keyboard Input Logic
+  // 4. Keyboard Input Logic for Legend Building
   const handleKeyPress = useCallback((key) => {
-    if (legendError) return; // Block typing during error animation
+    if (legendError || legendComplete) return;
 
-    if (!isLegendUnlocked) {
-      setLegendGrid((prev) => {
-        const next = [...prev];
-        next[activeLegendIndex] = key.toUpperCase();
-        return next;
-      });
-      // Auto-advance to next empty box
-      let nextIdx = activeLegendIndex + 1;
-      while (nextIdx < 26 && legendGrid[nextIdx] !== "") {
-        nextIdx++;
-      }
-      if (nextIdx < 26) setActiveLegendIndex(nextIdx);
-    } else {
-      // Phase B: Typing final answer
-      const maxLen = text.replace(/\s/g, "").length;
-      if (finalAnswer.length < maxLen) {
-        setFinalAnswer((prev) => prev + key.toUpperCase());
-      }
+    setLegendGrid((prev) => {
+      const next = [...prev];
+      next[activeLegendIndex] = key.toUpperCase();
+      return next;
+    });
+    // Auto-advance to next empty box
+    let nextIdx = activeLegendIndex + 1;
+    while (nextIdx < 26 && legendGrid[nextIdx] !== "") {
+      nextIdx++;
     }
-  }, [activeLegendIndex, legendGrid, isLegendUnlocked, legendError, finalAnswer, text]);
+    if (nextIdx < 26) setActiveLegendIndex(nextIdx);
+  }, [activeLegendIndex, legendGrid, legendComplete, legendError]);
 
   const handleDelete = useCallback(() => {
-    if (legendError) return;
+    if (legendError || legendComplete) return;
 
-    if (!isLegendUnlocked) {
-      if (legendGrid[activeLegendIndex] !== "") {
-        setLegendGrid((prev) => {
-          const next = [...prev];
-          next[activeLegendIndex] = "";
-          return next;
-        });
-      } else {
-        const prevIdx = activeLegendIndex > 0 ? activeLegendIndex - 1 : 0;
-        setActiveLegendIndex(prevIdx);
-        setLegendGrid((prev) => {
-          const next = [...prev];
-          next[prevIdx] = "";
-          return next;
-        });
-      }
+    if (legendGrid[activeLegendIndex] !== "") {
+      setLegendGrid((prev) => {
+        const next = [...prev];
+        next[activeLegendIndex] = "";
+        return next;
+      });
     } else {
-      // Phase B: Deleting final answer
-      setFinalAnswer((prev) => prev.slice(0, -1));
+      const prevIdx = activeLegendIndex > 0 ? activeLegendIndex - 1 : 0;
+      setActiveLegendIndex(prevIdx);
+      setLegendGrid((prev) => {
+        const next = [...prev];
+        next[prevIdx] = "";
+        return next;
+      });
     }
-  }, [activeLegendIndex, legendGrid, isLegendUnlocked, legendError]);
+  }, [activeLegendIndex, legendGrid, legendComplete, legendError]);
 
   // 5. Legend Validation
   useEffect(() => {
-    if (isLegendUnlocked || legendError) return;
+    if (legendComplete || legendError) return;
     
     if (legendGrid.every((cell) => cell !== "")) {
       const isMatch = legendGrid.join("") === targetLegend.join("");
       if (isMatch) {
-        setIsLegendUnlocked(true);
+        setLegendComplete(true);
       } else {
         setLegendError(true);
         setTimeout(() => {
@@ -135,35 +124,32 @@ export default function SubstitutionInteractive({
         }, 800);
       }
     }
-  }, [legendGrid, targetLegend, isLegendUnlocked, legendError]);
+  }, [legendGrid, targetLegend, legendComplete, legendError]);
 
-  // 6. Win Condition
-  useEffect(() => {
-    if (!isLegendUnlocked) return;
-    const textNoSpaces = text.replace(/\s/g, "");
-    if (finalAnswer.length > 0 && finalAnswer.length === textNoSpaces.length) {
-      // Map answer back with original spaces
-      let mappedAnswer = "";
-      let ansIdx = 0;
-      for (let i = 0; i < text.length; i++) {
-        if (text[i] === " ") {
-          mappedAnswer += " ";
-        } else {
-          mappedAnswer += finalAnswer[ansIdx] || "";
-          ansIdx++;
-        }
-      }
-      onComplete?.(mappedAnswer);
+  // 6. Handle Final Answer Submit
+  const handleFinalAnswerChange = (e) => {
+    const raw = e.target.value;
+    const sanitized = raw.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    const maxLen = text.replace(/[^a-zA-Z0-9]/g, "").length;
+    if (sanitized.length <= maxLen) {
+      setFinalAnswer(sanitized);
     }
-  }, [finalAnswer, text, isLegendUnlocked, onComplete]);
+  };
 
-  // Phase 2: Legend UI Layout
+  const handleSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (finalAnswer.length > 0) {
+      onComplete?.(finalAnswer);
+    }
+  };
+
+  // 7. Render
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-5xl mx-auto select-none">
       
       {/* ── Top Section: Target Text ── */}
       <div className="w-full text-center">
-        {!isLegendUnlocked && (
+        {!legendComplete && (
           <div className="flex flex-col items-center justify-center text-victorian-red/80 font-serif mb-4 animate-pulse">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -175,64 +161,133 @@ export default function SubstitutionInteractive({
         <div className="text-2xl md:text-3xl font-mono tracking-[0.2em] uppercase text-gray-200 break-words max-w-3xl mx-auto px-4 leading-relaxed">
           {text}
         </div>
-        
-        {/* Phase B: Final Answer Display */}
-        {isLegendUnlocked && (
-          <div className="mt-6 text-xl md:text-2xl font-mono tracking-[0.2em] uppercase text-mystery-gold break-words max-w-3xl mx-auto px-4 leading-relaxed min-h-[3rem]">
-            {finalAnswer || <span className="opacity-50 animate-pulse">_</span>}
+      </div>
+
+      {/* ── Stage 1: Building the Legend ── */}
+      {!legendComplete && (
+        <>
+          <div className="w-full max-w-5xl overflow-x-auto pb-4 custom-scrollbar">
+            <div className="flex flex-row items-center justify-start gap-1 sm:gap-2 p-2 min-w-max mx-auto" style={{ width: "fit-content" }}>
+              {STANDARD_ALPHABET.map((char, index) => {
+                const isActive = activeLegendIndex === index;
+                return (
+                  <div 
+                    key={`legend-build-${index}`} 
+                    onClick={() => setActiveLegendIndex(index)}
+                    className={`
+                      flex flex-col items-center justify-between p-2 sm:p-3 rounded-lg cursor-pointer transition-all duration-300 min-w-[3rem]
+                      ${isActive
+                        ? 'bg-mystery-gold/10 border border-mystery-gold shadow-[0_0_15px_rgba(203,161,83,0.3)] scale-105 z-10'
+                        : 'bg-black/30 border border-mystery-gold/20 hover:border-mystery-gold/50 hover:bg-mystery-gold/10'
+                      }
+                    `}
+                  >
+                    {/* Top Cell */}
+                    <div className="text-lg md:text-xl font-serif text-gray-400 mb-2 font-bold">
+                      {char}
+                    </div>
+                    
+                    {/* Bottom Cell */}
+                    <div className={`
+                      flex items-center justify-center w-8 h-8 md:w-10 md:h-10 border rounded-md font-mono text-lg uppercase transition-all duration-150
+                      ${legendError && legendGrid[index] !== targetLegend[index]
+                        ? 'bg-victorian-red/30 border-victorian-red text-victorian-red animate-pulse shadow-[0_0_10px_rgba(88,24,31,0.5)]'
+                        : isActive 
+                        ? 'bg-mystery-gold/20 border-mystery-gold text-white shadow-[inset_0_0_10px_rgba(203,161,83,0.3)]' 
+                        : legendGrid[index] 
+                          ? 'bg-black/60 border-mystery-gold/40 text-mystery-gold shadow-[0_0_8px_rgba(203,161,83,0.1)]' 
+                          : 'bg-black/40 border-mystery-gold/20 text-transparent'
+                      }
+                    `}>
+                      {legendGrid[index]}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* ── Middle: The Legend Grid ── */}
-      <div className="w-full max-w-5xl overflow-x-auto pb-4 custom-scrollbar">
-        <div className="flex flex-row items-center justify-start gap-1 sm:gap-2 p-2 min-w-max mx-auto" style={{ width: "fit-content" }}>
-          {STANDARD_ALPHABET.map((char, index) => {
-            const isActive = activeLegendIndex === index;
-            return (
-              <div 
-                key={`legend-${index}`} 
-                onClick={() => setActiveLegendIndex(index)}
-                className={`
-                  flex flex-col items-center justify-between p-2 sm:p-3 rounded-lg cursor-pointer transition-all duration-300 min-w-[3rem]
-                  ${isActive
-                    ? 'bg-mystery-gold/10 border border-mystery-gold shadow-[0_0_15px_rgba(203,161,83,0.3)] scale-105 z-10'
-                    : 'bg-black/30 border border-mystery-gold/20 hover:border-mystery-gold/50 hover:bg-mystery-gold/10'
-                  }
-                `}
-              >
-                {/* Top Cell (Standard Letter) */}
-                <div className="text-lg md:text-xl font-serif text-gray-400 mb-2 font-bold">
-                  {char}
-                </div>
-                
-                {/* Bottom Cell (Input) */}
-                <div className={`
-                  flex items-center justify-center w-8 h-8 md:w-10 md:h-10 border rounded-md font-mono text-lg uppercase transition-all duration-150
-                  ${legendError && legendGrid[index] !== targetLegend[index]
-                    ? 'bg-victorian-red/30 border-victorian-red text-victorian-red animate-pulse shadow-[0_0_10px_rgba(88,24,31,0.5)]'
-                    : isActive 
-                    ? 'bg-mystery-gold/20 border-mystery-gold text-white shadow-[inset_0_0_10px_rgba(203,161,83,0.3)]' 
-                    : legendGrid[index] 
-                      ? 'bg-black/60 border-mystery-gold/40 text-mystery-gold shadow-[0_0_8px_rgba(203,161,83,0.1)]' 
-                      : 'bg-black/40 border-mystery-gold/20 text-transparent'
-                  }
-                `}>
-                  {legendGrid[index]}
-                </div>
+          <VirtualKeyboard
+            disabledKeys={usedLetters}
+            onKeyPress={handleKeyPress}
+            onDelete={handleDelete}
+            className="mt-2"
+          />
+        </>
+      )}
+
+      {/* ── Stage 2: Dual Alphabet Legend & Input ── */}
+      {legendComplete && (
+        <div className="w-full flex flex-col items-center animate-[fadeIn_0.5s_ease-out]">
+          
+          <div className="w-full max-w-5xl overflow-x-auto pb-6 custom-scrollbar">
+            <div className="flex flex-row items-center justify-start gap-1 sm:gap-2 p-2 min-w-max mx-auto" style={{ width: "fit-content" }}>
+              
+              {/* Row Labels */}
+              <div className="flex flex-col justify-between py-1 mr-2 sm:mr-4 text-right h-full">
+                <div className="text-xs sm:text-sm font-serif text-mystery-gold/70 mt-1 uppercase tracking-widest">Ciphertext</div>
+                <div className="text-xs sm:text-sm font-serif text-mystery-gold/70 mb-2 uppercase tracking-widest mt-auto">Plaintext</div>
               </div>
-            );
-          })}
-        </div>
-      </div>
 
-      {/* ── Bottom: Virtual Keyboard ── */}
-      <VirtualKeyboard
-        disabledKeys={usedLetters}
-        onKeyPress={handleKeyPress}
-        onDelete={handleDelete}
-        className="mt-2"
-      />
+              {STANDARD_ALPHABET.map((char, index) => {
+                const isHovered = hoveredIndex === index;
+                return (
+                  <div 
+                    key={`legend-display-${index}`}
+                    onMouseEnter={() => setHoveredIndex(index)}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                    onClick={() => setHoveredIndex(isHovered ? null : index)}
+                    className={`
+                      flex flex-col items-center justify-between p-2 rounded-md transition-all duration-200 cursor-pointer min-w-[2.5rem]
+                      ${isHovered ? 'bg-mystery-gold/20 scale-110 shadow-[0_0_12px_rgba(203,161,83,0.4)] z-10' : 'bg-black/40'}
+                      border ${isHovered ? 'border-mystery-gold' : 'border-mystery-gold/20'}
+                    `}
+                  >
+                    {/* Ciphertext (Standard A-Z) */}
+                    <div className={`text-lg font-serif mb-3 font-bold transition-colors ${isHovered ? 'text-white' : 'text-gray-400'}`}>
+                      {char}
+                    </div>
+                    
+                    {/* Plaintext (Target Legend) */}
+                    <div className={`
+                      flex items-center justify-center w-8 h-8 border rounded-sm font-mono text-lg uppercase transition-all
+                      ${isHovered 
+                        ? 'bg-mystery-gold text-mystery-dark border-mystery-gold shadow-[0_0_10px_rgba(203,161,83,0.6)]' 
+                        : 'bg-black/60 border-mystery-gold/40 text-mystery-gold'
+                      }
+                    `}>
+                      {targetLegend[index]}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Answer Input */}
+          <form onSubmit={handleSubmit} className="w-full max-w-md flex flex-col items-center gap-4 mt-4">
+            <input
+              type="text"
+              value={finalAnswer}
+              onChange={handleFinalAnswerChange}
+              placeholder="ENTER DECODED ANSWER..."
+              className="w-full bg-black/60 border border-mystery-gold/50 focus:border-mystery-gold rounded px-4 py-3 outline-none text-2xl font-mono text-center text-white tracking-[0.2em] placeholder:text-mystery-gold/30 placeholder:tracking-widest shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] transition-all focus:shadow-[0_0_15px_rgba(203,161,83,0.2)] uppercase"
+              autoComplete="off"
+              spellCheck="false"
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={finalAnswer.length === 0}
+              className="w-full px-6 py-3 bg-mystery-dark border border-mystery-gold/50 hover:bg-mystery-gold/10 hover:border-mystery-gold text-mystery-gold font-serif tracking-[0.2em] uppercase rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-mystery-dark disabled:hover:border-mystery-gold/50"
+            >
+              Submit Decryption
+            </button>
+          </form>
+
+        </div>
+      )}
+
     </div>
   );
 }

@@ -19,8 +19,20 @@ export const StoryCiphers = {
   },
   beach: {
     // Keyword Substitution
-    easy: { type: 'substitution', keyword: 'PEN', clue: "Keyword Mixed Alphabet. The key is just PEN.", ciphertext: "ETQL", solution: "BURN" },
-    medium: { type: 'substitution', keyword: 'SILVER', clue: "Keyword Mixed Alphabet. Key: SILVER.", ciphertext: "VEPQOKYYRCGEP", solution: "DESTROYFILES" },
+    easy: {
+      type: 'substitution',
+      keyword: 'PEN',
+      clue: "Keyword Mixed Alphabet. The key is just PEN.",
+      ciphertext: "EURL", // Corrected from ETQL
+      solution: "BURN"
+    },
+    medium: {
+      type: 'substitution',
+      keyword: 'SILVER',
+      clue: "Keyword Mixed Alphabet. Key: SILVER.",
+      ciphertext: "VEPQOKYRCGEP", // Corrected (removed extra Y)
+      solution: "DESTROYFILES"
+    },
     hard: { type: 'substitution', keyword: 'SILVER', clue: "Keyword Mixed Alphabet. Key: SILVER.", ciphertext: "CGGCLCQRTJVP", solution: "ILLICITFUNDS" }
   }
 };

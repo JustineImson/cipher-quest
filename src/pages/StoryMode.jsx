@@ -58,7 +58,11 @@ export default function StoryMode() {
 
   const startSceneFromLocation = location.state?.startScene;
   const initialDifficulty = location.state?.difficulty || (persistedSaved && persistedSaved.difficulty) || null;
-  const initialStartScene = startSceneFromLocation || (persistedSaved ? 'MainScene' : 'IntroScene');
+  
+  const hasFinishedIntro = localStorage.getItem('hasFinishedIntro') === 'true';
+  const currentScene = localStorage.getItem('currentScene');
+  
+  const initialStartScene = startSceneFromLocation || (hasFinishedIntro && currentScene ? currentScene : (persistedSaved ? 'MainScene' : 'IntroScene'));
 
   const [difficulty, setDifficulty] = useState(initialDifficulty);
   const [startScene, setStartScene] = useState(initialStartScene);
@@ -68,7 +72,9 @@ export default function StoryMode() {
     // from the persisted localStorage above, apply the store's values.
     if (!startSceneFromLocation && saved) {
       if (!difficulty && saved.difficulty) setDifficulty(saved.difficulty);
-      setStartScene('MainScene');
+      const currentScene = localStorage.getItem('currentScene');
+      const hasFinishedIntro = localStorage.getItem('hasFinishedIntro') === 'true';
+      setStartScene(hasFinishedIntro && currentScene ? currentScene : 'MainScene');
     }
   }, [saved, startSceneFromLocation]);
 

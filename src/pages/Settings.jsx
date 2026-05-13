@@ -1,10 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../store/useGameStore';
-import { ArrowLeft, Volume2, Music, Settings as SettingsIcon } from 'lucide-react';
+import { ArrowLeft, Volume2, Music, Settings as SettingsIcon, Play } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useSfx } from '../hooks/useSfx';
 
-export default function Settings() {
+export default function Settings({ isOverlay, onClose }) {
   const navigate = useNavigate();
   const { settings, updateSettings } = useGameStore();
   const { playClick } = useSfx();
@@ -281,16 +281,22 @@ export default function Settings() {
       `}</style>
 
       <div className="st-root">
-        <div className="st-bg" />
-        <div className="st-scrim" />
+        {!isOverlay && <div className="st-bg" />}
+        <div className={`st-scrim ${isOverlay ? 'backdrop-blur-md' : ''}`} />
         <div className="st-bloom" />
         <div className="st-grain" />
 
         <div className="st-layout">
           <div className={`st-header ${visible ? 'show' : ''}`}>
-            <button className="st-back" onClick={() => { playClick(); navigate(-1); }}>
-              <ArrowLeft size={12} /> Back to Menu
-            </button>
+            {isOverlay ? (
+              <button className="st-back" onClick={() => { playClick(); onClose?.(); }}>
+                <Play size={12} fill="currentColor" /> Resume Game
+              </button>
+            ) : (
+              <button className="st-back" onClick={() => { playClick(); navigate(-1); }}>
+                <ArrowLeft size={12} /> Back to Menu
+              </button>
+            )}
             <span className="st-eyebrow">— Apparatus Calibration —</span>
             <h1 className="st-title">Settings</h1>
             <div className="st-rule">

@@ -78,7 +78,7 @@ const evidenceConfig = {
         file: 'pen',
         key: 'hasFoundPen',
         x: 0.51,            // horizontal position (% of screen width)
-        y: 0.05,            // vertical position (% of screen height)
+        y: 0.15,            // vertical position (% of screen height)
         displayW: 50,       // display width in px
         displayH: 50,       // display height in px
         dialogue: "A sterling silver fountain pen buried in the ashes. Initials E.R. Expensive. Meticulous. Custom-weighted. This isn't just a writing tool, it's a status symbol. Someone who manages executives at City Hall would carry something exactly like this.",
@@ -113,6 +113,9 @@ export default class LocationScene extends Phaser.Scene {
     }
 
     create() {
+        localStorage.setItem('currentScene', this.scene.key);
+        localStorage.setItem('hasFinishedIntro', 'true');
+        
         const { width, height } = this.scale;
 
         // ANIMATION: Crime Scene Flash + Fade
@@ -231,7 +234,7 @@ export default class LocationScene extends Phaser.Scene {
             .on('pointerdown', () => {
                 // Disable clicking again
                 evidenceSprite.disableInteractive();
-                
+
                 const difficulty = useGameStore.getState().settings.difficulty.toLowerCase();
                 const cipherData = StoryCiphers[this.locationKey][difficulty];
 
@@ -249,7 +252,7 @@ export default class LocationScene extends Phaser.Scene {
                         window.dispatchEvent(new CustomEvent('openStoryCipher', { detail: cipherData }));
                     }
                 });
-                
+
                 const handleCipherSolved = () => {
                     cleanup();
                     if (this.scene.isPaused()) this.scene.resume();
@@ -306,7 +309,7 @@ export default class LocationScene extends Phaser.Scene {
                 const handleCipherClosed = () => {
                     cleanup();
                     if (this.scene.isPaused()) this.scene.resume();
-                    
+
                     // Return to original position
                     this.tweens.add({
                         targets: evidenceSprite,

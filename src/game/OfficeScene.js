@@ -37,6 +37,9 @@ export default class OfficeScene extends Phaser.Scene {
     }
 
     create() {
+        localStorage.setItem('currentScene', this.scene.key);
+        localStorage.setItem('hasFinishedIntro', 'true');
+        
         const { width, height } = this.scale;
 
         // ANIMATION 1: Cinematic Fade-In from black over 2 seconds

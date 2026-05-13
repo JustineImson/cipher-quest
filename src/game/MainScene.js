@@ -77,6 +77,9 @@ export default class MainScene extends Phaser.Scene {
     }
 
     create() {
+        localStorage.setItem('currentScene', this.scene.key);
+        localStorage.setItem('hasFinishedIntro', 'true');
+        
         // Setup dark gloomy background color
         this.cameras.main.setBackgroundColor('#0d131f');
 

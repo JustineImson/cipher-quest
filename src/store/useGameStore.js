@@ -9,6 +9,7 @@ export const useGameStore = create(
   persist(
     (set) => ({
       // Global Settings State
+      isSettingsOpen: false,
       settings: {
         volume: 50, // Master volume (0-100)
         musicEnabled: true,

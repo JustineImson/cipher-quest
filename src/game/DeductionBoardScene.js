@@ -10,6 +10,9 @@ export default class DeductionBoardScene extends Phaser.Scene {
     }
 
     create() {
+        localStorage.setItem('currentScene', this.scene.key);
+        localStorage.setItem('hasFinishedIntro', 'true');
+        
         const { width, height } = this.scale;
 
         this.cameras.main.fadeIn(2000, 0, 0, 0);

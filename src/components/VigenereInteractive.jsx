@@ -99,7 +99,8 @@ export default function VigenereInteractive({
       }
       onComplete?.(finalAnswer);
     }
-  }, [grid, text, onComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grid, text]);
 
   // Global Keyboard listener for smooth math typing
   useEffect(() => {

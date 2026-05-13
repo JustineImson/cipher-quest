@@ -19,8 +19,7 @@ export default function PauseOverlay() {
 
   const handleSettings = () => {
     playClick();
-    useGameStore.setState({ isStoryPaused: false });
-    navigate('/settings');
+    useGameStore.setState({ isSettingsOpen: true });
   };
 
   const handleExit = () => {

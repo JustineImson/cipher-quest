@@ -194,7 +194,8 @@ export default function ColumnarInteractive({
     ) {
       onComplete?.(finalAnswer);
     }
-  }, [clickedHeaders, cols, finalAnswer, mode, onComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clickedHeaders, cols, finalAnswer, mode]);
 
   /* ── Win Condition: Decrypt – auto-read grid left-to-right ───── */
   useEffect(() => {
@@ -214,7 +215,8 @@ export default function ColumnarInteractive({
     const trimmed = plaintext.trimEnd();
     setFinalAnswer(trimmed);
     onComplete?.(trimmed);
-  }, [mode, filledCount, text.length, grid, rows, cols, onComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, filledCount, text.length, grid, rows, cols]);
 
   /* ── Render ─────────────────────────────────────────────────── */
   return (

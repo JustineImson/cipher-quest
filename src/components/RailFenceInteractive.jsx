@@ -183,7 +183,8 @@ export default function RailFenceInteractive({
     ) {
       onComplete?.(finalAnswer);
     }
-  }, [mode, clickedRows.length, rails, finalAnswer, onComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, clickedRows.length, rails, finalAnswer]);
 
   // Win Condition: Decrypt
   useEffect(() => {
@@ -196,7 +197,8 @@ export default function RailFenceInteractive({
       setFinalAnswer(plaintext);
       onComplete?.(plaintext);
     }
-  }, [mode, isGridFull, activeCells, grid, text.length, onComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, isGridFull, activeCells, grid, text.length]);
 
   // Cell rendering style helpers
   const getCellClasses = (r, c) => {

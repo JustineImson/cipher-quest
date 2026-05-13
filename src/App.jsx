@@ -19,6 +19,7 @@ import { app } from './services/firebase';
 function App() {
   const location = useLocation();
   const initializeAuthListener = useGameStore((state) => state.initializeAuthListener);
+  const isSettingsOpen = useGameStore((state) => state.isSettingsOpen);
   const [toastPayload, setToastPayload] = useState(null);
 
   useEffect(() => {
@@ -74,6 +75,12 @@ function App() {
           <Route path="/difficulty" element={<Difficulty />} />
           <Route path="/profile" element={<Profile />} />
         </Routes>
+        
+        {isSettingsOpen && (
+          <div className="absolute inset-0 z-[9999]">
+            <Settings isOverlay onClose={() => useGameStore.setState({ isSettingsOpen: false, isStoryPaused: false })} />
+          </div>
+        )}
       </div>
     </div>
   );
