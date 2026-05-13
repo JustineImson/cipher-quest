@@ -23,14 +23,14 @@ export const StoryCiphers = {
       type: 'substitution',
       keyword: 'PEN',
       clue: "Keyword Mixed Alphabet. The key is just PEN.",
-      ciphertext: "EURL", // Corrected from ETQL
+      ciphertext: "EURL",
       solution: "BURN"
     },
     medium: {
       type: 'substitution',
       keyword: 'SILVER',
       clue: "Keyword Mixed Alphabet. Key: SILVER.",
-      ciphertext: "VEPQOKYRCGEP", // Corrected (removed extra Y)
+      ciphertext: "VEPQOKYRCGEP",
       solution: "DESTROYFILES"
     },
     hard: { type: 'substitution', keyword: 'SILVER', clue: "Keyword Mixed Alphabet. Key: SILVER.", ciphertext: "CGGCLCQRTJVP", solution: "ILLICITFUNDS" }
