@@ -19,6 +19,8 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
   const [encryptedWord, setEncryptedWord] = useState('');
   const [cipherName, setCipherName] = useState('');
   const [cipherKey, setCipherKey] = useState('');
+  const [currentClue, setCurrentClue] = useState('');
+  const [isFallback, setIsFallback] = useState(false);
   
   const [matchResult, setMatchResult] = useState(null); // 'win', 'lose', 'draw', null
   const roomDifficultyRef = useRef('easy');
@@ -66,6 +68,8 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
             setEncryptedWord(data.encryptedWord);
             setCipherName(data.cipherName);
             setCipherKey(data.cipherKey);
+            setCurrentClue(data.clue || 'Intercepted communication fragment.');
+            setIsFallback(false);
           } else {
             const diff = roomDifficultyRef.current || 'easy';
             const pool = fallbackPuzzles[diff] || fallbackPuzzles.easy;
@@ -77,6 +81,8 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
             setEncryptedWord(encrypted);
             setCipherName(cipher.name);
             setCipherKey(cipher.key);
+            setCurrentClue(puzzle.clue || 'Fallback: examine the letters carefully.');
+            setIsFallback(true);
           }
         });
 
@@ -158,6 +164,8 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
         setEncryptedWord(cipher.applyCipher(puzzle.plaintext));
         setCipherName(cipher.name);
         setCipherKey(cipher.key);
+        setCurrentClue(puzzle.clue || 'Fallback: examine the letters carefully.');
+        setIsFallback(true);
       }
     }
   };
@@ -188,6 +196,8 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
     setEncryptedWord(cipher.applyCipher(puzzle.plaintext));
     setCipherName(cipher.name);
     setCipherKey(cipher.key);
+    setCurrentClue(puzzle.clue || 'Fallback: examine the letters carefully.');
+    setIsFallback(true);
   };
   
   const emitTimeout = () => {
@@ -207,6 +217,8 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
      setOpponentScore(0);
      setCurrentWord('');
      setCipherKey('');
+     setCurrentClue('');
+     setIsFallback(false);
      setMatchResult(null);
   };
 
@@ -220,6 +232,8 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
     encryptedWord,
     cipherName,
     cipherKey,
+    currentClue,
+    isFallback,
     matchResult,
     createRoom,
     joinRoom,

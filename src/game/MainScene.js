@@ -401,6 +401,8 @@ export default class MainScene extends Phaser.Scene {
                     const parts = otherBody.label.split('_');
                     this.currentAccessLocation = parts.length > 1 ? parts.slice(1).join('_') : null;
                     this.promptText.setVisible(true);
+                    const uiScene = this.scene.get('UIScene');
+                    if (uiScene && uiScene.showActionButton) uiScene.showActionButton();
                 }
             });
         });
@@ -413,6 +415,8 @@ export default class MainScene extends Phaser.Scene {
                     this.canAccess = false;
                     this.currentAccessLocation = null;
                     this.promptText.setVisible(false);
+                    const uiScene = this.scene.get('UIScene');
+                    if (uiScene && uiScene.hideActionButton) uiScene.hideActionButton();
                 }
             });
         });
@@ -456,6 +460,7 @@ export default class MainScene extends Phaser.Scene {
             if (this.scene.isActive('MainScene')) {
                 this.cameras.main.fadeOut(500, 0, 0, 0);
                 this.cameras.main.once('camerafadeoutcomplete', () => {
+                    this.scene.stop('UIScene');
                     this.scene.start('DeductionBoardScene');
                 });
             }
@@ -463,7 +468,25 @@ export default class MainScene extends Phaser.Scene {
         window.addEventListener('forceDeductionScene', handleForceDeduction);
         this.events.on('shutdown', () => {
             window.removeEventListener('forceDeductionScene', handleForceDeduction);
+            this.scene.stop('UIScene');
         });
+
+        // Launch UIScene and hook up inspect-pressed event
+        this.scene.launch('UIScene');
+        this.inspectRequested = false;
+        // The UIScene might take a frame to become available, so we wait or poll.
+        // Safest is to just let update() handle it, but we can also bind an event if we grab the scene manager:
+        const checkAndBindUIScene = () => {
+            const uiScene = this.scene.get('UIScene');
+            if (uiScene && uiScene.events) {
+                uiScene.events.on('inspect-pressed', () => {
+                    this.inspectRequested = true;
+                });
+            } else {
+                this.time.delayedCall(100, checkAndBindUIScene);
+            }
+        };
+        checkAndBindUIScene();
     }
 
     update() {
@@ -473,10 +496,20 @@ export default class MainScene extends Phaser.Scene {
         let vx = 0;
         let vy = 0;
 
-        const isUp = this.cursors.up.isDown || this.wasd.up.isDown;
-        const isDown = this.cursors.down.isDown || this.wasd.down.isDown;
-        const isLeft = this.cursors.left.isDown || this.wasd.left.isDown;
-        const isRight = this.cursors.right.isDown || this.wasd.right.isDown;
+        const uiScene = this.scene.get('UIScene');
+        let joyUp = false, joyDown = false, joyLeft = false, joyRight = false;
+        if (uiScene && uiScene.getJoystickState) {
+            const joyState = uiScene.getJoystickState();
+            joyUp = joyState.up;
+            joyDown = joyState.down;
+            joyLeft = joyState.left;
+            joyRight = joyState.right;
+        }
+
+        const isUp = this.cursors.up.isDown || this.wasd.up.isDown || joyUp;
+        const isDown = this.cursors.down.isDown || this.wasd.down.isDown || joyDown;
+        const isLeft = this.cursors.left.isDown || this.wasd.left.isDown || joyLeft;
+        const isRight = this.cursors.right.isDown || this.wasd.right.isDown || joyRight;
 
         if (isLeft) vx = -speed;
         if (isRight) vx = speed;
@@ -530,19 +563,24 @@ export default class MainScene extends Phaser.Scene {
 
         if (this.canAccess) {
             this.promptText.setPosition(this.player.x, this.player.y - 40);
-            if (Phaser.Input.Keyboard.JustDown(this.fKey)) {
+            if (Phaser.Input.Keyboard.JustDown(this.fKey) || this.inspectRequested) {
                 this.canAccess = false;
+                this.inspectRequested = false;
                 this.promptText.setVisible(false);
+                if (uiScene && uiScene.hideActionButton) uiScene.hideActionButton();
 
                 if (this.currentAccessLocation) {
                     this.input.enabled = false;
                     this.cameras.main.zoomTo(4, 1200, 'Sine.easeInOut');
                     this.cameras.main.fadeOut(1200, 0, 0, 0);
                     this.cameras.main.once('camerafadeoutcomplete', () => {
+                        this.scene.stop('UIScene');
                         this.scene.start('LocationScene', { locationKey: this.currentAccessLocation });
                     });
                 }
             }
+        } else {
+            this.inspectRequested = false;
         }
     }
 }

@@ -44,6 +44,8 @@ function TimeAttackMode() {
   const [currentWord, setCurrentWord] = useState('');
   const [encryptedWord, setEncryptedWord] = useState('');
   const [cipherMethod, setCipherMethod] = useState({ name: '', isEncryptionMode: false, applyCipher: (t) => t });
+  const [currentClue, setCurrentClue] = useState('');
+  const [isFallback, setIsFallback] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [userInput, setUserInput] = useState('');
@@ -62,12 +64,17 @@ function TimeAttackMode() {
     setIsLoading(true);
     setUserInput('');
     setFeedback(null);
+    setCurrentClue('');
+    setIsFallback(false);
+    pause(); // Pause timer while fetching
 
     const activeDiff = useGameStore.getState().currentDifficulty || 'easy';
 
     try {
       const data = await generatePuzzleDetails(activeDiff, 'victorian noir detective');
       const word = data?.plaintext;
+      const clue = data?.clue;
+      const fallbackFlag = data?.isFallback || false;
 
       if (!word || typeof word !== 'string') {
         throw new Error('Invalid word returned from generator');
@@ -88,9 +95,12 @@ function TimeAttackMode() {
       }
       setCipherMethod(cipher);
       setEncryptedWord(cipher.applyCipher(cleanWord));
+      setCurrentClue(clue || 'No intel available.');
+      setIsFallback(fallbackFlag);
 
       setIsLoading(false);
       setIsGlitching(true);
+      resume(); // Resume timer once loaded
       setTimeout(() => setIsGlitching(false), 500);
       setTimeout(() => {
         if (inputRef.current) inputRef.current.focus();
@@ -104,19 +114,24 @@ function TimeAttackMode() {
         const cipher = selectCipherMethod(activeDiff);
         setCipherMethod(cipher || { name: 'Caesar Shift', key: 'Shift: 3', applyCipher: (t) => t, isEncryptionMode: false });
         setEncryptedWord((cipher?.applyCipher || ((t) => t))(fallbackWord));
+        setCurrentClue('Fallback: examine the letters carefully.');
+        setIsFallback(true);
       } catch (fallbackErr) {
         console.error('Fallback cipher failed:', fallbackErr);
         setCipherMethod({ name: 'Caesar Shift', key: 'Shift: 3', applyCipher: (t) => t, isEncryptionMode: false });
         setEncryptedWord(fallbackWord);
+        setCurrentClue('Fallback: examine the letters carefully.');
+        setIsFallback(true);
       }
       setIsLoading(false);
       setIsGlitching(true);
+      resume(); // Resume timer once loaded
       setTimeout(() => setIsGlitching(false), 500);
       setTimeout(() => {
         if (inputRef.current) inputRef.current.focus();
       }, 0);
     }
-  }, []);
+  }, [pause, resume]);
 
   // Start initialization
   useEffect(() => {
@@ -196,11 +211,11 @@ function TimeAttackMode() {
   }, [userInput, gameState, cipherMethod, encryptedWord, currentWord, addTime, incrementPuzzlesSolved, fetchNewWord]);
 
   const handlePause = useCallback(() => {
-    if (gameState !== 'playing') return;
+    if (gameState !== 'playing' || isLoading) return;
     playClick();
     setIsPaused(true);
     pause();
-  }, [gameState, playClick, pause]);
+  }, [gameState, isLoading, playClick, pause]);
 
   const handleResume = useCallback(() => {
     playClick();
@@ -323,10 +338,11 @@ function TimeAttackMode() {
         {/* Fixed Top Right Pause Button */}
         <button
           onClick={handlePause}
-          className="fixed top-10 right-20 z-50 text-mystery-gold/70 hover:text-mystery-gold transition-colors p-4 bg-black/80 border-2 border-mystery-gold/50 hover:border-mystery-gold rounded-full shadow-[0_0_25px_rgba(0,0,0,0.9)] group backdrop-blur-md"
+          disabled={isLoading}
+          className={`fixed top-10 right-20 z-50 transition-colors p-4 border-2 rounded-full shadow-[0_0_25px_rgba(0,0,0,0.9)] backdrop-blur-md ${isLoading ? 'text-gray-500 bg-black/40 border-gray-600 cursor-not-allowed opacity-50' : 'text-mystery-gold/70 hover:text-mystery-gold bg-black/80 border-mystery-gold/50 hover:border-mystery-gold group'}`}
           title="Pause Operation"
         >
-          <Pause size={36} className="group-hover:scale-110 transition-transform" />
+          <Pause size={36} className={isLoading ? '' : 'group-hover:scale-110 transition-transform'} />
         </button>
 
         {/* Top bar */}
@@ -377,6 +393,18 @@ function TimeAttackMode() {
               <p className={`font-mono text-4xl sm:text-5xl md:text-6xl text-white tracking-[0.3em] font-light break-all selection:bg-mystery-gold/30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${isGlitching ? 'animate-glitch' : ''}`}>
                 {cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
               </p>
+
+              {currentClue && (
+                <div className="mt-8 text-mystery-gold/90 italic font-serif text-lg bg-black/40 px-6 py-3 border border-mystery-gold/30 rounded inline-block max-w-[90%] relative">
+                  <span className="font-mono text-xs text-mystery-gold/50 block mb-1 uppercase tracking-widest text-center">
+                    Intercepted Clue
+                    <span className={`ml-2 text-[10px] px-2 py-0.5 rounded border ${isFallback ? 'border-red-500/50 text-red-400' : 'border-green-500/50 text-green-400'}`}>
+                      {isFallback ? 'SOURCE: FALLBACK' : 'SOURCE: AI'}
+                    </span>
+                  </span>
+                  "{currentClue}"
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -7,6 +7,7 @@ import LocationScene from '../game/LocationScene';
 import DeductionBoardScene from '../game/DeductionBoardScene';
 import IntroScene from '../game/IntroScene';
 import EndingScene from '../game/EndingScene';
+import UIScene from '../game/UIScene';
 import StoryCipherOverlay from './StoryCipherOverlay';
 import PauseOverlay from './PauseOverlay';
 import DeductionBoardOverlay from './ui/DeductionBoardOverlay';
@@ -45,11 +46,11 @@ export default function PhaserGame({ difficulty, startScene }) {
   useEffect(() => {
     let sceneArray = [];
     if (startScene === 'IntroScene') {
-      sceneArray = [IntroScene, MainScene, OfficeScene, LocationScene, DeductionBoardScene, EndingScene];
+      sceneArray = [IntroScene, MainScene, OfficeScene, LocationScene, DeductionBoardScene, EndingScene, UIScene];
     } else if (startScene === 'MainScene') {
-      sceneArray = [MainScene, OfficeScene, LocationScene, DeductionBoardScene, IntroScene, EndingScene];
+      sceneArray = [MainScene, OfficeScene, LocationScene, DeductionBoardScene, IntroScene, EndingScene, UIScene];
     } else {
-      sceneArray = [OfficeScene, MainScene, LocationScene, DeductionBoardScene, IntroScene, EndingScene];
+      sceneArray = [OfficeScene, MainScene, LocationScene, DeductionBoardScene, IntroScene, EndingScene, UIScene];
     }
 
     const config = {

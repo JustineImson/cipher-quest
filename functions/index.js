@@ -14,8 +14,22 @@ function getFallback(difficulty) {
   const diff = (difficulty || "easy").toLowerCase();
   const pool = FALLBACK_WORDS[diff] || FALLBACK_WORDS.easy;
   const word = pool[Math.floor(Math.random() * pool.length)];
-  const keys = ["KEY", "CAT", "MAP", "RUN", "HAT", "SUN", "BOX", "TOP"];
-  const key = keys[Math.floor(Math.random() * keys.length)];
+  
+  let key = "1";
+  if (diff === "easy") {
+    key = Math.floor(Math.random() * 5 + 1).toString();
+  } else if (diff === "moderate" || diff === "medium") {
+    if (Math.random() > 0.5) {
+      key = Math.floor(Math.random() * 20 + 6).toString(); // 6 to 25
+    } else {
+      const keys = ["CAT", "DOG", "MAP", "SUN", "HAT", "BOX"];
+      key = keys[Math.floor(Math.random() * keys.length)];
+    }
+  } else if (diff === "hard") {
+    const hardKeys = ["MYSTERY", "PHANTOM", "ENIGMA", "WHISPERS", "SHADOWS", "SILENCE"];
+    key = hardKeys[Math.floor(Math.random() * hardKeys.length)];
+  }
+
   return { plaintext: word, key, clue: "Fallback: examine the letters carefully." };
 }
 
@@ -51,16 +65,17 @@ export const generateCipherClue = onCall(
       let difficultyRules = "";
       switch (difficulty.toLowerCase()) {
         case "easy":
-          difficultyRules = "plaintext is exactly 1 word (5-8 letters) and clue is obvious.";
+          difficultyRules = "plaintext is exactly 1 word (5-8 letters) and clue is obvious.\n- Key MUST be a simple string number between '1' and '5'.";
           break;
         case "moderate":
-          difficultyRules = "plaintext is 1-2 words (9-14 letters total) and clue is vague.";
+        case "medium":
+          difficultyRules = "plaintext is 1-2 words (9-14 letters total) and clue is vague.\n- Key MUST be a string number between '6' and '25' OR a very short, common English word (3 to 4 letters, e.g., 'CAT', 'DOG').";
           break;
         case "hard":
-          difficultyRules = "plaintext is 2-3 words (15+ letters total) and clue is highly cryptic.";
+          difficultyRules = "plaintext is 2-3 words (15+ letters total) and clue is highly cryptic.\n- Key MUST be a complex English word of 7 or more letters (e.g., 'MYSTERY', 'PHANTOM').";
           break;
         default:
-          difficultyRules = "plaintext is 1 word (5-8 letters) and clue is obvious.";
+          difficultyRules = "plaintext is 1 word (5-8 letters) and clue is obvious.\n- Key MUST be a simple string number between '1' and '5'.";
       }
 
       const prompt = `
@@ -70,7 +85,8 @@ Rules for difficulty:
 ${difficultyRules}
 
 Formatting rules:
-- All plaintext and keys must be uppercase with no punctuation.
+- All plaintext and keys must be uppercase with no punctuation (except if the key is a number).
+- The key MUST always be returned as a string.
 - Return STRICT JSON ONLY in the following format:
 { "plaintext": "...", "key": "...", "clue": "..." }
 `;

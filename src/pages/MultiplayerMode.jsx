@@ -23,7 +23,7 @@ export default function MultiplayerMode() {
 
   const {
     multiplayerState, roomCode, isHost, playersCount, opponentScore,
-    currentWord, encryptedWord, cipherName, cipherKey, matchResult,
+    currentWord, encryptedWord, cipherName, cipherKey, currentClue, isFallback, matchResult,
     createRoom, joinRoom, startGame, submitScore, nextRound, emitTimeout, resetLobby
   } = useMultiplayer('http://localhost:3001');
 
@@ -383,6 +383,18 @@ export default function MultiplayerMode() {
             <p className={`font-serif text-3xl sm:text-4xl md:text-5xl text-[var(--cream)] tracking-[0.2em] font-bold break-all selection:bg-[var(--gold-dim)] selection:text-[#0e0a04] leading-relaxed drop-shadow-md ${isGlitching ? 'animate-glitch' : ''}`}>
               {isEncryptionMode ? currentWord : encryptedWord}
             </p>
+
+            {currentClue && (
+              <div className="mt-8 text-[var(--gold-light)] italic font-serif text-lg bg-[rgba(18,12,4,0.6)] px-6 py-3 border border-[var(--gold-dim)] rounded inline-block max-w-[90%] relative">
+                <span className="font-mono text-xs text-[#a09070] block mb-1 uppercase tracking-[0.2em] text-center">
+                  Intercepted Clue
+                  <span className={`ml-2 text-[10px] px-2 py-0.5 rounded border ${isFallback ? 'border-[var(--red)] text-[var(--red)]' : 'border-[#5a9e6f] text-[#5a9e6f]'}`}>
+                    {isFallback ? 'SOURCE: FALLBACK' : 'SOURCE: SERVER'}
+                  </span>
+                </span>
+                "{currentClue}"
+              </div>
+            )}
           </div>
         )}
       </div>
