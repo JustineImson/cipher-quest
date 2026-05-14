@@ -5,13 +5,22 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/** Flatten the cipher-keyed fallback data into a pool filtered by difficulty */
+function getFallbackPool(difficulty) {
+  const diff = (difficulty || 'easy').toLowerCase();
+  const norm = diff === 'medium' ? 'moderate' : diff;
+  const all = Object.values(fallbackPuzzles).flat();
+  const pool = all.filter((p) => p.difficulty === norm);
+  return pool.length > 0 ? pool : all; // fallback to everything if no matches
+}
+
 function getRandomFallback(difficulty) {
-  const diff = (difficulty || "easy").toLowerCase();
-  let puzzle;
-  if (diff === "easy") puzzle = pickRandom(fallbackPuzzles.easy);
-  else if (diff === "moderate" || diff === "medium") puzzle = pickRandom(fallbackPuzzles.moderate);
-  else puzzle = pickRandom(fallbackPuzzles.hard);
-  return { ...puzzle, isFallback: true };
+  const pool = getFallbackPool(difficulty);
+  let puzzle = pickRandom(pool);
+  
+  if (!puzzle) puzzle = { plaintext: "FALLBACK", key: "1", clue: "System error." };
+  
+  return { plaintext: puzzle.plaintext, key: puzzle.key, clue: puzzle.clue, isFallback: true };
 }
 
 export async function generatePuzzleDetails(difficulty, theme) {

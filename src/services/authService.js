@@ -5,7 +5,7 @@ import {
   signOut,
   updateProfile
 } from "firebase/auth";
-import { doc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { useGameStore } from '../store/useGameStore';
 
@@ -25,7 +25,14 @@ export const registerUser = async (email, password, username) => {
       username: username,
       email: email,
       friendCode: friendCode,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      cipherStats: {
+        vigenere:     { attempts: 0, solved: 0 },
+        railfence:    { attempts: 0, solved: 0 },
+        columnar:     { attempts: 0, solved: 0 },
+        substitution: { attempts: 0, solved: 0 },
+        caesar:       { attempts: 0, solved: 0 }
+      }
     });
   }
   return userCredential;
@@ -81,5 +88,41 @@ export const logoutUser = async () => {
     console.warn('Failed to sync before logout:', err);
   }
 
+  // Clear persisted local state so no stale data lingers
+  try {
+    localStorage.removeItem('aegis-game-storage');
+  } catch { /* private browsing */ }
+
   return signOut(auth);
 };
+
+/**
+ * Backfill missing cipherStats fields for existing users.
+ * Uses updateDoc with dot-notation keys so it merges into the existing
+ * nested map without overwriting data that's already there.
+ * @param {string} uid
+ */
+export async function backfillCipherStats(uid) {
+  if (!uid) return;
+  try {
+    const userRef = doc(db, 'users', uid);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) return;
+
+    const stats = snap.data().cipherStats || {};
+    const updates = {};
+
+    for (const type of ['vigenere', 'railfence', 'columnar', 'substitution', 'caesar']) {
+      if (!stats[type]) {
+        updates[`cipherStats.${type}.attempts`] = 0;
+        updates[`cipherStats.${type}.solved`] = 0;
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await updateDoc(userRef, updates);
+    }
+  } catch (err) {
+    console.warn('Failed to backfill cipher stats:', err);
+  }
+}

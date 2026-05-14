@@ -8,6 +8,7 @@ import { validateAnswer } from '../engine/gameLogic';
 import { bgmController } from '../engine/BGMController';
 import { useGameStore } from '../store/useGameStore';
 import { suspectEvidence } from '../data/StoryEvidence';
+import { trackCipherAttempt } from '../services/leaderboardService';
 
 export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
   const [feedback, setFeedback] = useState(null); // 'correct' | 'wrong' | null
@@ -36,7 +37,10 @@ export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
     
     const isCorrect = cleanStr(answer) === cleanStr(cipherData.solution);
 
+    const uid = useGameStore.getState().currentUser?.uid;
+
     if (isCorrect) {
+      trackCipherAttempt(uid, cipherData.type, true);
       setFeedback('correct');
       setIsClosing(true);
 
@@ -48,6 +52,7 @@ export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
         onSolve();
       }, 1000);
     } else {
+      trackCipherAttempt(uid, cipherData.type, false);
       setFeedback('wrong');
       setTimeout(() => setFeedback(null), 600);
     }

@@ -4,6 +4,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
   serverTimestamp,
   increment,
   query,
@@ -17,7 +18,10 @@ import {
  * Only writes if the new score is strictly higher than the user's existing entry.
  */
 export async function submitTimeAttackScore(uid, username, score, difficulty, cases) {
-  if (!uid) return;
+  if (!uid) {
+    console.warn('submitTimeAttackScore skipped — uid is null');
+    return;
+  }
   try {
     const entryRef = doc(db, 'leaderboards', 'timeAttack', 'entries', uid);
     const existingSnap = await getDoc(entryRef);
@@ -47,7 +51,10 @@ export async function submitTimeAttackScore(uid, username, score, difficulty, ca
  * Upserts the user's document and atomically increments wins or losses.
  */
 export async function submitMultiplayerResult(uid, username, wins, losses, casesCracked) {
-  if (!uid) return;
+  if (!uid) {
+    console.warn('submitMultiplayerResult skipped — uid is null');
+    return;
+  }
   try {
     const entryRef = doc(db, 'leaderboards', 'multiplayer', 'entries', uid);
     const existingSnap = await getDoc(entryRef);
@@ -124,4 +131,27 @@ export async function fetchMultiplayerLeaderboard(limitCount = 10) {
       badge: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : null
     };
   });
+}
+
+/**
+ * Track a cipher attempt for a user.
+ * Atomically increments cipherStats.{cipherType}.attempts (always)
+ * and cipherStats.{cipherType}.solved (only if success === true).
+ * @param {string} uid - The user's Firebase UID
+ * @param {'vigenere'|'railfence'|'columnar'|'substitution'|'caesar'} cipherType
+ * @param {boolean} success - Whether the attempt was a correct solve
+ */
+export async function trackCipherAttempt(uid, cipherType, success) {
+  if (!uid || !cipherType) return;
+  try {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, {
+      [`cipherStats.${cipherType}.attempts`]: increment(1),
+      ...(success && {
+        [`cipherStats.${cipherType}.solved`]: increment(1)
+      })
+    });
+  } catch (err) {
+    console.error('Failed to track cipher attempt:', err);
+  }
 }

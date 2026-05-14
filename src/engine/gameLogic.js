@@ -1,9 +1,9 @@
-import { 
-  caesarCipher, 
-  substitutionCipher, 
-  vigenereCipher, 
-  columnarTranspositionCipher, 
-  railFenceCipher 
+import {
+  caesarCipher,
+  substitutionCipher,
+  vigenereCipher,
+  columnarTranspositionCipher,
+  railFenceCipher
 } from './cipherAlgorithms.js';
 
 /**

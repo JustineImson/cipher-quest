@@ -4,16 +4,25 @@ import { auth } from '../services/firebase';
 import fallbackPuzzles from '../data/fallbackPuzzles';
 import { selectCipherMethod } from '../engine/gameLogic';
 
+/** Flatten cipher-keyed fallback data and filter by difficulty */
+function getFallbackPool(difficulty) {
+  const diff = (difficulty || 'easy').toLowerCase();
+  const norm = diff === 'medium' ? 'moderate' : diff;
+  const all = Object.values(fallbackPuzzles).flat();
+  const pool = all.filter((p) => p.difficulty === norm);
+  return pool.length > 0 ? pool : all;
+}
+
 export function useMultiplayer(serverUrl = 'http://localhost:3001') {
   const socketRef = useRef(null);
-  
+
   const [multiplayerState, setMultiplayerState] = useState('lobby'); // lobby, waiting, playing, finished
   const [roomCode, setRoomCode] = useState('');
   const [isHost, setIsHost] = useState(false);
-  
+
   const [playersCount, setPlayersCount] = useState(1);
   const [opponentScore, setOpponentScore] = useState(0);
-  
+
   // Game data from server
   const [currentWord, setCurrentWord] = useState('');
   const [encryptedWord, setEncryptedWord] = useState('');
@@ -21,7 +30,7 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
   const [cipherKey, setCipherKey] = useState('');
   const [currentClue, setCurrentClue] = useState('');
   const [isFallback, setIsFallback] = useState(false);
-  
+
   const [matchResult, setMatchResult] = useState(null); // 'win', 'lose', 'draw', null
   const roomDifficultyRef = useRef('easy');
   const clientUidRef = useRef(null);
@@ -72,7 +81,7 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
             setIsFallback(false);
           } else {
             const diff = roomDifficultyRef.current || 'easy';
-            const pool = fallbackPuzzles[diff] || fallbackPuzzles.easy;
+            const pool = getFallbackPool(diff);
             const puzzle = pool[Math.floor(Math.random() * pool.length)];
             const cipher = selectCipherMethod(diff);
             const plaintext = puzzle.plaintext;
@@ -157,7 +166,7 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
         setMultiplayerState('playing');
         setOpponentScore(0);
         const diff = roomDifficultyRef.current || 'easy';
-        const pool = fallbackPuzzles[diff] || fallbackPuzzles.easy;
+        const pool = getFallbackPool(diff);
         const puzzle = pool[Math.floor(Math.random() * pool.length)];
         const cipher = selectCipherMethod(diff);
         setCurrentWord(puzzle.plaintext);
@@ -189,7 +198,7 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
 
     // Local fallback round when server isn't available
     const diff = roomDifficultyRef.current || 'easy';
-    const pool = fallbackPuzzles[diff] || fallbackPuzzles.easy;
+    const pool = getFallbackPool(diff);
     const puzzle = pool[Math.floor(Math.random() * pool.length)];
     const cipher = selectCipherMethod(diff);
     setCurrentWord(puzzle.plaintext);
@@ -199,7 +208,7 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
     setCurrentClue(puzzle.clue || 'Fallback: examine the letters carefully.');
     setIsFallback(true);
   };
-  
+
   const emitTimeout = () => {
     if (!socketRef.current || !socketRef.current.connected) {
       console.warn('emitTimeout: not connected to server');
@@ -211,15 +220,15 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
   };
 
   const resetLobby = () => {
-     setMultiplayerState('lobby');
-     setRoomCode('');
-     setIsHost(false);
-     setOpponentScore(0);
-     setCurrentWord('');
-     setCipherKey('');
-     setCurrentClue('');
-     setIsFallback(false);
-     setMatchResult(null);
+    setMultiplayerState('lobby');
+    setRoomCode('');
+    setIsHost(false);
+    setOpponentScore(0);
+    setCurrentWord('');
+    setCipherKey('');
+    setCurrentClue('');
+    setIsFallback(false);
+    setMatchResult(null);
   };
 
   return {

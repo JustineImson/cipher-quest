@@ -15,7 +15,7 @@ import { useSfx } from '../hooks/useSfx';
 import { Pause } from 'lucide-react';
 import DifficultySplash from '../components/ui/DifficultySplash';
 import { generatePuzzleDetails } from '../services/aiGenerator';
-import { submitTimeAttackScore } from '../services/leaderboardService';
+import { submitTimeAttackScore, trackCipherAttempt } from '../services/leaderboardService';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 // Word-length rules per difficulty (pure function — keep outside component)
@@ -179,7 +179,19 @@ function TimeAttackMode() {
     const targetWord = cipherMethod.isEncryptionMode ? encryptedWord : currentWord;
     const isCorrect = validateAnswer(userInput, targetWord);
 
+    // Track cipher attempt for ML accuracy data
+    const uid = currentUser?.uid;
+    const cName = cipherMethod.name || '';
+    const cType = cName.startsWith('Columnar') ? 'columnar'
+      : cName.startsWith('Rail Fence') ? 'railfence'
+      : cName.startsWith('Vigenere') ? 'vigenere'
+      : cName.startsWith('Substitution') ? 'substitution'
+      : cName.startsWith('Caesar') ? 'caesar'
+      : null;
+
     if (isCorrect) {
+      if (cType) trackCipherAttempt(uid, cType, true);
+
       // Points based on difficulty: Easy=100, Moderate=250, Hard=600
       const currentDiff = (useGameStore.getState().currentDifficulty || 'easy').toLowerCase();
       const pointsEarned = currentDiff === 'easy' ? 100 : currentDiff === 'moderate' ? 250 : 600;
@@ -200,6 +212,8 @@ function TimeAttackMode() {
         fetchNewWord();
       }, 800);
     } else {
+      if (cType) trackCipherAttempt(uid, cType, false);
+
       setScore(prev => Math.max(0, prev - 50)); // Penalty
       setFeedback('wrong');
 
@@ -208,7 +222,7 @@ function TimeAttackMode() {
         if (inputRef.current) inputRef.current.focus();
       }, 600);
     }
-  }, [userInput, gameState, cipherMethod, encryptedWord, currentWord, addTime, incrementPuzzlesSolved, fetchNewWord]);
+  }, [userInput, gameState, cipherMethod, encryptedWord, currentWord, addTime, incrementPuzzlesSolved, fetchNewWord, currentUser]);
 
   const handlePause = useCallback(() => {
     if (gameState !== 'playing' || isLoading) return;
@@ -263,6 +277,9 @@ function TimeAttackMode() {
     ? (cipherMethod.key || '').replace(/^Keyword:\s*/i, '').trim()
     : '';
 
+  // Caesar detection
+  const isCaesar = cipherMethod.name?.startsWith('Caesar');
+
   // Handler for Interactive Components completion (Columnar, Rail Fence)
   const handleInteractiveComplete = useCallback((answer) => {
     if (gameState !== 'playing') return;
@@ -270,7 +287,13 @@ function TimeAttackMode() {
     const targetWord = cipherMethod.isEncryptionMode ? encryptedWord : currentWord;
     const isCorrect = validateAnswer(answer, targetWord);
 
+    // Derive normalized cipher type from cipherMethod.name
+    const uid = currentUser?.uid;
+    const cType = isColumnar ? 'columnar' : isRailFence ? 'railfence' : isVigenere ? 'vigenere' : isSubstitution ? 'substitution' : isCaesar ? 'caesar' : null;
+
     if (isCorrect) {
+      if (cType) trackCipherAttempt(uid, cType, true);
+
       // Points based on difficulty: Easy=100, Moderate=250, Hard=600
       const currentDiff = (useGameStore.getState().currentDifficulty || 'easy').toLowerCase();
       const pointsEarned = currentDiff === 'easy' ? 100 : currentDiff === 'moderate' ? 250 : 600;
@@ -289,11 +312,12 @@ function TimeAttackMode() {
         fetchNewWord();
       }, 800);
     } else {
+      if (cType) trackCipherAttempt(uid, cType, false);
       setScore(prev => Math.max(0, prev - 50));
       setFeedback('wrong');
       setTimeout(() => setFeedback(null), 600);
     }
-  }, [gameState, cipherMethod, encryptedWord, currentWord, addTime, incrementPuzzlesSolved, fetchNewWord]);
+  }, [gameState, cipherMethod, encryptedWord, currentWord, addTime, incrementPuzzlesSolved, fetchNewWord, currentUser, isColumnar, isRailFence, isVigenere, isSubstitution, isCaesar]);
 
   // UI Renders
   if (gameState === 'game_over') {

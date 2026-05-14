@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 import { auth, db } from '../services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { backfillCipherStats } from '../services/authService';
 
 export const useGameStore = create(
   persist(
@@ -49,6 +50,18 @@ export const useGameStore = create(
       initializeAuthListener: () => {
         onAuthStateChanged(auth, async (user) => {
           if (user) {
+            // Verify the account still exists on the server (catches
+            // accounts deleted from Firebase Console while a cached
+            // token is still valid locally).
+            try {
+              await user.reload();
+            } catch (err) {
+              // auth/user-not-found or auth/user-disabled → force sign-out
+              console.warn('Auth reload failed (account may be deleted):', err);
+              await auth.signOut();
+              return; // onAuthStateChanged will fire again with null
+            }
+
             const userData = {
               uid: user.uid,
               email: user.email,
@@ -71,8 +84,22 @@ export const useGameStore = create(
             } catch (err) {
               console.warn('Failed to load cloud save:', err);
             }
+
+            // Ensure this user has all cipher stat fields (adds caesar for older accounts)
+            backfillCipherStats(user.uid);
           } else {
-            set({ currentUser: null });
+            // User logged out or account was deleted — clear ALL local state
+            set({
+              currentUser: null,
+              savedStoryProgress: null,
+              collectedEvidence: [],
+            });
+
+            // Clear persisted Zustand state from localStorage so stale
+            // data doesn't survive across sessions
+            try {
+              localStorage.removeItem('aegis-game-storage');
+            } catch { /* private browsing / storage disabled */ }
           }
         });
       },

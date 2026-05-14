@@ -15,7 +15,7 @@ import { ArrowLeft, Users, Zap, ShieldAlert, Key } from 'lucide-react';
 import { useSfx } from '../hooks/useSfx';
 import SocialOverlay from '../components/SocialOverlay';
 import DifficultySplash from '../components/ui/DifficultySplash';
-import { submitMultiplayerResult } from '../services/leaderboardService';
+import { submitMultiplayerResult, trackCipherAttempt } from '../services/leaderboardService';
 
 export default function MultiplayerMode() {
   const navigate = useNavigate();
@@ -101,7 +101,11 @@ export default function MultiplayerMode() {
     const targetWord = isEncryptionMode ? encryptedWord : currentWord;
     const isCorrect = sanitize(userInput) === sanitize(targetWord);
 
+    // Derive normalized cipher type
+    const cType = isColumnar ? 'columnar' : isRailFence ? 'railfence' : isVigenere ? 'vigenere' : isSubstitution ? 'substitution' : null;
+
     if (isCorrect) {
+      if (cType) trackCipherAttempt(currentUser?.uid, cType, true);
       // Points based on difficulty: Easy=100, Moderate=250, Hard=600
       const currentDiff = useGameStore.getState().currentDifficulty.toLowerCase();
       const pointsEarned = currentDiff === 'easy' ? 100 : currentDiff === 'moderate' ? 250 : 600;
@@ -120,6 +124,7 @@ export default function MultiplayerMode() {
       }, 500);
       setUserInput('');
     } else {
+      if (cType) trackCipherAttempt(currentUser?.uid, cType, false);
       const newScore = Math.max(0, score - 50);
       setScore(newScore);
       submitScore(newScore);
@@ -174,7 +179,11 @@ export default function MultiplayerMode() {
     const targetWord = isEncryptionMode ? encryptedWord : currentWord;
     const isCorrect = sanitize(answer) === sanitize(targetWord);
 
+    // Derive normalized cipher type
+    const cType = isColumnar ? 'columnar' : isRailFence ? 'railfence' : isVigenere ? 'vigenere' : isSubstitution ? 'substitution' : null;
+
     if (isCorrect) {
+      if (cType) trackCipherAttempt(currentUser?.uid, cType, true);
       // Points based on difficulty: Easy=100, Moderate=250, Hard=600
       const currentDiff = useGameStore.getState().currentDifficulty.toLowerCase();
       const pointsEarned = currentDiff === 'easy' ? 100 : currentDiff === 'moderate' ? 250 : 600;
@@ -193,6 +202,7 @@ export default function MultiplayerMode() {
       }, 500);
       setUserInput('');
     } else {
+      if (cType) trackCipherAttempt(currentUser?.uid, cType, false);
       const newScore = Math.max(0, score - 50);
       setScore(newScore);
       submitScore(newScore);
