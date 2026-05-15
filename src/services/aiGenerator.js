@@ -43,17 +43,18 @@ export async function generatePuzzleDetails(difficulty, theme) {
     let difficultyRules = "";
     switch ((difficulty || "easy").toLowerCase()) {
       case "easy":
-        difficultyRules = "plaintext is exactly 1 word (5-8 letters) and clue is obvious.\n- Key MUST be a simple string number between '1' and '5'.";
+        difficultyRules = "Vocabulary: Use only common, everyday vocabulary from the top 1000 most-used English words. Plaintext should be 5-8 letters.\nClue: Clues must be direct synonyms or obvious definitions. Example: 'Another word for happy.'\n- Key MUST be a simple string number between '1' and '5'.";
         break;
+      case "normal":
       case "moderate":
       case "medium":
-        difficultyRules = "plaintext is 1-2 words (9-14 letters total) and clue is vague.\n- Key MUST be a string number between '6' and '25' OR a very short, common English word (3 to 4 letters, e.g., 'CAT', 'DOG').";
+        difficultyRules = "Vocabulary: Use thematic or domain-specific vocabulary that is less common but recognizable. Plaintext should be 9-14 letters.\nClue: Clues must be contextual and require a minor logic step. Example: 'A device used to record sound in a studio.'\n- Key MUST be a string number between '6' and '25' OR a very short, common English word (3 to 4 letters, e.g., 'CAT', 'DOG').";
         break;
       case "hard":
-        difficultyRules = "plaintext is 2-3 words (15+ letters total) and clue is highly cryptic.\n- Key MUST be a complex English word of 7 or more letters (e.g., 'MYSTERY', 'PHANTOM').";
+        difficultyRules = "Vocabulary: Use obscure terminology, archaic words, or complex compound nouns unfamiliar to most players. Plaintext should be 15+ letters.\nClue: Clues must be cryptic riddles, abstract metaphors, or indirect associations with no direct hint. Example: 'What remains when truth wears a mask.'\n- Key MUST be a complex English word of 7 or more letters (e.g., 'MYSTERY', 'PHANTOM').";
         break;
       default:
-        difficultyRules = "plaintext is 1 word (5-8 letters) and clue is obvious.\n- Key MUST be a simple string number between '1' and '5'.";
+        difficultyRules = "Vocabulary: Use only common, everyday vocabulary from the top 1000 most-used English words.\nClue: Clues must be direct synonyms or obvious definitions.\n- Key MUST be a simple string number between '1' and '5'.";
     }
 
     const subThemes = [
@@ -72,6 +73,8 @@ Random generation seed: ${Math.random()}
 
 Rules for difficulty:
 ${difficultyRules}
+
+AI Noise Guardrail: You may inject misleading phrasing or decoy context ONLY inside the clue text. The plaintext and key fields in the returned JSON must never contain injected noise, punctuation, or extra spaces. Any alteration to these fields will break the game and is strictly forbidden.
 
 Formatting rules:
 - All plaintext and keys must be uppercase with no punctuation (except if the key is a number).

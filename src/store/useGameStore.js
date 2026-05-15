@@ -28,9 +28,11 @@ export const useGameStore = create(
       gameState: 'idle',
 
       // Time Attack State
-      currentDifficulty: 'easy',
-      puzzlesSolved: 0,
+      currentDifficulty: 'Easy',
+      rollingAttempts: [],
+      difficultyCooldown: 0,
       showDifficultySplash: false,
+      difficultyChangeReason: null,
 
       // Multiplayer State
       multiplayer: {
@@ -125,41 +127,69 @@ export const useGameStore = create(
         set({ gameState: newState }),
 
       // Time Attack Progression Actions
-      incrementPuzzlesSolved: () => set((state) => {
-        const newCount = state.puzzlesSolved + 1;
-        let newDifficulty = state.currentDifficulty;
-        let newShowSplash = state.showDifficultySplash;
+      recordCipherAttempt: (isCorrect, timeTaken, currentDifficulty) => set((state) => {
+        const maxTime = 60; // seconds, assumed max per puzzle
+        const clampedTime = Math.min(timeTaken, maxTime);
 
-        if (newCount === 3 && state.currentDifficulty === 'easy') {
-          newDifficulty = 'moderate';
-          newShowSplash = true;
-        } else if (newCount === 7 && state.currentDifficulty === 'moderate') {
-          newDifficulty = 'hard';
-          newShowSplash = true;
+        const speedBonus = isCorrect
+          ? 0.4 + (0.6 * ((maxTime - clampedTime) / maxTime)) // correct: 0.4–1.0
+          : 0.0;                                               // wrong: 0.0
+
+        const multipliers = { Easy: 1.0, Normal: 1.4, Hard: 1.8 };
+        const difficultyMultiplier = multipliers[currentDifficulty] ?? 1.0;
+
+        const rawScore = speedBonus * difficultyMultiplier;
+        
+        // Divide by the current difficulty's own multiplier so a perfect
+        // Easy answer normalizes to 1.0 and promotion thresholds are reachable.
+        const normalizedScore = Math.min(rawScore / difficultyMultiplier, 1.0);
+
+        const updatedWindow = [...state.rollingAttempts, normalizedScore].slice(-5);
+        const rollingAvg = updatedWindow.reduce((a, b) => a + b, 0) / updatedWindow.length;
+
+        if (state.difficultyCooldown > 0) {
+          return { 
+            rollingAttempts: updatedWindow, 
+            difficultyCooldown: state.difficultyCooldown - 1 
+          };
         }
 
-        // Auto-dismiss the splash after the animation
-        if (newShowSplash && newDifficulty !== state.currentDifficulty) {
-          setTimeout(() => {
-            useGameStore.getState().setShowDifficultySplash(false);
-          }, 1600);
-        }
+        let newDifficulty = currentDifficulty;
+
+        if (currentDifficulty === 'Easy'   && rollingAvg >= 0.70) newDifficulty = 'Normal';
+        if (currentDifficulty === 'Normal' && rollingAvg >= 0.75) newDifficulty = 'Hard';
+        if (currentDifficulty === 'Hard'   && rollingAvg <= 0.45) newDifficulty = 'Normal'; // raised from 0.40
+        if (currentDifficulty === 'Normal' && rollingAvg <= 0.35) newDifficulty = 'Easy';
+
+        const didChange = newDifficulty !== currentDifficulty;
+
+        const resolveSplashMessage = (from, to) => {
+          if (from === 'Easy'   && to === 'Normal') return 'Promoted — excellent performance';
+          if (from === 'Normal' && to === 'Hard')   return 'Promoted — outstanding accuracy';
+          if (from === 'Normal' && to === 'Easy')   return 'Adjusted — take your time';
+          if (from === 'Hard'   && to === 'Normal') return 'Adjusted — keep practicing';
+          return '';
+        };
 
         return {
-          puzzlesSolved: newCount,
+          rollingAttempts: updatedWindow,
           currentDifficulty: newDifficulty,
-          showDifficultySplash: newShowSplash
+          difficultyCooldown: didChange ? 2 : 0,
+          showDifficultySplash: didChange,
+          difficultyChangeReason: didChange ? resolveSplashMessage(currentDifficulty, newDifficulty) : null,
         };
       }),
-      resetProgression: () => {
-        set({ currentDifficulty: 'easy', puzzlesSolved: 0, showDifficultySplash: true });
-        setTimeout(() => {
-          useGameStore.getState().setShowDifficultySplash(false);
-        }, 1600);
+      resetProgression: (startDifficulty = 'Easy') => {
+        set({ 
+          currentDifficulty: startDifficulty, 
+          rollingAttempts: [], 
+          difficultyCooldown: 0,
+          showDifficultySplash: false,
+          difficultyChangeReason: null
+        });
       },
       setDifficulty: (level) => set({ currentDifficulty: level }),
-      setShowDifficultySplash: (show) => set({ showDifficultySplash: show }),
-      toggleDifficultySplash: () => set((state) => ({ showDifficultySplash: !state.showDifficultySplash })),
+      setShowDifficultySplash: (show, reason = null) => set({ showDifficultySplash: show, difficultyChangeReason: reason }),
 
       setMultiplayerState: (newMultiplayerState) =>
         set((state) => ({

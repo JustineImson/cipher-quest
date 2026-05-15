@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getPlayerInsights } from '../services/mlService';
+import { db } from '../services/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { useGameStore } from '../store/useGameStore';
 import { useTimer } from '../hooks/useTimer';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -19,7 +22,7 @@ import { submitMultiplayerResult, trackCipherAttempt } from '../services/leaderb
 
 export default function MultiplayerMode() {
   const navigate = useNavigate();
-  const { settings, incrementPuzzlesSolved, resetProgression, currentUser } = useGameStore();
+  const { settings, resetProgression, currentUser, recordCipherAttempt } = useGameStore();
 
   const {
     multiplayerState, roomCode, isHost, playersCount, opponentScore,
@@ -37,6 +40,7 @@ export default function MultiplayerMode() {
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const inputRef = useRef(null);
   const hasSubmittedRef = useRef(false);
+  const puzzleStartTimeRef = useRef(null);
   const { playClick } = useSfx();
 
   // Timer: 60s cap for the match
@@ -71,19 +75,61 @@ export default function MultiplayerMode() {
   useEffect(() => {
     bgmController.play('bgm1');
     if (multiplayerState === 'playing') {
-      resetProgression();
-      setScore(0);
-      setCiphersCracked(0);
-      setUserInput('');
-      setFeedback(null);
-      start(60);
+      const initializeGame = async () => {
+        let startDifficulty = 'Easy';
+        if (currentUser?.uid) {
+          try {
+            const userRef = doc(db, 'users', currentUser.uid);
+            const userSnap = await getDoc(userRef);
+            const userData = userSnap.exists() ? userSnap.data() : {};
+            
+            const taRef = doc(db, 'leaderboards', 'timeAttack', 'entries', currentUser.uid);
+            const taSnap = await getDoc(taRef);
+            const best_ta_score = taSnap.exists() ? taSnap.data().score : 0;
+            
+            const cStats = userData.cipherStats || {};
+            const getAcc = (c) => cStats[c] && cStats[c].attempts > 0 ? cStats[c].solved / cStats[c].attempts : 0;
+            
+            const playerStats = {
+              puzzles_solved: Object.values(cStats).reduce((sum, c) => sum + (c.solved || 0), 0),
+              best_ta_score,
+              win_rate: 0,
+              difficulty_encoded: 1,
+              story_completed: 0,
+              vigenere_accuracy: getAcc('vigenere'),
+              railfence_accuracy: getAcc('railfence'),
+              columnar_accuracy: getAcc('columnar'),
+              substitution_accuracy: getAcc('substitution'),
+              caesar_accuracy: getAcc('caesar')
+            };
+            
+            const mlResult = await Promise.race([
+              getPlayerInsights(playerStats),
+              new Promise(resolve => setTimeout(() => resolve(null), 3000))
+            ]);
+            
+            const seedMap = { beginner: 'Easy', intermediate: 'Normal', advanced: 'Hard' };
+            startDifficulty = seedMap[mlResult?.skill_tier] ?? 'Easy';
+          } catch (err) {
+            console.warn("ML Seeding failed", err);
+          }
+        }
+        resetProgression(startDifficulty);
+        setScore(0);
+        setCiphersCracked(0);
+        setUserInput('');
+        setFeedback(null);
+        start(60);
+      };
+      initializeGame();
     }
-  }, [multiplayerState, start]);
+  }, [multiplayerState, start, currentUser, resetProgression]);
 
   // Auto focus input when cipher changes
   useEffect(() => {
     if (encryptedWord) {
       setIsGlitching(true);
+      puzzleStartTimeRef.current = Date.now();
       setTimeout(() => setIsGlitching(false), 500);
       if (inputRef.current) {
         inputRef.current.focus();
@@ -106,13 +152,17 @@ export default function MultiplayerMode() {
 
     if (isCorrect) {
       if (cType) trackCipherAttempt(currentUser?.uid, cType, true);
-      // Points based on difficulty: Easy=100, Moderate=250, Hard=600
-      const currentDiff = useGameStore.getState().currentDifficulty.toLowerCase();
-      const pointsEarned = currentDiff === 'easy' ? 100 : currentDiff === 'moderate' ? 250 : 600;
+
+      const timeTaken = (Date.now() - puzzleStartTimeRef.current) / 1000;
+      const currentDiff = useGameStore.getState().currentDifficulty || 'Easy';
+      recordCipherAttempt(true, timeTaken, currentDiff);
+
+      // Points based on difficulty: Easy=100, Normal=250, Hard=600
+      const currentDiffLower = currentDiff.toLowerCase();
+      const pointsEarned = currentDiffLower === 'easy' ? 100 : currentDiffLower === 'normal' ? 250 : 600;
       const newScore = score + pointsEarned;
       setScore(newScore);
       submitScore(newScore);
-      incrementPuzzlesSolved();
       setCiphersCracked(prev => prev + 1);
 
       setFeedback('correct');
@@ -125,6 +175,11 @@ export default function MultiplayerMode() {
       setUserInput('');
     } else {
       if (cType) trackCipherAttempt(currentUser?.uid, cType, false);
+
+      const timeTaken = (Date.now() - puzzleStartTimeRef.current) / 1000;
+      const currentDiff = useGameStore.getState().currentDifficulty || 'Easy';
+      recordCipherAttempt(false, timeTaken, currentDiff);
+
       const newScore = Math.max(0, score - 50);
       setScore(newScore);
       submitScore(newScore);
@@ -184,13 +239,17 @@ export default function MultiplayerMode() {
 
     if (isCorrect) {
       if (cType) trackCipherAttempt(currentUser?.uid, cType, true);
-      // Points based on difficulty: Easy=100, Moderate=250, Hard=600
-      const currentDiff = useGameStore.getState().currentDifficulty.toLowerCase();
-      const pointsEarned = currentDiff === 'easy' ? 100 : currentDiff === 'moderate' ? 250 : 600;
+
+      const timeTaken = (Date.now() - puzzleStartTimeRef.current) / 1000;
+      const currentDiff = useGameStore.getState().currentDifficulty || 'Easy';
+      recordCipherAttempt(true, timeTaken, currentDiff);
+
+      // Points based on difficulty: Easy=100, Normal=250, Hard=600
+      const currentDiffLower = currentDiff.toLowerCase();
+      const pointsEarned = currentDiffLower === 'easy' ? 100 : currentDiffLower === 'normal' ? 250 : 600;
       const newScore = score + pointsEarned;
       setScore(newScore);
       submitScore(newScore);
-      incrementPuzzlesSolved();
       setCiphersCracked(prev => prev + 1);
 
       setFeedback('correct');
@@ -203,6 +262,11 @@ export default function MultiplayerMode() {
       setUserInput('');
     } else {
       if (cType) trackCipherAttempt(currentUser?.uid, cType, false);
+
+      const timeTaken = (Date.now() - puzzleStartTimeRef.current) / 1000;
+      const currentDiff = useGameStore.getState().currentDifficulty || 'Easy';
+      recordCipherAttempt(false, timeTaken, currentDiff);
+
       const newScore = Math.max(0, score - 50);
       setScore(newScore);
       submitScore(newScore);

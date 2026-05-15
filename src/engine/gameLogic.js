@@ -6,69 +6,49 @@ import {
   railFenceCipher
 } from './cipherAlgorithms.js';
 
+const cipherWeights = {
+  easy:   { caesar: 40, substitution: 30, railfence: 20, vigenere: 10 },
+  normal: { caesar: 15, substitution: 25, railfence: 30, vigenere: 30 },
+  hard:   { caesar: 0,  substitution: 20, railfence: 35, vigenere: 45 },
+};
+
+function selectCipherByWeight(difficulty) {
+  const weights = cipherWeights[difficulty];
+  const pool = Object.entries(weights).flatMap(([type, weight]) =>
+    Array(weight).fill(type)
+  );
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 /**
  * Randomly select a cipher method based on difficulty
  * @param {string} difficulty 
  * @returns {object} { name: string, applyCipher: function }
  */
 export function selectCipherMethod(difficulty = 'easy') {
-  const normDifficulty = (difficulty || 'easy').toLowerCase().trim();
-  const effectiveDifficulty = normDifficulty === 'moderate' ? 'medium' : normDifficulty;
-  let choices = [];
+  let normDifficulty = (difficulty || 'easy').toLowerCase().trim();
+  if (normDifficulty === 'moderate' || normDifficulty === 'medium') normDifficulty = 'normal';
+  if (!['easy', 'normal', 'hard'].includes(normDifficulty)) normDifficulty = 'easy';
 
-  if (effectiveDifficulty === 'easy') {
+  const type = selectCipherByWeight(normDifficulty);
+  const isEnc = Math.random() > 0.5;
+
+  if (type === 'caesar') {
     const shift = Math.floor(Math.random() * 25) + 1;
-    choices = [
-      { name: 'Caesar Shift', key: `Shift: ${shift}`, applyCipher: (text) => caesarCipher(text, shift) },
-      { name: 'Substitution', key: 'Keyword: CAT', applyCipher: (text) => substitutionCipher(text, 'CAT') },
-      { name: 'Substitution Encrypt', key: 'Keyword: DOG', applyCipher: (text) => substitutionCipher(text, 'DOG'), isEncryptionMode: true },
-      { name: 'Columnar', key: 'Keyword: TIME', applyCipher: (text) => columnarTranspositionCipher(text, 'TIME') },
-      { name: 'Columnar Encrypt', key: 'Keyword: TIME', applyCipher: (text) => columnarTranspositionCipher(text, 'TIME'), isEncryptionMode: true },
-      { name: 'Rail Fence', key: 'Rails: 3', applyCipher: (text) => railFenceCipher(text, 3) },
-      { name: 'Rail Fence Encrypt', key: 'Rails: 3', applyCipher: (text) => railFenceCipher(text, 3), isEncryptionMode: true },
-      { name: 'Vigenere', key: 'Keyword: KEY', applyCipher: (text) => vigenereCipher(text, 'KEY') },
-      { name: 'Vigenere Encrypt', key: 'Keyword: FUN', applyCipher: (text) => vigenereCipher(text, 'FUN'), isEncryptionMode: true }
-    ];
-  } else if (effectiveDifficulty === 'medium') {
-    choices = [
-      { name: 'Substitution', key: 'Keyword: SECRET', applyCipher: (text) => substitutionCipher(text, 'SECRET') },
-      { name: 'Substitution Encrypt', key: 'Keyword: PUZZLE', applyCipher: (text) => substitutionCipher(text, 'PUZZLE'), isEncryptionMode: true },
-      { name: 'Rail Fence', key: 'Rails: 3', applyCipher: (text) => railFenceCipher(text, 3) },
-      { name: 'Rail Fence Encrypt', key: 'Rails: 3', applyCipher: (text) => railFenceCipher(text, 3), isEncryptionMode: true },
-      { name: 'Columnar', key: 'Keyword: TIME', applyCipher: (text) => columnarTranspositionCipher(text, 'TIME') },
-      { name: 'Columnar Encrypt', key: 'Keyword: TIME', applyCipher: (text) => columnarTranspositionCipher(text, 'TIME'), isEncryptionMode: true },
-      { name: 'Vigenere', key: 'Keyword: CODE', applyCipher: (text) => vigenereCipher(text, 'CODE') },
-      { name: 'Vigenere Encrypt', key: 'Keyword: HIDE', applyCipher: (text) => vigenereCipher(text, 'HIDE'), isEncryptionMode: true }
-    ];
-  } else if (effectiveDifficulty === 'hard') {
-    choices = [
-      { name: 'Substitution', key: 'Keyword: OBFUSCATE', applyCipher: (text) => substitutionCipher(text, 'OBFUSCATE') },
-      { name: 'Substitution Encrypt', key: 'Keyword: ENCRYPT', applyCipher: (text) => substitutionCipher(text, 'ENCRYPT'), isEncryptionMode: true },
-      { name: 'Vigenere', key: 'Keyword: MYSTERY', applyCipher: (text) => vigenereCipher(text, 'MYSTERY') },
-      { name: 'Vigenere Encrypt', key: 'Keyword: ENIGMA', applyCipher: (text) => vigenereCipher(text, 'ENIGMA'), isEncryptionMode: true },
-      { name: 'Columnar', key: 'Keyword: TIME', applyCipher: (text) => columnarTranspositionCipher(text, 'TIME') },
-      { name: 'Columnar Encrypt', key: 'Keyword: TIME', applyCipher: (text) => columnarTranspositionCipher(text, 'TIME'), isEncryptionMode: true },
-      { name: 'Rail Fence', key: 'Rails: 4', applyCipher: (text) => railFenceCipher(text, 4) },
-      { name: 'Rail Fence Encrypt', key: 'Rails: 4', applyCipher: (text) => railFenceCipher(text, 4), isEncryptionMode: true }
-    ];
-  } else {
-    // fallback
-    choices = [
-      { name: 'Caesar Shift', key: 'Shift: 5', applyCipher: (text) => caesarCipher(text, 5) },
-      { name: 'Substitution', key: 'Keyword: CAT', applyCipher: (text) => substitutionCipher(text, 'CAT') },
-      { name: 'Substitution Encrypt', key: 'Keyword: CAT', applyCipher: (text) => substitutionCipher(text, 'CAT'), isEncryptionMode: true },
-      { name: 'Columnar', key: 'Keyword: TIME', applyCipher: (text) => columnarTranspositionCipher(text, 'TIME') },
-      { name: 'Columnar Encrypt', key: 'Keyword: TIME', applyCipher: (text) => columnarTranspositionCipher(text, 'TIME'), isEncryptionMode: true },
-      { name: 'Rail Fence', key: 'Rails: 3', applyCipher: (text) => railFenceCipher(text, 3) },
-      { name: 'Rail Fence Encrypt', key: 'Rails: 3', applyCipher: (text) => railFenceCipher(text, 3), isEncryptionMode: true },
-      { name: 'Vigenere', key: 'Keyword: CIPHER', applyCipher: (text) => vigenereCipher(text, 'CIPHER') },
-      { name: 'Vigenere Encrypt', key: 'Keyword: CIPHER', applyCipher: (text) => vigenereCipher(text, 'CIPHER'), isEncryptionMode: true }
-    ];
+    return { name: 'Caesar Shift', key: `Shift: ${shift}`, applyCipher: (text) => caesarCipher(text, shift) };
+  } else if (type === 'substitution') {
+    const kw = normDifficulty === 'easy' ? 'CAT' : normDifficulty === 'normal' ? 'SECRET' : 'OBFUSCATE';
+    return { name: isEnc ? 'Substitution Encrypt' : 'Substitution', key: `Keyword: ${kw}`, applyCipher: (text) => substitutionCipher(text, kw), isEncryptionMode: isEnc };
+  } else if (type === 'railfence') {
+    const rails = normDifficulty === 'hard' ? 4 : 3;
+    return { name: isEnc ? 'Rail Fence Encrypt' : 'Rail Fence', key: `Rails: ${rails}`, applyCipher: (text) => railFenceCipher(text, rails), isEncryptionMode: isEnc };
+  } else if (type === 'vigenere') {
+    const kw = normDifficulty === 'easy' ? 'KEY' : normDifficulty === 'normal' ? 'CODE' : 'MYSTERY';
+    return { name: isEnc ? 'Vigenere Encrypt' : 'Vigenere', key: `Keyword: ${kw}`, applyCipher: (text) => vigenereCipher(text, kw), isEncryptionMode: isEnc };
   }
-
-  // Randomly pick one from the choices
-  const selection = choices[Math.floor(Math.random() * choices.length)];
-  return selection;
+  
+  // Fallback
+  return { name: 'Caesar Shift', key: 'Shift: 3', applyCipher: (text) => caesarCipher(text, 3) };
 }
 
 /**

@@ -9,12 +9,13 @@ const fallbackPuzzles = {
     { difficulty: "moderate", plaintext: "MISSINGLEDGER", ciphertext: "SIYYOTMRKJM KX", key: "6", clue: "The accounting book has disappeared." },
     { difficulty: "moderate", plaintext: "GASLAMPSHADOW", ciphertext: "VPHAPBEHPPSDL", key: "15", clue: "A dark shape cast by the street light." },
     { difficulty: "moderate", plaintext: "CARRIAGEWHISTLE", ciphertext: "OMDDUMSQITUEFQX", key: "12", clue: "The sound that signaled the departure." },
-    { difficulty: "hard", plaintext: "THEASHENTRIALBYFIRE", ciphertext: "SGNZRGDMTSZAKAXEHQD", key: "25", clue: "A severe test involving flames and soot." },
-    { difficulty: "hard", plaintext: "THECLOCKSTRIKESTHEFINALCONFESSION", key: "7", ciphertext: "AOLJSVJRZAYPRLZAOLMPUHSJVUMLZZPVU", clue: "Time is up for the last admission of guilt." }
+    { difficulty: "moderate", plaintext: "THEASHENTRIALBYFIRE", ciphertext: "SGNZRGDMTSZAKAXEHQD", key: "25", clue: "A severe test involving flames and soot." },
+    { difficulty: "moderate", plaintext: "THECLOCKSTRIKESTHEFINALCONFESSION", key: "7", ciphertext: "AOLJSVJRZAYPRLZAOLMPUHSJVUMLZZPVU", clue: "Time is up for the last admission of guilt." }
   ],
 
   // VIGENERE: Key is a word used to shift the alphabet
   vigenere: [
+    { difficulty: "easy", plaintext: "CAT", ciphertext: "FOZ", key: "DOG", clue: "A small domesticated feline." },
     { difficulty: "moderate", plaintext: "SILVERMONOGRAM", ciphertext: "VOSYHUPSCZSTSY", key: "DOG", clue: "Initials engraved on a precious metal." },
     { difficulty: "moderate", plaintext: "SEWNRECEIPT", ciphertext: "UEPPRXEEBRT", key: "CAT", clue: "Proof of purchase stitched into the lining." },
     { difficulty: "moderate", plaintext: "WAXSEALED", ciphertext: "DAEZEALED", key: "HAT", clue: "An envelope closed securely to prevent tampering." },
@@ -34,11 +35,7 @@ const fallbackPuzzles = {
   ],
 
   // ATBASH: Alphabet is mirrored (A=Z, B=Y)
-  atbash: [
-    { difficulty: "easy", plaintext: "BOND", ciphertext: "YLMW", key: "NONE", clue: "The alphabet is flipped. A is Z, Z is A." },
-    { difficulty: "easy", plaintext: "CRIME", ciphertext: "XIRNV", key: "NONE", clue: "Check the opposite side of the alphabet." },
-    { difficulty: "moderate", plaintext: "POLICEMAN", ciphertext: "KLORXVNZM", key: "NONE", clue: "The mirror image of the alphabet reveals the truth." }
-  ],
+
 
   // RAIL FENCE: Key is an integer (zigzag rows)
   railfence: [

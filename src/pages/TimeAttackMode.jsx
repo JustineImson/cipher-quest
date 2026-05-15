@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getPlayerInsights } from '../services/mlService';
+import { db } from '../services/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { useGameStore } from '../store/useGameStore';
 import { useTimer } from '../hooks/useTimer';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -30,7 +33,7 @@ const isWordLengthValid = (word, difficulty) => {
 
 function TimeAttackMode() {
   const navigate = useNavigate();
-  const { settings, incrementPuzzlesSolved, resetProgression, currentDifficulty, puzzlesSolved, setDifficulty, currentUser } = useGameStore();
+  const { settings, resetProgression, currentDifficulty, setDifficulty, currentUser, rollingAttempts, recordCipherAttempt } = useGameStore();
 
   // Timer: Grand timer starts at 60
   const { timeLeft, start, addTime, pause, resume } = useTimer(60);
@@ -57,6 +60,7 @@ function TimeAttackMode() {
 
   const inputRef = useRef(null);
   const hasSubmittedRef = useRef(false);
+  const puzzleStartTimeRef = useRef(null);
   const { playClick } = useSfx();
 
   // Game Loop: Fetch Word
@@ -101,6 +105,7 @@ function TimeAttackMode() {
       setIsLoading(false);
       setIsGlitching(true);
       resume(); // Resume timer once loaded
+      puzzleStartTimeRef.current = Date.now();
       setTimeout(() => setIsGlitching(false), 500);
       setTimeout(() => {
         if (inputRef.current) inputRef.current.focus();
@@ -126,6 +131,7 @@ function TimeAttackMode() {
       setIsLoading(false);
       setIsGlitching(true);
       resume(); // Resume timer once loaded
+      puzzleStartTimeRef.current = Date.now();
       setTimeout(() => setIsGlitching(false), 500);
       setTimeout(() => {
         if (inputRef.current) inputRef.current.focus();
@@ -140,11 +146,52 @@ function TimeAttackMode() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
 
-  const startGame = () => {
+  const startGame = async () => {
     hasSubmittedRef.current = false;
-    resetProgression();
     setScore(0);
     setCiphersCracked(0);
+    setIsLoading(true);
+
+    let startDifficulty = 'Easy';
+    if (currentUser?.uid) {
+      try {
+        const userRef = doc(db, 'users', currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.exists() ? userSnap.data() : {};
+        
+        const taRef = doc(db, 'leaderboards', 'timeAttack', 'entries', currentUser.uid);
+        const taSnap = await getDoc(taRef);
+        const best_ta_score = taSnap.exists() ? taSnap.data().score : 0;
+        
+        const cStats = userData.cipherStats || {};
+        const getAcc = (c) => cStats[c] && cStats[c].attempts > 0 ? cStats[c].solved / cStats[c].attempts : 0;
+        
+        const playerStats = {
+          puzzles_solved: Object.values(cStats).reduce((sum, c) => sum + (c.solved || 0), 0),
+          best_ta_score,
+          win_rate: 0,
+          difficulty_encoded: 1,
+          story_completed: 0,
+          vigenere_accuracy: getAcc('vigenere'),
+          railfence_accuracy: getAcc('railfence'),
+          columnar_accuracy: getAcc('columnar'),
+          substitution_accuracy: getAcc('substitution'),
+          caesar_accuracy: getAcc('caesar')
+        };
+        
+        const mlResult = await Promise.race([
+          getPlayerInsights(playerStats),
+          new Promise(resolve => setTimeout(() => resolve(null), 3000))
+        ]);
+        
+        const seedMap = { beginner: 'Easy', intermediate: 'Normal', advanced: 'Hard' };
+        startDifficulty = seedMap[mlResult?.skill_tier] ?? 'Easy';
+      } catch (err) {
+        console.warn("ML Seeding failed", err);
+      }
+    }
+
+    resetProgression(startDifficulty);
     setGameState('playing');
     start(60);
     fetchNewWord();
@@ -192,15 +239,18 @@ function TimeAttackMode() {
     if (isCorrect) {
       if (cType) trackCipherAttempt(uid, cType, true);
 
-      // Points based on difficulty: Easy=100, Moderate=250, Hard=600
-      const currentDiff = (useGameStore.getState().currentDifficulty || 'easy').toLowerCase();
-      const pointsEarned = currentDiff === 'easy' ? 100 : currentDiff === 'moderate' ? 250 : 600;
+      const timeTaken = (Date.now() - puzzleStartTimeRef.current) / 1000;
+      const currentDiff = (useGameStore.getState().currentDifficulty || 'Easy');
+      recordCipherAttempt(true, timeTaken, currentDiff);
+
+      // Points based on difficulty: Easy=100, Normal=250, Hard=600
+      const currentDiffLower = currentDiff.toLowerCase();
+      const pointsEarned = currentDiffLower === 'easy' ? 100 : currentDiffLower === 'normal' ? 250 : 600;
       setScore(prev => prev + pointsEarned);
       setCiphersCracked(prev => prev + 1);
-      incrementPuzzlesSolved();
 
-      // Time increment: Easy=15s, Moderate=30s, Hard=1min
-      const timeBonus = currentDiff === 'easy' ? 15 : currentDiff === 'moderate' ? 30 : 60;
+      // Time increment: Easy=15s, Normal=30s, Hard=1min
+      const timeBonus = currentDiffLower === 'easy' ? 15 : currentDiffLower === 'normal' ? 30 : 60;
       addTime(timeBonus);
 
       setFeedback('correct');
@@ -214,6 +264,10 @@ function TimeAttackMode() {
     } else {
       if (cType) trackCipherAttempt(uid, cType, false);
 
+      const timeTaken = (Date.now() - puzzleStartTimeRef.current) / 1000;
+      const currentDiff = (useGameStore.getState().currentDifficulty || 'Easy');
+      recordCipherAttempt(false, timeTaken, currentDiff);
+
       setScore(prev => Math.max(0, prev - 50)); // Penalty
       setFeedback('wrong');
 
@@ -222,7 +276,7 @@ function TimeAttackMode() {
         if (inputRef.current) inputRef.current.focus();
       }, 600);
     }
-  }, [userInput, gameState, cipherMethod, encryptedWord, currentWord, addTime, incrementPuzzlesSolved, fetchNewWord, currentUser]);
+  }, [userInput, gameState, cipherMethod, encryptedWord, currentWord, addTime, recordCipherAttempt, fetchNewWord, currentUser]);
 
   const handlePause = useCallback(() => {
     if (gameState !== 'playing' || isLoading) return;
@@ -294,15 +348,18 @@ function TimeAttackMode() {
     if (isCorrect) {
       if (cType) trackCipherAttempt(uid, cType, true);
 
-      // Points based on difficulty: Easy=100, Moderate=250, Hard=600
-      const currentDiff = (useGameStore.getState().currentDifficulty || 'easy').toLowerCase();
-      const pointsEarned = currentDiff === 'easy' ? 100 : currentDiff === 'moderate' ? 250 : 600;
+      const timeTaken = (Date.now() - puzzleStartTimeRef.current) / 1000;
+      const currentDiff = (useGameStore.getState().currentDifficulty || 'Easy');
+      recordCipherAttempt(true, timeTaken, currentDiff);
+
+      // Points based on difficulty: Easy=100, Normal=250, Hard=600
+      const currentDiffLower = currentDiff.toLowerCase();
+      const pointsEarned = currentDiffLower === 'easy' ? 100 : currentDiffLower === 'normal' ? 250 : 600;
       setScore(prev => prev + pointsEarned);
       setCiphersCracked(prev => prev + 1);
-      incrementPuzzlesSolved();
 
-      // Time increment: Easy=15s, Moderate=30s, Hard=1min
-      const timeBonus = currentDiff === 'easy' ? 15 : currentDiff === 'moderate' ? 30 : 60;
+      // Time increment: Easy=15s, Normal=30s, Hard=1min
+      const timeBonus = currentDiffLower === 'easy' ? 15 : currentDiffLower === 'normal' ? 30 : 60;
       addTime(timeBonus);
 
       setFeedback('correct');
@@ -313,11 +370,16 @@ function TimeAttackMode() {
       }, 800);
     } else {
       if (cType) trackCipherAttempt(uid, cType, false);
+
+      const timeTaken = (Date.now() - puzzleStartTimeRef.current) / 1000;
+      const currentDiff = (useGameStore.getState().currentDifficulty || 'Easy');
+      recordCipherAttempt(false, timeTaken, currentDiff);
+
       setScore(prev => Math.max(0, prev - 50));
       setFeedback('wrong');
       setTimeout(() => setFeedback(null), 600);
     }
-  }, [gameState, cipherMethod, encryptedWord, currentWord, addTime, incrementPuzzlesSolved, fetchNewWord, currentUser, isColumnar, isRailFence, isVigenere, isSubstitution, isCaesar]);
+  }, [gameState, cipherMethod, encryptedWord, currentWord, addTime, recordCipherAttempt, fetchNewWord, currentUser, isColumnar, isRailFence, isVigenere, isSubstitution, isCaesar]);
 
   // UI Renders
   if (gameState === 'game_over') {
@@ -547,11 +609,13 @@ function TimeAttackMode() {
                   <span className="text-red-300 uppercase font-bold">{currentDifficulty}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-red-500/70">Solves:</span>
-                  <span className="text-red-300 font-bold">{puzzlesSolved}</span>
+                  <span className="text-red-500/70">Rolling Avg:</span>
+                  <span className="text-red-300 font-bold">
+                    {rollingAttempts?.length ? (rollingAttempts.reduce((a, b) => a + b, 0) / rollingAttempts.length).toFixed(2) : '0.00'}
+                  </span>
                 </div>
                 <button
-                  onClick={() => { playClick(); incrementPuzzlesSolved(); }}
+                  onClick={() => { playClick(); recordCipherAttempt(true, 5, currentDifficulty); }}
                   className="mt-1 bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors border border-red-900/30"
                 >
                   Force +1 Solve
@@ -560,9 +624,9 @@ function TimeAttackMode() {
 
               {/* Force Difficulty */}
               <div className="flex gap-1 w-full border-b border-red-900/50 pb-2">
-                <button onClick={() => { playClick(); setDifficulty('easy'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">EZ</button>
-                <button onClick={() => { playClick(); setDifficulty('moderate'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">MOD</button>
-                <button onClick={() => { playClick(); setDifficulty('hard'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">HRD</button>
+                <button onClick={() => { playClick(); setDifficulty('Easy'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">EZ</button>
+                <button onClick={() => { playClick(); setDifficulty('Normal'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">NRM</button>
+                <button onClick={() => { playClick(); setDifficulty('Hard'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">HRD</button>
               </div>
 
               <button
