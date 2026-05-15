@@ -5,13 +5,29 @@ export default class IntroScene extends Phaser.Scene {
   constructor() {
     super({ key: 'IntroScene' });
   }
+  preload() {
+    this.load.image('introBg', 'location/introSceneBg.png');
+  }
 
   create() {
     // Silence — no BGM during the intro
     bgmController.stop();
 
-    // Basic black background
-    this.cameras.main.setBackgroundColor('#000000');
+    // Background Image
+    const bg = this.add.image(this.cameras.main.centerX, this.cameras.main.centerY, 'introBg');
+    const scaleX = this.cameras.main.width / bg.width;
+    const scaleY = this.cameras.main.height / bg.height;
+    bg.setScale(Math.max(scaleX, scaleY));
+
+    // Scrim for readability
+    this.add.rectangle(
+      this.cameras.main.centerX,
+      this.cameras.main.centerY,
+      this.cameras.main.width,
+      this.cameras.main.height,
+      0x000000,
+      0.85
+    );
 
     this.monologue = [
       "The rain hadn't stopped for three days.",
@@ -23,7 +39,7 @@ export default class IntroScene extends Phaser.Scene {
 
     this.currentLineIndex = 0;
     this.currentCharIndex = 0;
-    
+
     // Text object for typewriter effect
     this.textObject = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, '', {
       fontFamily: '"Courier New", Courier, monospace',
@@ -73,7 +89,7 @@ export default class IntroScene extends Phaser.Scene {
           // Wait 3 seconds, then fade out text
           this.time.delayedCall(3000, () => {
             if (this.isTransitioning) return; // Prevent if already skipping
-            
+
             this.tweens.add({
               targets: this.textObject,
               alpha: 0,
@@ -102,7 +118,7 @@ export default class IntroScene extends Phaser.Scene {
       this.textObject.setText(this.monologue[this.currentLineIndex]);
 
       this.time.removeAllEvents();
-      
+
       this.time.delayedCall(3000, () => {
         if (this.isTransitioning) return;
         this.tweens.add({
@@ -128,12 +144,12 @@ export default class IntroScene extends Phaser.Scene {
   finishIntro() {
     if (this.isTransitioning) return;
     this.isTransitioning = true;
-    
+
     this.time.removeAllEvents();
     if (this.timeEvent) {
-        this.timeEvent.remove();
+      this.timeEvent.remove();
     }
-    
+
     this.cameras.main.fadeOut(2000, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start('OfficeScene');

@@ -10,8 +10,29 @@ export default class EndingScene extends Phaser.Scene {
     this.isWin = !!data.isWin;
   }
 
+  preload() {
+    this.load.image('goodEndingBg', 'location/goodEnding.png');
+    this.load.image('badEndingBg', 'location/badEnding.png');
+  }
+
   create() {
     this.cameras.main.setBackgroundColor('#000000');
+
+    const bgKey = this.isWin ? 'goodEndingBg' : 'badEndingBg';
+    const bg = this.add.image(this.cameras.main.centerX, this.cameras.main.centerY, bgKey);
+    const scaleX = this.cameras.main.width / bg.width;
+    const scaleY = this.cameras.main.height / bg.height;
+    bg.setScale(Math.max(scaleX, scaleY));
+
+    // Scrim for readability
+    this.add.rectangle(
+      this.cameras.main.centerX,
+      this.cameras.main.centerY,
+      this.cameras.main.width,
+      this.cameras.main.height,
+      0x000000,
+      0.85
+    );
 
     const goodEndingText = [
       "The cuffs clicked shut.",
