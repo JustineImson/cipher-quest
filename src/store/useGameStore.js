@@ -3,8 +3,9 @@ import { suspectEvidence } from '../data/StoryEvidence';
 import { persist } from 'zustand/middleware';
 import { auth, db } from '../services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { backfillCipherStats } from '../services/authService';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { backfillCipherStats, backfillFriendCode } from '../services/authService';
+import { requestNotificationPermission } from '../utils/notifications';
 
 export const useGameStore = create(
   persist(
@@ -109,6 +110,25 @@ export const useGameStore = create(
 
             // Ensure this user has all cipher stat fields (adds caesar for older accounts)
             backfillCipherStats(user.uid);
+
+            // Upgrade legacy 6-char friend codes to 8-char
+            backfillFriendCode(user.uid).then((newCode) => {
+              if (newCode) {
+                set((state) => ({
+                  currentUser: { ...state.currentUser, friendCode: newCode }
+                }));
+              }
+            });
+
+            // Record login timestamp for engagement notifications (Phase 3A)
+            updateDoc(doc(db, 'users', user.uid), {
+              lastLoginAt: Date.now()
+            }).catch((err) => console.warn('Failed to update lastLoginAt:', err));
+
+            // Request notification permission & register FCM token
+            requestNotificationPermission().catch((err) =>
+              console.warn('FCM token registration skipped:', err)
+            );
           } else {
             // User logged out or account was deleted — clear ALL local state
             set({

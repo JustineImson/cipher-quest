@@ -49,6 +49,54 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     io.use((socket, next) => { socket.uid = null; next(); });
 }
 
+// ─────────────────────────────────────────────────────────────
+// Push Notification Helpers (Phase 2A & 2B)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Sends a push notification to a user by their UID.
+ * Silently no-ops if admin isn't initialized or user has no token.
+ */
+async function sendPushToUser(uid, title, body, link = '/') {
+  if (!uid || !admin.apps?.length) return;
+  try {
+    const snap = await admin.firestore().collection('users').doc(uid).get();
+    if (!snap.exists) return;
+    const token = snap.data().fcmToken;
+    if (!token) return;
+
+    await admin.messaging().send({
+      token,
+      notification: { title, body },
+      webpush: { fcmOptions: { link } },
+    });
+  } catch (err) {
+    if (err.code === 'messaging/registration-token-not-registered' ||
+        err.code === 'messaging/invalid-registration-token') {
+      await admin.firestore().collection('users').doc(uid).update({ fcmToken: null });
+    }
+    console.error(`Push notification failed for ${uid}:`, err.message);
+  }
+}
+
+/**
+ * Phase 2A — Sends win/loss notifications to both match participants.
+ */
+async function sendMatchResultNotifications(winnerUid, loserUid) {
+  await Promise.all([
+    sendPushToUser(winnerUid,
+      '🏆 Victory!',
+      'You cracked the cipher faster than your opponent. Well done, detective!',
+      '/leaderboards'
+    ),
+    sendPushToUser(loserUid,
+      'Match Over',
+      'Your opponent was faster this time. Study your weak ciphers and challenge again!',
+      '/profile'
+    ),
+  ]);
+}
+
 const words = {
   easy: [
     'Clock', 'Train', 'Steam', 'Gears', 'Brass', 
@@ -86,6 +134,57 @@ app.get('/api/generate-word', (req, res) => {
   res.json({ word: selectedWord, difficulty });
 });
 
+// ─────────────────────────────────────────────────────────────
+// POST /notify — Client-triggered push notification endpoint
+// ─────────────────────────────────────────────────────────────
+app.post('/notify', async (req, res) => {
+  // Guard: Admin SDK must be initialized
+  if (!admin.apps?.length) {
+    return res.status(503).json({ error: 'Notification service unavailable' });
+  }
+
+  const { targetUid, title, body, type, link } = req.body;
+
+  // Validate — only accept known notification types
+  const allowedTypes = [
+    'friend_request', 'friend_accepted',
+    'game_invite', 'invite_accepted', 'invite_declined',
+    'personal_best', 'leaderboard_displaced', 'friend_beats_score'
+  ];
+  if (!allowedTypes.includes(type)) {
+    return res.status(400).json({ error: 'Invalid notification type' });
+  }
+  if (!targetUid || !title) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    const userSnap = await admin.firestore()
+      .collection('users').doc(targetUid).get();
+    if (!userSnap.exists) return res.status(404).json({ error: 'User not found' });
+
+    const { fcmToken } = userSnap.data();
+    if (!fcmToken) return res.status(200).json({ skipped: 'No token' });
+
+    await admin.messaging().send({
+      token: fcmToken,
+      notification: { title, body },
+      data: { type, link: link || '/' },
+      webpush: { fcmOptions: { link: link || '/' } },
+    });
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    if (err.code === 'messaging/registration-token-not-registered' ||
+        err.code === 'messaging/invalid-registration-token') {
+      await admin.firestore()
+        .collection('users').doc(targetUid).update({ fcmToken: null });
+      return res.status(200).json({ skipped: 'Stale token cleaned' });
+    }
+    console.error('POST /notify error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id}`);
 
@@ -173,7 +272,10 @@ io.on('connection', (socket) => {
                 if (score >= 500) {
                     room.status = 'finished';
                     const winnerUid = room.players[playerIndex].uid;
+                    const loserUid = room.players.find((_, i) => i !== playerIndex)?.uid;
                     io.to(roomCode).emit('match_over', { winnerUid });
+                    // Phase 2A — Push notifications for match result
+                    sendMatchResultNotifications(winnerUid, loserUid);
                 }
             }
         }
@@ -196,6 +298,11 @@ io.on('connection', (socket) => {
             }
 
             io.to(roomCode).emit('match_over', { winnerUid, isDraw: p1.score === (p2?.score || 0) });
+            // Phase 2A — Push notifications for timeout-based match result
+            if (winnerUid) {
+              const loserUid = winnerUid === p1.uid ? p2?.uid : p1.uid;
+              sendMatchResultNotifications(winnerUid, loserUid);
+            }
         }
     });
 
@@ -206,6 +313,16 @@ io.on('connection', (socket) => {
             if (playerIndex !== -1) {
                 const removed = room.players.splice(playerIndex, 1);
                 io.to(roomCode).emit('player_left', { message: 'Opponent disconnected', uid: removed[0]?.uid });
+
+                // Phase 2B — Notify remaining player if match was in progress
+                if (room.status === 'playing' && room.players.length > 0) {
+                  const remainingUid = room.players[0].uid;
+                  sendPushToUser(remainingUid,
+                    'Opponent Disconnected',
+                    'Your opponent left the match. You win by default!',
+                    '/multiplayer'
+                  );
+                }
                 
                 if (room.players.length === 0) {
                     delete rooms[roomCode];

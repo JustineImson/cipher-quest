@@ -10,6 +10,7 @@ import {
   updateDoc, 
   getDoc 
 } from 'firebase/firestore';
+import { notifyUser } from './notificationService';
 
 /**
  * Helper to safely fetch user data (so we can display real usernames)
@@ -68,6 +69,15 @@ export const sendFriendRequest = async (currentUid, targetFriendCode) => {
     status: 'pending',
     createdAt: new Date().toISOString()
   });
+
+  // Send push notification to the target user
+  const senderData = await fetchUserData(currentUid);
+  notifyUser(targetUserUid, {
+    title: 'New Friend Request',
+    body: `${senderData.username} wants to add you as a friend.`,
+    type: 'friend_request',
+    link: '/profile',
+  });
 };
 
 /**
@@ -101,12 +111,26 @@ export const listenToPendingRequests = (currentUid, callback) => {
 /**
  * Accepts a pending friend request.
  */
-export const acceptFriendRequest = async (friendshipDocId) => {
+export const acceptFriendRequest = async (friendshipDocId, currentUid) => {
   const docRef = doc(db, 'friendships', friendshipDocId);
+  const friendshipSnap = await getDoc(docRef);
+  
   await updateDoc(docRef, { 
     status: 'accepted',
     acceptedAt: new Date().toISOString()
   });
+
+  // Notify the original sender that their request was accepted
+  if (friendshipSnap.exists()) {
+    const { senderId } = friendshipSnap.data();
+    const acceptorData = currentUid ? await fetchUserData(currentUid) : { username: 'Someone' };
+    notifyUser(senderId, {
+      title: 'Friend Request Accepted',
+      body: `${acceptorData.username} accepted your friend request!`,
+      type: 'friend_accepted',
+      link: '/profile',
+    });
+  }
 };
 
 /**
@@ -181,6 +205,15 @@ export const sendGameInvite = async (senderUid, receiverUid, roomCode) => {
     status: 'pending',
     createdAt: new Date().toISOString()
   });
+
+  // Notify the receiver of the game invite
+  const senderData = await fetchUserData(senderUid);
+  notifyUser(receiverUid, {
+    title: 'Multiplayer Invite',
+    body: `${senderData.username} is challenging you to a cipher duel!`,
+    type: 'game_invite',
+    link: '/multiplayer',
+  });
 };
 
 /**
@@ -213,11 +246,35 @@ export const listenToIncomingGameInvites = (currentUid, callback) => {
 /**
  * Resolves a game invite (accepted or declined).
  */
-export const resolveGameInvite = async (inviteId, status) => {
+export const resolveGameInvite = async (inviteId, newStatus, currentUid) => {
   const docRef = doc(db, 'gameInvites', inviteId);
+  const inviteSnap = await getDoc(docRef);
+
   await updateDoc(docRef, { 
-    status,
+    status: newStatus,
     resolvedAt: new Date().toISOString()
   });
+
+  // Notify the sender about the invite resolution
+  if (inviteSnap.exists()) {
+    const { senderId } = inviteSnap.data();
+    const resolverData = currentUid ? await fetchUserData(currentUid) : { username: 'Someone' };
+
+    if (newStatus === 'accepted') {
+      notifyUser(senderId, {
+        title: 'Challenge Accepted!',
+        body: `${resolverData.username} accepted your duel invite. Get ready!`,
+        type: 'invite_accepted',
+        link: '/multiplayer',
+      });
+    } else if (newStatus === 'declined') {
+      notifyUser(senderId, {
+        title: 'Invite Declined',
+        body: `${resolverData.username} can't make it this time.`,
+        type: 'invite_declined',
+        link: '/profile',
+      });
+    }
+  }
 };
 

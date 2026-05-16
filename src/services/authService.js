@@ -38,7 +38,31 @@ export const registerUser = async (email, password, username) => {
   return userCredential;
 };
 
-// TODO: existing users registered before this change have short 6-char codes — a one-time Cloud Function migration should regenerate their friend codes
+/**
+ * Backfill missing or legacy (6-char) friend codes for existing users.
+ * Runs on login — if the user's Firestore doc has no friendCode or a short one,
+ * generates a proper 8-char code and saves it.
+ * @param {string} uid
+ */
+export async function backfillFriendCode(uid) {
+  if (!uid) return;
+  try {
+    const userRef = doc(db, 'users', uid);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) return;
+
+    const existing = snap.data().friendCode;
+    // Already has a proper 8-char code — nothing to do
+    if (existing && existing.length >= 8) return;
+
+    const newCode = await generateUniqueFriendCode(db);
+    await updateDoc(userRef, { friendCode: newCode });
+    console.log(`[backfill] Upgraded friend code for ${uid}: ${existing || '(none)'} → ${newCode}`);
+    return newCode;
+  } catch (err) {
+    console.warn('Failed to backfill friend code:', err);
+  }
+}
 /**
  * Generate a unique 8-character friend code (uppercase alphanumeric, excluding ambiguous chars)
  * @param {import('firebase/firestore').Firestore} db - Firestore instance

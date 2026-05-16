@@ -31,7 +31,8 @@ export default defineConfig({
         ]
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 4000000 // 4MB to accommodate Phaser bundle
+        maximumFileSizeToCacheInBytes: 4000000, // 4MB to accommodate Phaser bundle
+        importScripts: ['/firebase-messaging-sw.js']
       },
       devOptions: {
         enabled: true

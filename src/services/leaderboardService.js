@@ -12,6 +12,7 @@ import {
   limit,
   getDocs
 } from 'firebase/firestore';
+import { notifyUser } from './notificationService';
 
 /**
  * Submit a Time Attack score.
@@ -40,6 +41,14 @@ export async function submitTimeAttackScore(uid, username, score, difficulty, ca
       difficulty: difficulty || 'easy',
       cases: cases || 0,
       createdAt: serverTimestamp()
+    });
+
+    // Notify the player of their new personal best
+    notifyUser(uid, {
+      title: '🎯 New Personal Best!',
+      body: `You cracked ${score} ciphers in Time Attack. Can you beat it?`,
+      type: 'personal_best',
+      link: '/leaderboards',
     });
   } catch (err) {
     console.error('Failed to submit time attack score:', err);

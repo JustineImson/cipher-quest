@@ -58,8 +58,8 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
     setError('');
     setSuccess('');
 
-    if (!inviteCode.trim() || inviteCode.length !== 6) {
-      setError('Invalid code format. (6 chars required)');
+    if (!inviteCode.trim() || inviteCode.length !== 8) {
+      setError('Invalid code format. (8 chars required)');
       return;
     }
 
@@ -78,7 +78,7 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
   const handleAccept = async (docId) => {
     playClick();
     try {
-      await acceptFriendRequest(docId);
+      await acceptFriendRequest(docId, currentUser.uid);
     } catch (err) {
       console.error('Failed to accept request:', err);
     }
@@ -128,12 +128,12 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
           <input 
             type="text" 
             value={inviteCode}
-            maxLength={6}
+            maxLength={8}
             onChange={(e) => {
               setInviteCode(e.target.value.toUpperCase());
               if (e.nativeEvent.inputType !== 'deleteContentBackward') playKeyTap();
             }}
-            placeholder="6-CHAR CODE"
+            placeholder="8-CHAR CODE"
             className="w-full bg-[#0e0a04] border border-[#7a6030]/50 text-[#e8dcc0] font-mono px-3 py-2 text-center tracking-[0.3em] uppercase focus:outline-none focus:border-[#c9a84c] transition-colors placeholder:text-[#7a6030]/50 placeholder:text-xs"
           />
           <button 
@@ -166,7 +166,7 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
                   <button 
                     onClick={() => {
                        playClick();
-                       resolveGameInvite(invite.id, 'accepted');
+                       resolveGameInvite(invite.id, 'accepted', currentUser.uid);
                        onAcceptGameInvite(invite.roomCode);
                     }}
                     className="flex-1 py-1.5 bg-[#0a1a0f]/80 border border-[#5a9e6f]/40 text-[#5a9e6f] text-[10px] tracking-widest uppercase hover:bg-[#5a9e6f] hover:text-[#0e0a04] transition-all flex justify-center items-center gap-1"
@@ -176,7 +176,7 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
                   <button 
                     onClick={() => {
                        playClick();
-                       resolveGameInvite(invite.id, 'declined');
+                       resolveGameInvite(invite.id, 'declined', currentUser.uid);
                     }}
                     className="flex-1 py-1.5 bg-[#1a0f0f]/80 border border-[#8b1a1a]/40 text-[#8b1a1a] text-[10px] tracking-widest uppercase hover:bg-[#8b1a1a] hover:text-[#0e0a04] transition-all flex justify-center items-center gap-1"
                   >
