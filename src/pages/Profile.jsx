@@ -5,8 +5,9 @@ import Button from '../components/ui/Button';
 import { useGameStore } from '../store/useGameStore';
 import { logoutUser } from '../services/authService';
 import { getPlayerInsights } from '../services/mlService';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db, storage } from '../services/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useState, useEffect, useRef } from 'react';
 
 /* ─── Helpers ─────────────────────────────────────────────────────────── */
@@ -44,6 +45,11 @@ export default function Profile() {
   const [clearance, setClearance] = useState('Classified');
   const [mpWins, setMpWins] = useState(0);
   const [mpLosses, setMpLosses] = useState(0);
+  
+  // Image Upload State
+  const [photoUrl, setPhotoUrl] = useState(currentUser?.photoURL || null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   // ML state
   const [mlInsights, setMlInsights] = useState(null);
@@ -116,8 +122,11 @@ export default function Profile() {
         let cipherStats = {};
         try {
           const userSnap = await getDoc(doc(db, 'users', currentUser.uid));
-          if (userSnap.exists()) cipherStats = userSnap.data().cipherStats || {};
-        } catch (err) { console.warn('Profile: failed to read cipher stats:', err); }
+          if (userSnap.exists()) {
+            cipherStats = userSnap.data().cipherStats || {};
+            setPhotoUrl(userSnap.data().photoURL || currentUser.photoURL || null);
+          }
+        } catch (err) { console.warn('Profile: failed to read user data:', err); }
 
         const cipherAccuracy = (type) => {
           const s = cipherStats[type];
@@ -163,6 +172,65 @@ export default function Profile() {
   }, [playerStats]);
 
   /* ── Actions ─────────────────────────────────────────────────────── */
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+    
+    if (!file.type.startsWith('image/')) {
+      alert("Please upload an image file.");
+      return;
+    }
+
+    setIsUploading(true);
+    playClick();
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        // Compress and resize the image
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 256;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to base64 JPEG
+        const base64Url = canvas.toDataURL('image/jpeg', 0.85);
+
+        try {
+          const userRef = doc(db, 'users', currentUser.uid);
+          await updateDoc(userRef, { photoURL: base64Url });
+          setPhotoUrl(base64Url);
+        } catch (error) {
+          console.error("Error saving image to Firestore:", error);
+          alert("Failed to save image.");
+        } finally {
+          setIsUploading(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleLogout = async () => {
     playClick();
     try {
@@ -230,10 +298,31 @@ export default function Profile() {
           <div className="flex flex-col md:flex-row gap-12">
             {/* Left: Avatar/Icon */}
             <div className="flex flex-col items-center gap-4">
-              <div className="w-32 h-32 border border-[#7a6030] bg-[#2a1e0e] flex items-center justify-center relative overflow-hidden">
-                <User size={64} className="text-[#c9a84c] opacity-80" />
+              <div 
+                className="w-32 h-32 border border-[#7a6030] bg-[#2a1e0e] flex items-center justify-center relative overflow-hidden group cursor-pointer"
+                onClick={() => !isUploading && fileInputRef.current?.click()}
+              >
+                {photoUrl ? (
+                  <img src={photoUrl} alt="Profile" className="w-full h-full object-cover opacity-80 group-hover:opacity-40 transition-opacity" />
+                ) : (
+                  <User size={64} className="text-[#c9a84c] opacity-80 group-hover:opacity-40 transition-opacity" />
+                )}
+                
+                {/* Upload overlay */}
+                <div className={`absolute bottom-0 inset-x-0 bg-[#0a0703]/80 py-1.5 flex flex-col items-center justify-center border-t border-[#7a6030]/50 transition-opacity ${photoUrl && !isUploading ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+                   <span className="text-[9px] text-[#e8c96a] tracking-[0.2em]">{isUploading ? 'UPLOADING...' : 'CHANGE'}</span>
+                </div>
+
                 {/* Scanline effect */}
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#c9a84c]/10 to-transparent h-[200%] animate-[scan_4s_linear_infinite]" />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#c9a84c]/10 to-transparent h-[200%] animate-[scan_4s_linear_infinite] pointer-events-none" />
+
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleImageUpload} 
+                  accept="image/*" 
+                  className="hidden" 
+                />
               </div>
               <div className="text-center">
                 <p className="text-[10px] text-[#7a6030] tracking-[0.2em] mb-1">ID STATUS</p>

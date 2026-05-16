@@ -512,7 +512,11 @@ export default function Leaderboards() {
                     {/* Name */}
                     <td>
                       <div className="lb-name-cell">
-                        <div className="lb-pin" />
+                        {row.photoURL ? (
+                          <img src={row.photoURL} alt="Profile" className="w-6 h-6 rounded-full border border-[var(--gold-dim)] object-cover shadow-[0_0_5px_rgba(200,160,50,0.5)]" />
+                        ) : (
+                          <div className="lb-pin" />
+                        )}
                         <span className="lb-name">{row.name}</span>
                       </div>
                     </td>

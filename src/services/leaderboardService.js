@@ -95,17 +95,26 @@ export async function fetchTimeAttackLeaderboard(limitCount = 10) {
     limit(limitCount)
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((docSnap, index) => {
+  const rows = await Promise.all(snapshot.docs.map(async (docSnap, index) => {
     const data = docSnap.data();
+    let photoURL = null;
+    if (data.uid) {
+      try {
+        const userSnap = await getDoc(doc(db, 'users', data.uid));
+        if (userSnap.exists()) photoURL = userSnap.data().photoURL || null;
+      } catch (err) { console.warn('Leaderboard: failed to fetch user photo', err); }
+    }
     return {
       rank: index + 1,
       name: data.username || 'Unknown',
+      photoURL,
       score: data.score || 0,
       time: data.difficulty || '-',
       cases: data.cases !== undefined ? data.cases : '-',
       badge: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : null
     };
-  });
+  }));
+  return rows;
 }
 
 /**
@@ -118,20 +127,29 @@ export async function fetchMultiplayerLeaderboard(limitCount = 10) {
     limit(limitCount)
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((docSnap, index) => {
+  const rows = await Promise.all(snapshot.docs.map(async (docSnap, index) => {
     const data = docSnap.data();
+    let photoURL = null;
+    if (data.uid) {
+      try {
+        const userSnap = await getDoc(doc(db, 'users', data.uid));
+        if (userSnap.exists()) photoURL = userSnap.data().photoURL || null;
+      } catch (err) { console.warn('Leaderboard: failed to fetch user photo', err); }
+    }
     const wins = data.wins || 0;
     const losses = data.losses || 0;
     return {
       rank: index + 1,
       name: data.username || 'Unknown',
+      photoURL,
       score: wins,
       wins: wins,
       losses: losses,
       cases: data.cases !== undefined ? data.cases : '-',
       badge: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : null
     };
-  });
+  }));
+  return rows;
 }
 
 /**
