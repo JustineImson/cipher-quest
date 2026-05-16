@@ -18,7 +18,22 @@ class GameManager {
     }
 
     get currentPhase() {
-        return useGameStore.getState().savedStoryProgress?.phase || GamePhases.BRIEFING;
+        let phase = useGameStore.getState().savedStoryProgress?.phase;
+        if (!phase) {
+            try {
+                const raw = localStorage.getItem('aegis-game-storage');
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    const persisted = parsed.state?.savedStoryProgress || parsed.savedStoryProgress || parsed;
+                    if (persisted && persisted.phase) {
+                        phase = persisted.phase;
+                    }
+                }
+            } catch (e) {
+                // Ignore parse errors
+            }
+        }
+        return phase || GamePhases.BRIEFING;
     }
 
     reset() {

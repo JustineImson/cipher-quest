@@ -223,7 +223,6 @@ export default class OfficeScene extends Phaser.Scene {
     }
 
     startInterrogation(width, height) {
-        this.leaveElements.forEach(el => el.setVisible(false));
 
         // Prompt
         this.promptText = this.add.text(width / 2, 100, 'Who is the culprit?', {
