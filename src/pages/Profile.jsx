@@ -39,8 +39,11 @@ export default function Profile() {
   const { playClick } = useSfx();
   const { currentUser } = useGameStore();
 
-  const [casesSolved, setCasesSolved] = useState(0);
+  const [taCases, setTaCases] = useState(0);
+  const [mpCases, setMpCases] = useState(0);
   const [clearance, setClearance] = useState('Classified');
+  const [mpWins, setMpWins] = useState(0);
+  const [mpLosses, setMpLosses] = useState(0);
 
   // ML state
   const [mlInsights, setMlInsights] = useState(null);
@@ -68,27 +71,32 @@ export default function Profile() {
           evidenceCount = evidence.length;
           const diff = data.savedStoryProgress?.difficulty;
           if (diff) difficulty = diff;
-          // Consider story complete if phase is DEDUCTION or beyond
-          const phase = data.savedStoryProgress?.phase;
-          if (phase === 'DEDUCTION' || phase === 'COMPLETE' || phase === 'RESOLUTION') {
-            storyCompleted = 1;
-          }
         }
-        setCasesSolved(evidenceCount);
+        // Consider story complete if phase is DEDUCTION or beyond
+        const phase = storySnap.exists() ? storySnap.data().savedStoryProgress?.phase : null;
+        if (phase === 'DEDUCTION' || phase === 'COMPLETE' || phase === 'RESOLUTION') {
+          storyCompleted = 1;
+        }
         setClearance(difficulty);
 
         // Time-attack leaderboard entry
         let bestTaScore = 0;
+        let tCases = 0;
         try {
           const taSnap = await getDoc(
             doc(db, 'leaderboards', 'timeAttack', 'entries', currentUser.uid)
           );
-          if (taSnap.exists()) bestTaScore = taSnap.data().score || 0;
+          if (taSnap.exists()) {
+            bestTaScore = taSnap.data().score || 0;
+            tCases = taSnap.data().cases || 0;
+          }
         } catch (err) { console.warn('Profile: failed to read TA leaderboard entry:', err); }
+        setTaCases(tCases);
 
-        // Multiplayer wins / losses
+        // Multiplayer wins / losses / cases
         let wins = 0;
         let losses = 0;
+        let mCases = 0;
         try {
           const mpSnap = await getDoc(
             doc(db, 'leaderboards', 'multiplayer', 'entries', currentUser.uid)
@@ -96,8 +104,12 @@ export default function Profile() {
           if (mpSnap.exists()) {
             wins = mpSnap.data().wins || 0;
             losses = mpSnap.data().losses || 0;
+            mCases = mpSnap.data().cases || 0;
           }
         } catch (err) { console.warn('Profile: failed to read MP leaderboard entry:', err); }
+        setMpWins(wins);
+        setMpLosses(losses);
+        setMpCases(mCases);
         const winRate = wins + losses > 0 ? parseFloat((wins / (wins + losses)).toFixed(2)) : 0;
 
         // Cipher stats (per-cipher attempts/solved → accuracy 0-1)
@@ -239,7 +251,7 @@ export default function Profile() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="space-y-1">
                   <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">REGISTERED EMAIL</p>
                   <p className="text-lg text-[#e8dcc0] truncate" title={currentUser.email}>{currentUser.email}</p>
@@ -249,12 +261,24 @@ export default function Profile() {
                   <p className="text-lg text-[#e8dcc0]">{currentUser.friendCode || 'Pending...'}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">CASES SOLVED</p>
-                  <p className="text-lg text-[#e8dcc0]">{casesSolved}</p>
-                </div>
-                <div className="space-y-1">
                   <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">SECURITY CLEARANCE</p>
                   <p className="text-lg text-[#e8dcc0]">{clearance}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">TA CASES SOLVED</p>
+                  <p className="text-lg text-[#e8dcc0]">{taCases}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">MP CASES SOLVED</p>
+                  <p className="text-lg text-[#e8dcc0]">{mpCases}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">MP WINS</p>
+                  <p className="text-lg text-[#e8dcc0]">{mpWins}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">MP LOSSES</p>
+                  <p className="text-lg text-[#e8dcc0]">{mpLosses}</p>
                 </div>
               </div>
 

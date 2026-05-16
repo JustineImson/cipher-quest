@@ -17,9 +17,9 @@ function getFallbackPool(difficulty) {
 function getRandomFallback(difficulty) {
   const pool = getFallbackPool(difficulty);
   let puzzle = pickRandom(pool);
-  
+
   if (!puzzle) puzzle = { plaintext: "FALLBACK", key: "1", clue: "System error." };
-  
+
   return { plaintext: puzzle.plaintext, key: puzzle.key, clue: puzzle.clue, isFallback: true };
 }
 

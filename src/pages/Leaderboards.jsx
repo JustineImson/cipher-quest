@@ -457,14 +457,21 @@ export default function Leaderboards() {
                 <th className="center" style={{ width: 52 }}>#</th>
                 <th>Detective</th>
                 <th style={{ textAlign: 'right' }}>Score</th>
-                <th className="center">Best Time</th>
+                {activeTab === 'Time Attack' ? (
+                  <th className="center">Best Time</th>
+                ) : (
+                  <>
+                    <th className="center">Win Count</th>
+                    <th className="center">Lose Count</th>
+                  </>
+                )}
                 <th className="center">Cases</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan="5">
+                  <td colSpan={activeTab === 'Time Attack' ? 5 : 6}>
                     <div className="lb-empty-state">
                       <LoadingSpinner text="Accessing Archives..." />
                     </div>
@@ -472,7 +479,7 @@ export default function Leaderboards() {
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan="5">
+                  <td colSpan={activeTab === 'Time Attack' ? 5 : 6}>
                     <div className="lb-empty-state">
                       No records found. Be the first to make the board.
                     </div>
@@ -511,8 +518,15 @@ export default function Leaderboards() {
                     </td>
                     {/* Score */}
                     <td className="lb-score">{row.score.toLocaleString()}</td>
-                    {/* Time */}
-                    <td className="lb-meta">{row.time}</td>
+                    {/* Meta */}
+                    {activeTab === 'Time Attack' ? (
+                      <td className="lb-meta">{row.time}</td>
+                    ) : (
+                      <>
+                        <td className="lb-meta">{row.wins}</td>
+                        <td className="lb-meta">{row.losses}</td>
+                      </>
+                    )}
                     {/* Cases */}
                     <td className="lb-meta">{row.cases}</td>
                   </tr>

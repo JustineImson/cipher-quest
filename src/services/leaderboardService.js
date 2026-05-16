@@ -126,7 +126,8 @@ export async function fetchMultiplayerLeaderboard(limitCount = 10) {
       rank: index + 1,
       name: data.username || 'Unknown',
       score: wins,
-      time: `${wins}W / ${losses}L`,
+      wins: wins,
+      losses: losses,
       cases: data.cases !== undefined ? data.cases : '-',
       badge: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : null
     };
