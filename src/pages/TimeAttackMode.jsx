@@ -408,7 +408,7 @@ function TimeAttackMode() {
 
           <div className="flex flex-col gap-5">
             <Button onClick={handleResume} className="w-full">Continue Operation</Button>
-            <Button onClick={() => { playClick(); navigate('/settings'); }} variant="ghost" className="w-full text-[#7a6030] hover:text-[#c9a84c] border border-transparent hover:border-[#7a6030]/50">Mission Settings</Button>
+            <Button onClick={() => { playClick(); useGameStore.setState({ isSettingsOpen: true }); }} variant="ghost" className="w-full text-[#7a6030] hover:text-[#c9a84c] border border-transparent hover:border-[#7a6030]/50">Mission Settings</Button>
             <Button onClick={() => { playClick(); navigate('/'); }} variant="ghost" className="w-full text-[#8b1a1a] hover:text-red-400 border border-transparent hover:border-[#8b1a1a]/50">Abort to Hub</Button>
           </div>
         </div>

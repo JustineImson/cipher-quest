@@ -44,14 +44,12 @@ export default function PhaserGame({ difficulty, startScene }) {
   }, []);
 
   useEffect(() => {
-    let sceneArray = [];
-    if (startScene === 'IntroScene') {
-      sceneArray = [IntroScene, MainScene, OfficeScene, LocationScene, DeductionBoardScene, EndingScene, UIScene];
-    } else if (startScene === 'MainScene') {
-      sceneArray = [MainScene, OfficeScene, LocationScene, DeductionBoardScene, IntroScene, EndingScene, UIScene];
-    } else {
-      sceneArray = [OfficeScene, MainScene, LocationScene, DeductionBoardScene, IntroScene, EndingScene, UIScene];
-    }
+    const sceneClasses = { IntroScene, MainScene, OfficeScene, LocationScene, DeductionBoardScene, EndingScene, UIScene };
+    const StartClass = sceneClasses[startScene] || sceneClasses['MainScene'];
+    const sceneArray = [
+      StartClass,
+      ...Object.values(sceneClasses).filter(c => c !== StartClass)
+    ];
 
     const config = {
       type: Phaser.AUTO,

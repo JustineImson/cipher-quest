@@ -64,18 +64,38 @@ export const useGameStore = create(
               return; // onAuthStateChanged will fire again with null
             }
 
-            const userData = {
+            // Set initial optimistic state
+            const fallbackUserData = {
               uid: user.uid,
               email: user.email,
               username: user.displayName || 'Agent',
               friendCode: user.uid.substring(0, 6).toUpperCase()
             };
-            set({ currentUser: userData });
+            
+            // We use the existing state if available to prevent flashing
+            set((state) => ({ 
+              currentUser: state.currentUser?.uid === user.uid ? state.currentUser : fallbackUserData 
+            }));
 
-            // Load cloud save on login
+            // Load cloud save and real user data
             try {
-              const saveRef = doc(db, 'storyProgress', user.uid);
-              const saveSnap = await getDoc(saveRef);
+              const [saveSnap, userSnap] = await Promise.all([
+                getDoc(doc(db, 'storyProgress', user.uid)),
+                getDoc(doc(db, 'users', user.uid))
+              ]);
+
+              if (userSnap.exists()) {
+                const uData = userSnap.data();
+                set((state) => ({
+                  currentUser: {
+                    ...state.currentUser,
+                    username: uData.username || state.currentUser.username,
+                    friendCode: uData.friendCode || state.currentUser.friendCode,
+                    photoURL: uData.photoURL || state.currentUser.photoURL
+                  }
+                }));
+              }
+
               if (saveSnap.exists()) {
                 const cloudData = saveSnap.data();
                 set({
@@ -84,7 +104,7 @@ export const useGameStore = create(
                 });
               }
             } catch (err) {
-              console.warn('Failed to load cloud save:', err);
+              console.warn('Failed to load cloud save or user data:', err);
             }
 
             // Ensure this user has all cipher stat fields (adds caesar for older accounts)
@@ -97,11 +117,9 @@ export const useGameStore = create(
               collectedEvidence: [],
             });
 
-            // Clear persisted Zustand state from localStorage so stale
-            // data doesn't survive across sessions
-            try {
-              localStorage.removeItem('aegis-game-storage');
-            } catch { /* private browsing / storage disabled */ }
+            // We rely on Zustand's persist middleware to sync this null state to localStorage.
+            // We intentionally DO NOT wipe the entire localStorage item here, 
+            // so that user preferences (like volume/music settings) are preserved across sessions.
           }
         });
       },

@@ -370,10 +370,7 @@ export default function Profile() {
                   <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">FRIEND CODE</p>
                   <p className="text-lg text-[#e8dcc0]">{profileUser?.friendCode || 'Pending...'}</p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">SECURITY CLEARANCE</p>
-                  <p className="text-lg text-[#e8dcc0]">{clearance}</p>
-                </div>
+
                 <div className="space-y-1">
                   <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">TA CASES SOLVED</p>
                   <p className="text-lg text-[#e8dcc0]">{taCases}</p>
