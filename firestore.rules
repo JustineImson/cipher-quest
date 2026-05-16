@@ -21,17 +21,18 @@ service cloud.firestore {
     // collection and lock users down to owner-only reads.
     // ------------------------------------------------------------------
     match /users/{userId} {
-      allow read:   if isAuthenticated();
+      allow read:   if true;
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
       allow delete: if isOwner(userId);
     }
 
     // ------------------------------------------------------------------
-    // storyProgress — owner-only access
+    // storyProgress — public read, owner-only write
     // ------------------------------------------------------------------
     match /storyProgress/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if true;
+      allow write: if isOwner(userId);
     }
 
     // ------------------------------------------------------------------

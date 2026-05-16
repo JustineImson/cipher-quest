@@ -74,6 +74,7 @@ function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/difficulty" element={<Difficulty />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/:uid" element={<Profile />} />
         </Routes>
         
         {isSettingsOpen && (

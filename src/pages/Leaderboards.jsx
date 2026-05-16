@@ -511,7 +511,11 @@ export default function Leaderboards() {
                     </td>
                     {/* Name */}
                     <td>
-                      <div className="lb-name-cell">
+                      <div 
+                        className="lb-name-cell cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => { if(row.uid) { playClick(); navigate(`/profile/${row.uid}`); } }}
+                        title="View Profile"
+                      >
                         {row.photoURL ? (
                           <img src={row.photoURL} alt="Profile" className="w-6 h-6 rounded-full border border-[var(--gold-dim)] object-cover shadow-[0_0_5px_rgba(200,160,50,0.5)]" />
                         ) : (

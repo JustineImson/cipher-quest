@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, User, LogOut, Brain, Target, Shield, BarChart3 } from 'lucide-react';
 import { useSfx } from '../hooks/useSfx';
 import Button from '../components/ui/Button';
@@ -37,8 +37,14 @@ const BAR_COLORS = {
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { uid } = useParams();
   const { playClick } = useSfx();
   const { currentUser } = useGameStore();
+
+  const targetUid = uid || currentUser?.uid;
+  const isOwnProfile = !uid || uid === currentUser?.uid;
+
+  const [profileUser, setProfileUser] = useState(null);
 
   const [taCases, setTaCases] = useState(0);
   const [mpCases, setMpCases] = useState(0);
@@ -61,28 +67,31 @@ export default function Profile() {
 
   /* ── Firestore profile fetch ─────────────────────────────────────── */
   useEffect(() => {
-    if (!currentUser?.uid) return;
+    if (!targetUid) return;
 
     const fetchProfile = async () => {
       try {
         // Story progress
-        const storySnap = await getDoc(doc(db, 'storyProgress', currentUser.uid));
         let evidenceCount = 0;
         let difficulty = 'Classified';
         let storyCompleted = 0;
+        try {
+          const storySnap = await getDoc(doc(db, 'storyProgress', targetUid));
 
-        if (storySnap.exists()) {
-          const data = storySnap.data();
-          const evidence = data.collectedEvidence || data.savedStoryProgress?.cluesList || [];
-          evidenceCount = evidence.length;
-          const diff = data.savedStoryProgress?.difficulty;
-          if (diff) difficulty = diff;
-        }
-        // Consider story complete if phase is DEDUCTION or beyond
-        const phase = storySnap.exists() ? storySnap.data().savedStoryProgress?.phase : null;
-        if (phase === 'DEDUCTION' || phase === 'COMPLETE' || phase === 'RESOLUTION') {
-          storyCompleted = 1;
-        }
+          if (storySnap.exists()) {
+            const data = storySnap.data();
+            const evidence = data.collectedEvidence || data.savedStoryProgress?.cluesList || [];
+            evidenceCount = evidence.length;
+            const diff = data.savedStoryProgress?.difficulty;
+            if (diff) difficulty = diff;
+            
+            // Consider story complete if phase is DEDUCTION or beyond
+            const phase = data.savedStoryProgress?.phase;
+            if (phase === 'DEDUCTION' || phase === 'COMPLETE' || phase === 'RESOLUTION') {
+              storyCompleted = 1;
+            }
+          }
+        } catch (err) { console.warn('Profile: failed to read story progress:', err); }
         setClearance(difficulty);
 
         // Time-attack leaderboard entry
@@ -90,7 +99,7 @@ export default function Profile() {
         let tCases = 0;
         try {
           const taSnap = await getDoc(
-            doc(db, 'leaderboards', 'timeAttack', 'entries', currentUser.uid)
+            doc(db, 'leaderboards', 'timeAttack', 'entries', targetUid)
           );
           if (taSnap.exists()) {
             bestTaScore = taSnap.data().score || 0;
@@ -105,7 +114,7 @@ export default function Profile() {
         let mCases = 0;
         try {
           const mpSnap = await getDoc(
-            doc(db, 'leaderboards', 'multiplayer', 'entries', currentUser.uid)
+            doc(db, 'leaderboards', 'multiplayer', 'entries', targetUid)
           );
           if (mpSnap.exists()) {
             wins = mpSnap.data().wins || 0;
@@ -118,13 +127,19 @@ export default function Profile() {
         setMpCases(mCases);
         const winRate = wins + losses > 0 ? parseFloat((wins / (wins + losses)).toFixed(2)) : 0;
 
-        // Cipher stats (per-cipher attempts/solved → accuracy 0-1)
+        // Cipher stats and User Data
         let cipherStats = {};
         try {
-          const userSnap = await getDoc(doc(db, 'users', currentUser.uid));
+          const userSnap = await getDoc(doc(db, 'users', targetUid));
           if (userSnap.exists()) {
-            cipherStats = userSnap.data().cipherStats || {};
-            setPhotoUrl(userSnap.data().photoURL || currentUser.photoURL || null);
+            const userData = userSnap.data();
+            cipherStats = userData.cipherStats || {};
+            setPhotoUrl(userData.photoURL || null);
+            setProfileUser({
+              username: userData.username || 'Agent',
+              email: userData.email || 'Classified',
+              friendCode: userData.friendCode || 'N/A'
+            });
           }
         } catch (err) { console.warn('Profile: failed to read user data:', err); }
 
@@ -154,7 +169,7 @@ export default function Profile() {
     };
 
     fetchProfile();
-  }, [currentUser]);
+  }, [targetUid]);
 
   /* ── ML insights fetch (runs once playerStats is ready) ──────────── */
   useEffect(() => {
@@ -247,7 +262,7 @@ export default function Profile() {
   };
 
   /* ── Access-denied / loading state ───────────────────────────────── */
-  if (!currentUser) {
+  if (!targetUid) {
     return (
       <div className="flex flex-col items-center justify-center w-full h-full bg-[#1a1208] text-[#8b1a1a] font-['Special_Elite']">
         <div className="absolute inset-0 bg-[url('/mainMenuBg.png')] bg-cover bg-center z-0 opacity-20" />
@@ -299,30 +314,34 @@ export default function Profile() {
             {/* Left: Avatar/Icon */}
             <div className="flex flex-col items-center gap-4">
               <div 
-                className="w-32 h-32 border border-[#7a6030] bg-[#2a1e0e] flex items-center justify-center relative overflow-hidden group cursor-pointer"
-                onClick={() => !isUploading && fileInputRef.current?.click()}
+                className={`w-32 h-32 border border-[#7a6030] bg-[#2a1e0e] flex items-center justify-center relative overflow-hidden ${isOwnProfile ? 'group cursor-pointer' : ''}`}
+                onClick={() => isOwnProfile && !isUploading && fileInputRef.current?.click()}
               >
                 {photoUrl ? (
-                  <img src={photoUrl} alt="Profile" className="w-full h-full object-cover opacity-80 group-hover:opacity-40 transition-opacity" />
+                  <img src={photoUrl} alt="Profile" className={`w-full h-full object-cover opacity-80 ${isOwnProfile ? 'group-hover:opacity-40 transition-opacity' : ''}`} />
                 ) : (
-                  <User size={64} className="text-[#c9a84c] opacity-80 group-hover:opacity-40 transition-opacity" />
+                  <User size={64} className={`text-[#c9a84c] opacity-80 ${isOwnProfile ? 'group-hover:opacity-40 transition-opacity' : ''}`} />
                 )}
                 
                 {/* Upload overlay */}
-                <div className={`absolute bottom-0 inset-x-0 bg-[#0a0703]/80 py-1.5 flex flex-col items-center justify-center border-t border-[#7a6030]/50 transition-opacity ${photoUrl && !isUploading ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
-                   <span className="text-[9px] text-[#e8c96a] tracking-[0.2em]">{isUploading ? 'UPLOADING...' : 'CHANGE'}</span>
-                </div>
+                {isOwnProfile && (
+                  <div className={`absolute bottom-0 inset-x-0 bg-[#0a0703]/80 py-1.5 flex flex-col items-center justify-center border-t border-[#7a6030]/50 transition-opacity ${photoUrl && !isUploading ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+                     <span className="text-[9px] text-[#e8c96a] tracking-[0.2em]">{isUploading ? 'UPLOADING...' : 'CHANGE'}</span>
+                  </div>
+                )}
 
                 {/* Scanline effect */}
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#c9a84c]/10 to-transparent h-[200%] animate-[scan_4s_linear_infinite] pointer-events-none" />
 
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleImageUpload} 
-                  accept="image/*" 
-                  className="hidden" 
-                />
+                {isOwnProfile && (
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleImageUpload} 
+                    accept="image/*" 
+                    className="hidden" 
+                  />
+                )}
               </div>
               <div className="text-center">
                 <p className="text-[10px] text-[#7a6030] tracking-[0.2em] mb-1">ID STATUS</p>
@@ -333,21 +352,23 @@ export default function Profile() {
             {/* Right: Info */}
             <div className="flex-1 flex flex-col gap-8">
               <div>
-                <h3 className="font-['Playfair_Display'] text-3xl text-[#e8c96a] mb-2">{currentUser.username || 'Agent'}</h3>
+                <h3 className="font-['Playfair_Display'] text-3xl text-[#e8c96a] mb-2">{profileUser?.username || 'Agent'}</h3>
                 <div className="flex items-center gap-3">
                   <div className="h-px w-12 bg-[#7a6030]" />
-                  <span className="text-[#c9a84c] text-xs tracking-[0.2em]">OPERATIVE TIER I</span>
+                  <span className="text-[#c9a84c] text-xs tracking-[0.2em]">{isOwnProfile ? 'OPERATIVE TIER I' : 'DOSSIER ACCESSED'}</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="space-y-1">
-                  <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">REGISTERED EMAIL</p>
-                  <p className="text-lg text-[#e8dcc0] truncate" title={currentUser.email}>{currentUser.email}</p>
-                </div>
+                {isOwnProfile && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">REGISTERED EMAIL</p>
+                    <p className="text-lg text-[#e8dcc0] truncate" title={profileUser?.email}>{profileUser?.email}</p>
+                  </div>
+                )}
                 <div className="space-y-1">
                   <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">FRIEND CODE</p>
-                  <p className="text-lg text-[#e8dcc0]">{currentUser.friendCode || 'Pending...'}</p>
+                  <p className="text-lg text-[#e8dcc0]">{profileUser?.friendCode || 'Pending...'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] text-[#7a6030] tracking-[0.2em]">SECURITY CLEARANCE</p>
@@ -371,15 +392,17 @@ export default function Profile() {
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-[#7a6030]/30 flex justify-end">
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 px-6 py-3 border border-[#8b1a1a]/50 text-[#8b1a1a] hover:bg-[#8b1a1a]/10 hover:border-[#8b1a1a] transition-all group"
-                >
-                  <LogOut size={16} className="group-hover:-translate-x-1 transition-transform" />
-                  <span className="text-xs tracking-[0.2em] uppercase">Revoke Access (Logout)</span>
-                </button>
-              </div>
+              {isOwnProfile && (
+                <div className="pt-6 border-t border-[#7a6030]/30 flex justify-end">
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 px-6 py-3 border border-[#8b1a1a]/50 text-[#8b1a1a] hover:bg-[#8b1a1a]/10 hover:border-[#8b1a1a] transition-all group"
+                  >
+                    <LogOut size={16} className="group-hover:-translate-x-1 transition-transform" />
+                    <span className="text-xs tracking-[0.2em] uppercase">Revoke Access (Logout)</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

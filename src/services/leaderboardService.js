@@ -105,6 +105,7 @@ export async function fetchTimeAttackLeaderboard(limitCount = 10) {
       } catch (err) { console.warn('Leaderboard: failed to fetch user photo', err); }
     }
     return {
+      uid: data.uid,
       rank: index + 1,
       name: data.username || 'Unknown',
       photoURL,
@@ -139,6 +140,7 @@ export async function fetchMultiplayerLeaderboard(limitCount = 10) {
     const wins = data.wins || 0;
     const losses = data.losses || 0;
     return {
+      uid: data.uid,
       rank: index + 1,
       name: data.username || 'Unknown',
       photoURL,
