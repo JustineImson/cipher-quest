@@ -149,6 +149,7 @@ app.post('/notify', async (req, res) => {
   const allowedTypes = [
     'friend_request', 'friend_accepted',
     'game_invite', 'invite_accepted', 'invite_declined',
+    'direct_challenge',
     'personal_best', 'leaderboard_displaced', 'friend_beats_score'
   ];
   if (!allowedTypes.includes(type)) {

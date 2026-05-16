@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { sendFriendRequest, listenToPendingRequests, acceptFriendRequest, listenToFriendsList, sendGameInvite, listenToIncomingGameInvites, resolveGameInvite } from '../services/socialService';
 import { useSfx } from '../hooks/useSfx';
-import { Check, Users, Mail, UserPlus, AlertCircle, Swords, X } from 'lucide-react';
+import { Check, Users, Mail, UserPlus, AlertCircle, Swords, X, Loader2 } from 'lucide-react';
 
-export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvite = () => {} }) {
+export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvite = () => {}, onDirectChallenge = () => {}, challengingUid = null }) {
   const { currentUser } = useGameStore();
   const { playClick, playKeyTap } = useSfx();
 
@@ -92,6 +92,11 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
     } catch (err) {
       console.error('Failed to send game invite:', err);
     }
+  };
+
+  const handleDirectChallenge = (friendUid) => {
+    playClick();
+    onDirectChallenge(friendUid);
   };
 
   return (
@@ -229,11 +234,12 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
           ) : (
             friends.map((friend) => (
               <div key={friend.id} className="bg-[#1a1208] border border-[#7a6030]/20 p-3 flex items-center justify-between hover:bg-[#2a1e0e] transition-colors group">
-                <div className="flex flex-col max-w-[55%]">
+                <div className="flex flex-col max-w-[45%]">
                   <span className="text-sm text-[#e8c96a] font-['Playfair_Display'] group-hover:text-[#fff] transition-colors truncate">{friend.username}</span>
                   <span className="text-[9px] text-[#7a6030] tracking-widest font-mono">{friend.friendCode}</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Existing room invite — only when host has a room */}
                   {activeRoomCode && (
                      <button
                        onClick={() => handleSendGameInvite(friend.friendUid)}
@@ -241,6 +247,20 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
                      >
                        Invite
                      </button>
+                  )}
+                  {/* Direct Challenge — always visible when NOT already hosting a room */}
+                  {!activeRoomCode && (
+                    <button
+                      onClick={() => handleDirectChallenge(friend.friendUid)}
+                      disabled={challengingUid === friend.friendUid}
+                      className="text-[9px] bg-[#8b1a1a]/10 text-[#ff6b6b] border border-[#8b1a1a]/40 px-2 py-1 hover:bg-[#8b1a1a] hover:text-[#e8dcc0] transition-all uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                    >
+                      {challengingUid === friend.friendUid ? (
+                        <><Loader2 size={10} className="animate-spin" /> Sending...</>
+                      ) : (
+                        <><Swords size={10} /> Challenge</>
+                      )}
+                    </button>
                   )}
                   {/* Status indicator (green dot) */}
                   <div className="w-2 h-2 rounded-full bg-[#5a9e6f] shadow-[0_0_5px_#5a9e6f]"></div>

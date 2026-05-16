@@ -8,7 +8,8 @@ import {
   onSnapshot, 
   doc, 
   updateDoc, 
-  getDoc 
+  getDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { notifyUser } from './notificationService';
 
@@ -209,9 +210,9 @@ export const sendGameInvite = async (senderUid, receiverUid, roomCode) => {
   // Notify the receiver of the game invite
   const senderData = await fetchUserData(senderUid);
   notifyUser(receiverUid, {
-    title: 'Multiplayer Invite',
+    title: 'Cipher Duel Challenge',
     body: `${senderData.username} is challenging you to a cipher duel!`,
-    type: 'game_invite',
+    type: 'direct_challenge',
     link: '/multiplayer',
   });
 };
@@ -250,31 +251,73 @@ export const resolveGameInvite = async (inviteId, newStatus, currentUid) => {
   const docRef = doc(db, 'gameInvites', inviteId);
   const inviteSnap = await getDoc(docRef);
 
+  // EDGE-2: Re-validate the invite is still pending before resolving.
+  // The host may have left (canceled) or the invite could already be resolved.
+  if (!inviteSnap.exists()) {
+    throw new Error('This challenge no longer exists.');
+  }
+  const currentStatus = inviteSnap.data().status;
+  if (currentStatus !== 'pending') {
+    throw new Error(
+      currentStatus === 'canceled'
+        ? 'This challenge has expired — the host left the room.'
+        : 'This challenge has already been resolved.'
+    );
+  }
+
   await updateDoc(docRef, { 
     status: newStatus,
     resolvedAt: new Date().toISOString()
   });
 
   // Notify the sender about the invite resolution
-  if (inviteSnap.exists()) {
-    const { senderId } = inviteSnap.data();
-    const resolverData = currentUid ? await fetchUserData(currentUid) : { username: 'Someone' };
+  const { senderId } = inviteSnap.data();
+  const resolverData = currentUid ? await fetchUserData(currentUid) : { username: 'Someone' };
 
-    if (newStatus === 'accepted') {
-      notifyUser(senderId, {
-        title: 'Challenge Accepted!',
-        body: `${resolverData.username} accepted your duel invite. Get ready!`,
-        type: 'invite_accepted',
-        link: '/multiplayer',
+  if (newStatus === 'accepted') {
+    notifyUser(senderId, {
+      title: 'Challenge Accepted!',
+      body: `${resolverData.username} accepted your duel invite. Get ready!`,
+      type: 'invite_accepted',
+      link: '/multiplayer',
+    });
+  } else if (newStatus === 'declined') {
+    notifyUser(senderId, {
+      title: 'Invite Declined',
+      body: `${resolverData.username} can't make it this time.`,
+      type: 'invite_declined',
+      link: '/profile',
+    });
+  }
+};
+
+/**
+ * EDGE-2: Cancels all pending game invites for a specific room.
+ * Called when the host leaves before the receiver accepts.
+ * Fire-and-forget — failures are silently logged.
+ */
+export const cancelPendingInvitesForRoom = async (senderUid, roomCode) => {
+  try {
+    const invitesRef = collection(db, 'gameInvites');
+    const q = query(
+      invitesRef,
+      where('senderId', '==', senderUid),
+      where('roomCode', '==', roomCode),
+      where('status', '==', 'pending')
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return;
+
+    const batch = writeBatch(db);
+    snap.docs.forEach((docSnap) => {
+      batch.update(docSnap.ref, {
+        status: 'canceled',
+        resolvedAt: new Date().toISOString()
       });
-    } else if (newStatus === 'declined') {
-      notifyUser(senderId, {
-        title: 'Invite Declined',
-        body: `${resolverData.username} can't make it this time.`,
-        type: 'invite_declined',
-        link: '/profile',
-      });
-    }
+    });
+    await batch.commit();
+  } catch (err) {
+    console.warn('Failed to cancel pending invites for room:', roomCode, err);
   }
 };
 

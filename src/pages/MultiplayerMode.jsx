@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getPlayerInsights } from '../services/mlService';
 import { db } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -19,9 +19,11 @@ import { useSfx } from '../hooks/useSfx';
 import SocialOverlay from '../components/SocialOverlay';
 import DifficultySplash from '../components/ui/DifficultySplash';
 import { submitMultiplayerResult, trackCipherAttempt } from '../services/leaderboardService';
+import { sendGameInvite, cancelPendingInvitesForRoom } from '../services/socialService';
 
 export default function MultiplayerMode() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { settings, resetProgression, currentUser, recordCipherAttempt } = useGameStore();
 
   const {
@@ -43,8 +45,56 @@ export default function MultiplayerMode() {
   const puzzleStartTimeRef = useRef(null);
   const { playClick } = useSfx();
 
+  // Direct Challenge state
+  const [pendingDirectInviteUid, setPendingDirectInviteUid] = useState(null);
+
+  // EDGE-1: Track processed join codes to prevent double-joins
+  const processedJoinCodes = useRef(new Set());
+
   // Timer: 60s cap for the match
   const { timeLeft, start, pause, resume } = useTimer(60);
+
+  // ─── EDGE-1: Reactive location.state watcher for auto-join ────────
+  useEffect(() => {
+    const code = location.state?.joinRoomCode;
+    if (code && multiplayerState === 'lobby' && !processedJoinCodes.current.has(code)) {
+      processedJoinCodes.current.add(code);
+      joinRoom(code);
+      // Clear consumed state to prevent re-trigger on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, multiplayerState]);
+
+  // ─── Direct Challenge: Auto-send invite once room is created ──────
+  useEffect(() => {
+    if (multiplayerState === 'waiting' && roomCode && pendingDirectInviteUid && currentUser?.uid) {
+      sendGameInvite(currentUser.uid, pendingDirectInviteUid, roomCode)
+        .then(() => console.log('Direct challenge invite sent to', pendingDirectInviteUid))
+        .catch((err) => console.warn('Failed to send direct invite:', err))
+        .finally(() => setPendingDirectInviteUid(null));
+    }
+  }, [multiplayerState, roomCode, pendingDirectInviteUid, currentUser?.uid]);
+
+  // ─── EDGE-2: Ghost room cleanup — cancel Firestore invites on unmount/reset ─
+  const roomCodeRef = useRef(roomCode);
+  const isHostRef = useRef(isHost);
+  useEffect(() => { roomCodeRef.current = roomCode; }, [roomCode]);
+  useEffect(() => { isHostRef.current = isHost; }, [isHost]);
+
+  useEffect(() => {
+    return () => {
+      if (roomCodeRef.current && isHostRef.current && currentUser?.uid) {
+        cancelPendingInvitesForRoom(currentUser.uid, roomCodeRef.current);
+      }
+    };
+  }, [currentUser?.uid]);
+
+  // ─── Direct Challenge handler (passed to SocialOverlay) ───────────
+  const handleDirectChallenge = (friendUid) => {
+    playClick();
+    setPendingDirectInviteUid(friendUid);
+    createRoom(settings.difficulty);
+  };
 
   // Monitor Timer for Match Over
   useEffect(() => {
@@ -629,6 +679,8 @@ export default function MultiplayerMode() {
           <SocialOverlay
             activeRoomCode={isHost && multiplayerState === 'waiting' ? roomCode : null}
             onAcceptGameInvite={(code) => joinRoom(code)}
+            onDirectChallenge={handleDirectChallenge}
+            challengingUid={pendingDirectInviteUid}
           />
         </div>
       </div>
