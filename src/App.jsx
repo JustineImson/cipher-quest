@@ -16,6 +16,8 @@ import NoirToast from './components/NoirToast';
 import { getMessaging, onMessage } from 'firebase/messaging';
 import { app } from './services/firebase';
 import { listenToIncomingGameInvites, resolveGameInvite } from './services/socialService';
+import { requestFullscreenAndLock } from './utils/orientation';
+import RotatePrompt from './components/RotatePrompt';
 
 function App() {
   const location = useLocation();
@@ -38,6 +40,26 @@ function App() {
       initializeAuthListener();
     }
   }, [initializeAuthListener]);
+
+  useEffect(() => {
+    const isMobile = window.matchMedia('(max-width: 1024px)').matches;
+    if (!isMobile) return;
+
+    // Must be triggered by user gesture — attach to first click/tap
+    const handleFirstInteraction = () => {
+      requestFullscreenAndLock();
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+
+    window.addEventListener('click', handleFirstInteraction);
+    window.addEventListener('touchstart', handleFirstInteraction);
+
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, []);
 
   // ─── Toast helpers ─────────────────────────────────────────────────
   const addToast = useCallback((id, toastData) => {
@@ -62,11 +84,12 @@ function App() {
       const messaging = getMessaging(app);
       const unsubscribe = onMessage(messaging, (payload) => {
         console.log('Message received in foreground:', payload);
+        const title = payload.notification?.title || payload.data?.title;
+        const body = payload.notification?.body || payload.data?.body;
+        // Skip toast if there's no meaningful content to display
+        if (!title && !body) return;
         const id = `fcm-${Date.now()}`;
-        addToast(id, {
-          title: payload.notification?.title,
-          body: payload.notification?.body,
-        });
+        addToast(id, { title: title || 'Transmission', body: body || 'A new message has arrived.' });
       });
       return () => unsubscribe();
     } catch (error) {
@@ -161,6 +184,7 @@ function App() {
 
   return (
     <div className="h-screen w-screen bg-mystery-dark text-gray-200 relative overflow-hidden">
+      <RotatePrompt />
       {/* Dark Victorian thematic background */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.85)_100%)] pointer-events-none z-0"></div>
       

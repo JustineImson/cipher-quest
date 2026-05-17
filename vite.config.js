@@ -15,7 +15,8 @@ export default defineConfig({
         short_name: 'Cipher',
         theme_color: '#0d131f',
         background_color: '#0d131f',
-        display: 'standalone',
+        orientation: "landscape",
+        display: "fullscreen",
         icons: [
           {
             src: '/pwaIcon.png',

@@ -293,6 +293,9 @@ export default function MainMenu() {
         .cq-nav-panel.show .cq-nav-item:nth-child(3) { animation-delay: 0.65s; }
         .cq-nav-panel.show .cq-nav-item:nth-child(4) { animation-delay: 0.75s; }
         .cq-nav-panel.show .cq-nav-item:nth-child(5) { animation-delay: 0.85s; }
+        .cq-nav-panel.show .cq-nav-item:nth-child(6) { animation-delay: 0.95s; }
+        .cq-nav-panel.show .cq-nav-item:nth-child(7) { animation-delay: 1.05s; }
+        .cq-nav-panel.show .cq-nav-item:nth-child(8) { animation-delay: 1.15s; }
 
         @keyframes slideIn {
           to { opacity: 1; transform: translateX(0); }
