@@ -189,6 +189,8 @@ export default class MainScene extends Phaser.Scene {
             .filter(l => l.type === 'objectgroup' && !(l.name && /collis/i.test(l.name)))
             .forEach((l, idx) => renderObjectLayer(l.name, idx + 1));
 
+        this.accessElements = []; // Store elements to allow dynamic removal via DevTools
+
         // ─── COLLISION HANDLING ──────────────────────────────────────────────
         // All polygon objects are now used for collisions and visually drawn for debugging.
         // We create static Matter bodies from them and shift each polygon one tile south-west.
@@ -220,18 +222,19 @@ export default class MainScene extends Phaser.Scene {
                 const cx = shifted.reduce((s, p) => s + p.x, 0) / shifted.length;
                 const cy = shifted.reduce((s, p) => s + p.y, 0) / shifted.length;
 
+                const evidenceMap = {
+                    apartment: 'hasFoundLog',
+                    park: 'hasFoundBoots',
+                    alley: 'hasFoundReceipt',
+                    beach: 'hasFoundPen'
+                };
+                const evKey = locationKey ? evidenceMap[locationKey] : null;
+
                 // Always register spawn point for access locations so returning players
                 // can be placed at the correct spot even when the trigger is removed.
                 if (isAccessTrigger && locationKey) {
                     this.spawnPoints[locationKey] = { x: cx, y: cy };
 
-                    const evidenceMap = {
-                        apartment: 'hasFoundLog',
-                        park: 'hasFoundBoots',
-                        alley: 'hasFoundReceipt',
-                        beach: 'hasFoundPen'
-                    };
-                    const evKey = evidenceMap[locationKey];
                     if (evKey && gameManager.evidence[evKey]) {
                         // Evidence already found: don't render the trigger or add a sensor body,
                         // but we've stored the spawn point above so the player can still return here.
@@ -239,9 +242,10 @@ export default class MainScene extends Phaser.Scene {
                     }
                 }
 
+                let triggerGfx = null;
                 // Visually render access triggers so they are visible
                 if (isAccessTrigger && shifted.length > 0) {
-                    const triggerGfx = this.add.graphics();
+                    triggerGfx = this.add.graphics();
                     triggerGfx.lineStyle(2, 0xffff00, 1);
                     triggerGfx.fillStyle(0xffff00, 0.4);
                     triggerGfx.setDepth(10000);
@@ -255,23 +259,27 @@ export default class MainScene extends Phaser.Scene {
                     triggerGfx.fillPath();
                 }
 
-
                 // vertices relative to centroid (Phaser.Matter expects local verts as {x, y} objects)
                 const relVerts = shifted.map(p => ({ x: p.x - cx, y: p.y - cy }));
 
+                let triggerBody = null;
                 try {
                     const labelName = isAccessTrigger
                         ? (locationKey ? `access_${locationKey}` : 'access')
                         : (obj.name ? obj.name : 'polygon');
 
-                    const body = this.matter.add.fromVertices(cx, cy, relVerts, { isStatic: true, isSensor: isAccessTrigger, label: labelName }, true);
-                    if (body) {
-                        body.render = body.render || {};
-                        body.render.visible = false;
-                        if (body.gameObject) body.gameObject.setVisible(false);
+                    triggerBody = this.matter.add.fromVertices(cx, cy, relVerts, { isStatic: true, isSensor: isAccessTrigger, label: labelName }, true);
+                    if (triggerBody) {
+                        triggerBody.render = triggerBody.render || {};
+                        triggerBody.render.visible = false;
+                        if (triggerBody.gameObject) triggerBody.gameObject.setVisible(false);
                     }
                 } catch (err) {
                     console.warn('Failed to create collision body for object', obj.id, err);
+                }
+
+                if (isAccessTrigger && evKey) {
+                    this.accessElements.push({ evKey, gfx: triggerGfx, body: triggerBody });
                 }
             });
         }
@@ -296,30 +304,35 @@ export default class MainScene extends Phaser.Scene {
             const h = obj.height || 64;
             const labelName = locationKey ? `access_${locationKey}` : 'access';
 
+            const evidenceMap = {
+                apartment: 'hasFoundLog',
+                park: 'hasFoundBoots',
+                alley: 'hasFoundReceipt',
+                beach: 'hasFoundPen'
+            };
+            const evKey = locationKey ? evidenceMap[locationKey] : null;
+
             // Register spawn point even if evidence already found so the player
             // will return to the correct tile after leaving a location.
             if (locationKey) {
                 this.spawnPoints[locationKey] = { x, y: y + tileH / 2 };
 
-                const evidenceMap = {
-                    apartment: 'hasFoundLog',
-                    park: 'hasFoundBoots',
-                    alley: 'hasFoundReceipt',
-                    beach: 'hasFoundPen'
-                };
-                const evKey = evidenceMap[locationKey];
                 if (evKey && gameManager.evidence[evKey]) {
                     // Evidence found: skip creating the access body entirely
                     return;
                 }
             }
 
-            this.matter.add.rectangle(x, y + tileH / 2, w, h, { isStatic: true, isSensor: true, label: labelName });
+            const triggerBody = this.matter.add.rectangle(x, y + tileH / 2, w, h, { isStatic: true, isSensor: true, label: labelName });
             
-            const g = this.add.graphics();
-            g.fillStyle(0xffff00, 0.4);
-            g.fillRect(x - w/2, y + tileH/2 - h/2, w, h);
-            g.setDepth(10000);
+            const triggerGfx = this.add.graphics();
+            triggerGfx.fillStyle(0xffff00, 0.4);
+            triggerGfx.fillRect(x - w/2, y + tileH/2 - h/2, w, h);
+            triggerGfx.setDepth(10000);
+
+            if (evKey) {
+                this.accessElements.push({ evKey, gfx: triggerGfx, body: triggerBody });
+            }
         });
 
         // ─── PLAYER ──────────────────────────────────────────────────────────
@@ -472,6 +485,20 @@ export default class MainScene extends Phaser.Scene {
         this.events.on('shutdown', () => {
             window.removeEventListener('forceDeductionScene', handleForceDeduction);
             this.scene.stop('UIScene');
+            if (this.unsubscribeDev) this.unsubscribeDev();
+        });
+
+        // Listen for store changes (specifically DevTools unlock) to instantly remove triggers
+        this.unsubscribeDev = useGameStore.subscribe((state) => {
+            const clues = state.savedStoryProgress?.clues || {};
+            if (this.accessElements) {
+                this.accessElements.forEach(el => {
+                    if (clues[el.evKey]) {
+                        if (el.gfx) { el.gfx.destroy(); el.gfx = null; }
+                        if (el.body) { this.matter.world.remove(el.body); el.body = null; }
+                    }
+                });
+            }
         });
 
         // Launch UIScene and hook up inspect-pressed event

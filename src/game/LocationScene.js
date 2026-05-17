@@ -48,7 +48,8 @@ const evidenceConfig = {
         displayH: 140,      // display height in px
         dialogue: [
             "Size 14 work boots dumped in the bushes. Obviously meant to point to Donovan. But look at the trail leading away... stilettos? Deep, narrow heel marks.",
-            "Donovan wouldn't be caught dead in designer heels, and Marcus doesn't leave his computer chair. Someone much smaller walked in those massive boots, then changed shoes."
+            "Donovan wouldn't be caught dead in designer heels, and Marcus doesn't leave his computer chair.",
+            "Someone much smaller walked in those massive boots, then changed shoes."
         ],
         cipherData: {
             ciphertext: "S M T N C E O L K O R F O L R E",
@@ -115,7 +116,7 @@ export default class LocationScene extends Phaser.Scene {
     create() {
         localStorage.setItem('currentScene', this.scene.key);
         localStorage.setItem('hasFinishedIntro', 'true');
-        
+
         const { width, height } = this.scale;
 
         // ANIMATION: Crime Scene Flash + Fade
@@ -220,8 +221,22 @@ export default class LocationScene extends Phaser.Scene {
         const config = evidenceConfig[this.locationKey];
         if (!config) return;
 
+        // Skip if already found
+        if (gameManager.evidence[config.key]) return;
+
         const evidenceSprite = this.add.image(width * config.x, height * config.y, `evidence_${config.file}`);
         evidenceSprite.setDisplaySize(config.displayW, config.displayH);
+
+        // Dynamically hide if DevTools unlocks it while we are in this scene
+        const unsubscribeDev = useGameStore.subscribe((state) => {
+            const clues = state.savedStoryProgress?.clues || {};
+            if (clues[config.key]) {
+                if (evidenceSprite && evidenceSprite.active) {
+                    evidenceSprite.destroy();
+                }
+            }
+        });
+        this.events.on('shutdown', () => unsubscribeDev());
 
         // Highlight effect on hover to indicate it's clickable
         evidenceSprite.setInteractive({ useHandCursor: true })

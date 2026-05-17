@@ -29,7 +29,7 @@ export default function MultiplayerMode() {
   const {
     multiplayerState, roomCode, isHost, playersCount, opponentScore,
     currentWord, encryptedWord, cipherName, cipherKey, currentClue, isFallback, matchResult,
-    createRoom, joinRoom, startGame, submitScore, nextRound, emitTimeout, resetLobby
+    createRoom, joinRoom, startGame, submitScore, nextRound, emitTimeout, resetLobby, forfeitMatch
   } = useMultiplayer('http://localhost:3001');
 
   // Shared Game State
@@ -449,7 +449,19 @@ export default function MultiplayerMode() {
   );
 
   const renderPlaying = () => (
-    <div className="flex flex-col h-full w-full max-w-5xl mx-auto relative z-10 transition-all p-2 animate-fade-in">
+    <div className="flex flex-col w-full max-w-5xl mx-auto relative z-10 transition-all p-2 animate-fade-in flex-1">
+      <button 
+        onClick={() => {
+           if (window.confirm("Are you sure you want to forfeit? You will lose this match.")) {
+             playClick();
+             forfeitMatch();
+           }
+        }}
+        className="absolute -top-10 md:-top-4 right-2 md:right-0 z-50 text-[10px] bg-[rgba(139,26,26,0.15)] text-[var(--red)] border border-[rgba(139,26,26,0.5)] px-4 py-2 hover:bg-[var(--red)] hover:text-[#0e0a04] transition-all uppercase tracking-[0.2em] flex items-center gap-2"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-[var(--red)] animate-pulse"></span> Forfeit
+      </button>
+
       {/* Top bar with Dual Scores */}
       <div className="flex justify-between items-center mb-8 w-full bg-[rgba(18,12,4,0.85)] p-4 border border-[rgba(201,168,76,0.3)] shadow-[0_4px_20px_rgba(0,0,0,0.6)]">
         <div className="w-1/3 flex flex-col pl-4">
@@ -656,9 +668,11 @@ export default function MultiplayerMode() {
           height: 100%;
           display: flex;
           flex-direction: column;
-          padding: 100px 0 20px 20px;
           overflow-y: auto;
         }
+
+        .mp-layout-lobby { padding: 100px 0 20px 20px; }
+        .mp-layout-playing { padding: 20px; }
       `}</style>
 
       <div className="mp-root">
@@ -668,21 +682,23 @@ export default function MultiplayerMode() {
         <div className="mp-bloom" />
         <div className="mp-grain" />
 
-        <div className="mp-layout flex-1">
+        <div className={`mp-layout flex-1 ${multiplayerState === 'playing' ? 'mp-layout-playing' : 'mp-layout-lobby'}`}>
           {multiplayerState === 'lobby' && renderLobby()}
           {multiplayerState === 'waiting' && renderWaiting()}
           {multiplayerState === 'finished' && renderFinished()}
           {multiplayerState === 'playing' && renderPlaying()}
         </div>
 
-        <div className="h-full relative z-20 shrink-0">
-          <SocialOverlay
-            activeRoomCode={isHost && multiplayerState === 'waiting' ? roomCode : null}
-            onAcceptGameInvite={(code) => joinRoom(code)}
-            onDirectChallenge={handleDirectChallenge}
-            challengingUid={pendingDirectInviteUid}
-          />
-        </div>
+        {multiplayerState !== 'playing' && (
+          <div className="h-full relative z-20 shrink-0">
+            <SocialOverlay
+              activeRoomCode={isHost && multiplayerState === 'waiting' ? roomCode : null}
+              onAcceptGameInvite={(code) => joinRoom(code)}
+              onDirectChallenge={handleDirectChallenge}
+              challengingUid={pendingDirectInviteUid}
+            />
+          </div>
+        )}
       </div>
     </>
   );

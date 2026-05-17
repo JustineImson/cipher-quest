@@ -142,43 +142,74 @@ export const acceptFriendRequest = async (friendshipDocId, currentUid) => {
 export const listenToFriendsList = (currentUid, callback) => {
   let senderFriends = [];
   let receiverFriends = [];
+  let friendDataCache = {};
+  let userListeners = {};
 
-  const notify = async () => {
+  const notify = () => {
     const combined = [...senderFriends, ...receiverFriends];
     
-    // Fetch user data for the friend (whoever is not the current user)
-    const populatedPromises = combined.map(async (f) => {
+    const populated = combined.map((f) => {
       const friendUid = f.senderId === currentUid ? f.receiverId : f.senderId;
-      const friendData = await fetchUserData(friendUid);
+      const data = friendDataCache[friendUid] || { username: 'Unknown', friendCode: 'XXXXXX', isOnline: false };
       return {
         id: f.id,
         friendUid,
-        username: friendData.username,
-        friendCode: friendData.friendCode,
-        status: f.status
+        username: data.username,
+        friendCode: data.friendCode,
+        status: f.status,
+        isOnline: data.isOnline || false
       };
     });
 
-    const populated = await Promise.all(populatedPromises);
     callback(populated);
+  };
+
+  const updateFriendListeners = () => {
+    const combined = [...senderFriends, ...receiverFriends];
+    const currentFriendUids = combined.map(f => f.senderId === currentUid ? f.receiverId : f.senderId);
+    
+    // Start listeners for new friends
+    currentFriendUids.forEach(uid => {
+      if (!userListeners[uid]) {
+        userListeners[uid] = onSnapshot(doc(db, 'users', uid), (snap) => {
+          if (snap.exists()) {
+            friendDataCache[uid] = snap.data();
+            notify();
+          }
+        });
+      }
+    });
+    
+    // Cleanup listeners for removed friends
+    Object.keys(userListeners).forEach(uid => {
+      if (!currentFriendUids.includes(uid)) {
+        userListeners[uid](); // Unsubscribe
+        delete userListeners[uid];
+        delete friendDataCache[uid];
+      }
+    });
+    
+    notify();
   };
 
   const q1 = query(collection(db, 'friendships'), where('senderId', '==', currentUid), where('status', '==', 'accepted'));
   const unsub1 = onSnapshot(q1, (snap) => {
     senderFriends = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    notify();
+    updateFriendListeners();
   });
 
   const q2 = query(collection(db, 'friendships'), where('receiverId', '==', currentUid), where('status', '==', 'accepted'));
   const unsub2 = onSnapshot(q2, (snap) => {
     receiverFriends = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    notify();
+    updateFriendListeners();
   });
 
-  // Return a function to unsubscribe from both listeners
+  // Return a function to unsubscribe from both listeners and all user listeners
   return () => {
     unsub1();
     unsub2();
+    Object.values(userListeners).forEach(unsub => unsub());
+    userListeners = {};
   };
 };
 

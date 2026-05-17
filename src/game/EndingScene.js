@@ -11,8 +11,8 @@ export default class EndingScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image('goodEndingBg', 'location/goodEnding.png');
-    this.load.image('badEndingBg', 'location/badEnding.png');
+    this.load.image('goodEndingBg', '/location/goodEnding.png');
+    this.load.image('badEndingBg', '/location/badEnding.png');
   }
 
   create() {
@@ -20,9 +20,14 @@ export default class EndingScene extends Phaser.Scene {
 
     const bgKey = this.isWin ? 'goodEndingBg' : 'badEndingBg';
     const bg = this.add.image(this.cameras.main.centerX, this.cameras.main.centerY, bgKey);
-    const scaleX = this.cameras.main.width / bg.width;
-    const scaleY = this.cameras.main.height / bg.height;
+    
+    // Safely scale the image, avoiding Infinity if it fails to load
+    const bgW = bg.width || 1;
+    const bgH = bg.height || 1;
+    const scaleX = this.cameras.main.width / bgW;
+    const scaleY = this.cameras.main.height / bgH;
     bg.setScale(Math.max(scaleX, scaleY));
+    bg.setDepth(0);
 
     // Scrim for readability
     this.add.rectangle(
@@ -31,8 +36,8 @@ export default class EndingScene extends Phaser.Scene {
       this.cameras.main.width,
       this.cameras.main.height,
       0x000000,
-      0.85
-    );
+      0.5
+    ).setDepth(1);
 
     const goodEndingText = [
       "The cuffs clicked shut.",
@@ -60,7 +65,7 @@ export default class EndingScene extends Phaser.Scene {
       color: '#ffffff',
       align: 'center',
       wordWrap: { width: this.cameras.main.width * 0.8 }
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(2);
 
     // Fade in camera
     this.cameras.main.fadeIn(1000, 0, 0, 0);
@@ -166,15 +171,13 @@ export default class EndingScene extends Phaser.Scene {
     this.cameras.main.fadeOut(2000, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       // Show the post-game overlay via Zustand instead of transitioning to another scene
-      // Force-flush cloud save before showing post-game menu
-      (async () => {
-        try {
-          await useGameStore.getState().syncProgressToCloud();
-        } catch (err) {
-          console.warn('Failed to sync progress at ending:', err);
-        }
-        useGameStore.getState().setShowPostGameMenu(true);
-      })();
+      // Force-flush cloud save before showing post-game menu (fire and forget so UI isn't blocked)
+      try {
+        useGameStore.getState().syncProgressToCloud();
+      } catch (err) {
+        console.warn('Failed to sync progress at ending:', err);
+      }
+      useGameStore.getState().setShowPostGameMenu(true);
     });
   }
 }

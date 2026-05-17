@@ -262,8 +262,8 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
                       )}
                     </button>
                   )}
-                  {/* Status indicator (green dot) */}
-                  <div className="w-2 h-2 rounded-full bg-[#5a9e6f] shadow-[0_0_5px_#5a9e6f]"></div>
+                  {/* Status indicator */}
+                  <div className={`w-2 h-2 rounded-full transition-colors ${friend.isOnline ? 'bg-[#5a9e6f] shadow-[0_0_5px_#5a9e6f]' : 'bg-[#7a6030]/50'}`}></div>
                 </div>
               </div>
             ))

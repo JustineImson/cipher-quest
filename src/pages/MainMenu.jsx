@@ -48,7 +48,7 @@ export default function MainMenu() {
       resetProgress();
       navigate('/difficulty', { state: { startScene: 'IntroScene' } });
     } else if (item.action === 'continue') {
-      navigate('/story', { state: { difficulty: savedStoryProgress.difficulty, startScene: 'MainScene' } });
+      navigate('/story', { state: { difficulty: savedStoryProgress.difficulty } });
     } else {
       navigate(item.path);
     }

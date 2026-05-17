@@ -20,7 +20,7 @@ export default function PhaserGame({ difficulty, startScene }) {
   const gameInstanceRef = useRef(null);
   const [activeCipherData, setActiveCipherData] = useState(null);
   const navigate = useNavigate();
-  const { unlockNextEvidence, collectedEvidence, toggleDeductionBoard } = useGameStore();
+  const { unlockAllEvidence, collectedEvidence, toggleDeductionBoard } = useGameStore();
   const { playClick } = useSfx();
   const [devModeVisible, setDevModeVisible] = useState(false);
 
@@ -142,10 +142,7 @@ export default function PhaserGame({ difficulty, startScene }) {
             <button
               onClick={() => { 
                 playClick(); 
-                unlockNextEvidence();
-                unlockNextEvidence();
-                unlockNextEvidence();
-                unlockNextEvidence();
+                unlockAllEvidence();
               }}
               className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1.5 rounded transition-colors border border-red-900/30"
             >

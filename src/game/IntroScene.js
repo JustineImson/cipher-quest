@@ -6,7 +6,7 @@ export default class IntroScene extends Phaser.Scene {
     super({ key: 'IntroScene' });
   }
   preload() {
-    this.load.image('introBg', 'location/introSceneBg.png');
+    this.load.image('introBg', '/location/introSceneBg.png');
   }
 
   create() {
@@ -26,12 +26,12 @@ export default class IntroScene extends Phaser.Scene {
       this.cameras.main.width,
       this.cameras.main.height,
       0x000000,
-      0.85
+      0.5
     );
 
     this.monologue = [
       "The rain hadn't stopped for three days.",
-      "The city of Alaminos was drowning in its own grime. And I was drowning in unpaid bills.",
+      "The city was drowning in its own grime. And I was drowning in unpaid bills.",
       "I was about to pour my last glass of cheap gin when the telegraph machine started clicking.",
       "It was the Chief. Panic in his words. The Mayor's private vault had been breached.",
       "The city's defense blueprints were gone. If I didn't find them by sunrise... there wouldn't be a city left to save."

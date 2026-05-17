@@ -122,8 +122,31 @@ export const useGameStore = create(
 
             // Record login timestamp for engagement notifications (Phase 3A)
             updateDoc(doc(db, 'users', user.uid), {
-              lastLoginAt: Date.now()
+              lastLoginAt: Date.now(),
+              isOnline: true
             }).catch((err) => console.warn('Failed to update lastLoginAt:', err));
+
+            // Presence tracking: visibility and unload
+            const handleVisibility = () => {
+              if (document.visibilityState === 'hidden') {
+                updateDoc(doc(db, 'users', user.uid), { isOnline: false }).catch(()=>console.warn('Visibility offline update failed'));
+              } else {
+                updateDoc(doc(db, 'users', user.uid), { isOnline: true }).catch(()=>console.warn('Visibility online update failed'));
+              }
+            };
+            const handleUnload = () => {
+              updateDoc(doc(db, 'users', user.uid), { isOnline: false }).catch(()=>console.warn('Unload offline update failed'));
+            };
+
+            // Clean up existing listeners if any
+            if (window._authVisListener) document.removeEventListener('visibilitychange', window._authVisListener);
+            if (window._authUnloadListener) window.removeEventListener('beforeunload', window._authUnloadListener);
+
+            document.addEventListener('visibilitychange', handleVisibility);
+            window.addEventListener('beforeunload', handleUnload);
+            
+            window._authVisListener = handleVisibility;
+            window._authUnloadListener = handleUnload;
 
             // Request notification permission & register FCM token
             requestNotificationPermission().catch((err) =>
@@ -131,6 +154,20 @@ export const useGameStore = create(
             );
           } else {
             // User logged out or account was deleted — clear ALL local state
+            const state = useGameStore.getState();
+            if (state.currentUser?.uid) {
+                updateDoc(doc(db, 'users', state.currentUser.uid), { isOnline: false }).catch(() => {});
+            }
+
+            if (window._authVisListener) {
+              document.removeEventListener('visibilitychange', window._authVisListener);
+              window._authVisListener = null;
+            }
+            if (window._authUnloadListener) {
+              window.removeEventListener('beforeunload', window._authUnloadListener);
+              window._authUnloadListener = null;
+            }
+
             set({
               currentUser: null,
               savedStoryProgress: null,
@@ -237,14 +274,29 @@ export const useGameStore = create(
       // Story Mode Actions
       toggleDeductionBoard: () => set((state) => ({ isDeductionBoardOpen: !state.isDeductionBoardOpen })),
       setDeductionBoardOpen: (isOpen) => set({ isDeductionBoardOpen: isOpen }),
-      unlockNextEvidence: () => set((state) => {
-        const currentLen = state.collectedEvidence.length;
-        if (currentLen < suspectEvidence.length) {
-          const nextItem = suspectEvidence[currentLen];
-          return { collectedEvidence: [...state.collectedEvidence, nextItem] };
+      unlockAllEvidence: () => {
+        set((state) => {
+          if (!state.savedStoryProgress) return state;
+          return { 
+            collectedEvidence: suspectEvidence,
+            savedStoryProgress: {
+              ...state.savedStoryProgress,
+              clues: {
+                hasFoundLog: true,
+                hasFoundBoots: true,
+                hasFoundReceipt: true,
+                hasFoundPen: true
+              },
+              cluesList: suspectEvidence
+            }
+          };
+        });
+        try {
+          useGameStore.getState().syncProgressToCloud();
+        } catch (e) {
+          console.warn('DevTools sync failed:', e);
         }
-        return state;
-      }),
+      },
       togglePause: () => set((state) => ({ isStoryPaused: !state.isStoryPaused })),
       startNewStory: (difficulty) => set({
         savedStoryProgress: {
@@ -269,6 +321,7 @@ export const useGameStore = create(
         const newCluesList = alreadyExists ? existingList : [...existingList, data];
 
         return {
+          collectedEvidence: newCluesList,
           savedStoryProgress: {
             ...state.savedStoryProgress,
             clues: { ...state.savedStoryProgress.clues, [key]: true },
@@ -282,7 +335,11 @@ export const useGameStore = create(
           savedStoryProgress: { ...state.savedStoryProgress, phase }
         };
       }),
-      resetProgress: () => set({ savedStoryProgress: null, isStoryPaused: false, collectedEvidence: [] }),
+      resetProgress: () => {
+        localStorage.removeItem('currentScene');
+        localStorage.removeItem('hasFinishedIntro');
+        set({ savedStoryProgress: null, isStoryPaused: false, collectedEvidence: [] });
+      },
       setShowPostGameMenu: (show) => set({ showPostGameMenu: show }),
     }),
     {

@@ -307,6 +307,39 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('forfeit_match', ({ roomCode }) => {
+        const room = rooms[roomCode];
+        if (room && room.status === 'playing') {
+            room.status = 'finished';
+            const forfeitingPlayerIndex = room.players.findIndex(p => p.socketId === socket.id);
+            if (forfeitingPlayerIndex !== -1) {
+                const p1 = room.players[0];
+                const p2 = room.players[1];
+                
+                const loserUid = room.players[forfeitingPlayerIndex].uid;
+                let winnerUid = null;
+                
+                if (p2) {
+                     winnerUid = forfeitingPlayerIndex === 0 ? p2.uid : p1.uid;
+                }
+
+                io.to(roomCode).emit('match_over', { winnerUid, isForfeit: true });
+                if (winnerUid) {
+                    sendPushToUser(winnerUid,
+                        '🏆 Victory by Forfeit!',
+                        'Your opponent fled the battle. You win by default!',
+                        '/leaderboards'
+                    );
+                    sendPushToUser(loserUid,
+                        'Match Forfeited',
+                        'You abandoned the match. Your opponent claims victory.',
+                        '/profile'
+                    );
+                }
+            }
+        }
+    });
+
     socket.on('disconnect', () => {
         console.log(`Socket disconnected: ${socket.id}`);
         for (const [roomCode, room] of Object.entries(rooms)) {

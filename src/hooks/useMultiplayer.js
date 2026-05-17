@@ -219,6 +219,16 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
     }
   };
 
+  const forfeitMatch = () => {
+    if (!socketRef.current || !socketRef.current.connected) {
+      console.warn('forfeitMatch: not connected to server');
+      return;
+    }
+    if (roomCode) {
+      socketRef.current.emit('forfeit_match', { roomCode });
+    }
+  };
+
   const resetLobby = () => {
     setMultiplayerState('lobby');
     setRoomCode('');
@@ -250,6 +260,7 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
     submitScore,
     nextRound,
     resetLobby,
-    emitTimeout
+    emitTimeout,
+    forfeitMatch
   };
 }

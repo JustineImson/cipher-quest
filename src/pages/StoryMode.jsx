@@ -62,7 +62,9 @@ export default function StoryMode() {
   const hasFinishedIntro = localStorage.getItem('hasFinishedIntro') === 'true';
   const currentScene = localStorage.getItem('currentScene');
   
-  const initialStartScene = startSceneFromLocation || (hasFinishedIntro && currentScene ? currentScene : (persistedSaved ? 'MainScene' : 'IntroScene'));
+  // Prefer currentScene if it exists. This prevents refresh bugs because currentScene is updated as you play,
+  // whereas location.state.startScene is stale and remains from the initial navigation.
+  const initialStartScene = currentScene || startSceneFromLocation || (persistedSaved ? 'MainScene' : 'IntroScene');
 
   const [difficulty, setDifficulty] = useState(initialDifficulty);
   const [startScene, setStartScene] = useState(initialStartScene);
@@ -73,8 +75,7 @@ export default function StoryMode() {
     if (!startSceneFromLocation && saved) {
       if (!difficulty && saved.difficulty) setDifficulty(saved.difficulty);
       const currentScene = localStorage.getItem('currentScene');
-      const hasFinishedIntro = localStorage.getItem('hasFinishedIntro') === 'true';
-      setStartScene(hasFinishedIntro && currentScene ? currentScene : 'MainScene');
+      setStartScene(currentScene || 'MainScene');
     }
   }, [saved, startSceneFromLocation]);
 

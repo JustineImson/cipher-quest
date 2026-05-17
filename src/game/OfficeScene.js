@@ -223,44 +223,167 @@ export default class OfficeScene extends Phaser.Scene {
     }
 
     startInterrogation(width, height) {
+        // Dramatic dark overlay to focus on the choice
+        this.interrogationScrim = this.add.rectangle(0, 0, width, height, 0x000000, 0)
+            .setOrigin(0, 0).setDepth(50);
+            
+        this.tweens.add({ targets: this.interrogationScrim, alpha: 0.85, duration: 1000 });
 
-        // Prompt
-        this.promptText = this.add.text(width / 2, 100, 'Who is the culprit?', {
+        this.promptElements = [];
+        
+        // Prompt Container Box
+        const boxWidth = 740;
+        const boxHeight = 160;
+        const boxY = 125;
+        
+        // Box Shadow
+        const boxShadow = this.add.rectangle(width / 2 + 10, boxY + 12, boxWidth, boxHeight, 0x000000, 0.7)
+            .setOrigin(0.5).setDepth(51).setAlpha(0);
+        this.promptElements.push(boxShadow);
+            
+        // Box Background
+        const promptBox = this.add.rectangle(width / 2, boxY, boxWidth, boxHeight, 0x1a1208, 0.95)
+            .setOrigin(0.5).setStrokeStyle(2, 0x3a2c18).setDepth(51).setAlpha(0);
+        this.promptElements.push(promptBox);
+        
+        // Decorative Accents (Corners + Divider Line)
+        const accentGraphics = this.add.graphics().setDepth(51).setAlpha(0);
+        accentGraphics.lineStyle(2, 0xc9a84c, 0.9);
+        
+        const offset = 8;
+        const hw = boxWidth / 2 - offset;
+        const hh = boxHeight / 2 - offset;
+        const cx = width / 2;
+        const cornerLen = 16;
+        
+        // Top-Left Corner
+        accentGraphics.strokeLineShape(new Phaser.Geom.Line(cx - hw, boxY - hh + cornerLen, cx - hw, boxY - hh));
+        accentGraphics.strokeLineShape(new Phaser.Geom.Line(cx - hw, boxY - hh, cx - hw + cornerLen, boxY - hh));
+        // Top-Right Corner
+        accentGraphics.strokeLineShape(new Phaser.Geom.Line(cx + hw - cornerLen, boxY - hh, cx + hw, boxY - hh));
+        accentGraphics.strokeLineShape(new Phaser.Geom.Line(cx + hw, boxY - hh, cx + hw, boxY - hh + cornerLen));
+        // Bottom-Left Corner
+        accentGraphics.strokeLineShape(new Phaser.Geom.Line(cx - hw, boxY + hh - cornerLen, cx - hw, boxY + hh));
+        accentGraphics.strokeLineShape(new Phaser.Geom.Line(cx - hw, boxY + hh, cx - hw + cornerLen, boxY + hh));
+        // Bottom-Right Corner
+        accentGraphics.strokeLineShape(new Phaser.Geom.Line(cx + hw - cornerLen, boxY + hh, cx + hw, boxY + hh));
+        accentGraphics.strokeLineShape(new Phaser.Geom.Line(cx + hw, boxY + hh, cx + hw, boxY + hh - cornerLen));
+        
+        // Center Divider Line
+        accentGraphics.lineStyle(1, 0xc9a84c, 0.5);
+        accentGraphics.strokeLineShape(new Phaser.Geom.Line(width/2 - 280, boxY + 5, width/2 + 280, boxY + 5));
+        
+        this.promptElements.push(accentGraphics);
+
+        // Prompt Title
+        this.promptText = this.add.text(width / 2, boxY - 35, 'WHO IS THE CULPRIT?', {
             fontSize: '48px',
-            fill: '#d97706',
-            fontFamily: 'serif',
+            fill: '#e8c96a',
+            fontFamily: '"Playfair Display", serif',
             fontStyle: 'bold',
-            backgroundColor: '#000000aa',
-            padding: { x: 20, y: 10 }
-        }).setOrigin(0.5);
+            letterSpacing: 4,
+            shadow: { offsetX: 2, offsetY: 4, color: '#000000', blur: 6, fill: true }
+        }).setOrigin(0.5).setDepth(51).setAlpha(0);
+        this.promptElements.push(this.promptText);
+        
+        // Subtext
+        const subText = this.add.text(width / 2, boxY + 40, 'Select a suspect to make your final accusation.', {
+            fontSize: '18px',
+            fill: '#a39274',
+            fontFamily: '"Courier New", monospace',
+            letterSpacing: 2
+        }).setOrigin(0.5).setDepth(51).setAlpha(0);
+        this.promptElements.push(subText);
+
+        this.tweens.add({ targets: this.promptElements, alpha: 1, y: '+=15', duration: 1200, ease: 'Power2' });
+
+        // Dynamic Spacing based on width to prevent overlap on smaller screens
+        const spacing = Math.min(width * 0.28, 450);
 
         // Suspects
         const suspects = [
-            { key: 'Donovan', x: width / 2 - 600, name: 'Donovan' },
+            { key: 'Donovan', x: width / 2 - spacing, name: 'Donovan' },
             { key: 'Elena', x: width / 2, name: 'Elena Rostova' },
-            { key: 'Marcus', x: width / 2 + 600, name: 'Marcus' }
+            { key: 'Marcus', x: width / 2 + spacing, name: 'Marcus' }
         ];
 
-        this.suspectImages = [];
+        this.suspectGroups = [];
 
-        suspects.forEach(s => {
-            const img = this.add.image(s.x, height / 2 + 20, s.key).setScale(0.45)
-                .setInteractive({ useHandCursor: true })
-                .on('pointerover', () => img.setTint(0xaaaaaa))
-                .on('pointerout', () => img.clearTint())
-                .on('pointerdown', () => this.handleAccusation(s.key));
-
-            this.add.text(s.x, height / 2 + 250, s.name, {
-                fontSize: '28px', fill: '#ffffff', fontFamily: 'sans-serif', backgroundColor: '#000000aa', padding: { x: 10, y: 5 }
+        suspects.forEach((s, index) => {
+            const group = this.add.container(s.x, height / 2 + 80).setDepth(51).setAlpha(0);
+            
+            // Drop shadow
+            const shadow = this.add.rectangle(12, 18, 300, 420, 0x000000, 0.7);
+            
+            // Frame background (Dossier style)
+            const frame = this.add.rectangle(0, 0, 300, 420, 0x1a1208, 1)
+                .setStrokeStyle(2, 0x3a2c18)
+                .setInteractive({ useHandCursor: true });
+                
+            // Suspect Image (scaled down to fit frame)
+            const img = this.add.image(0, -30, s.key).setScale(0.38);
+            
+            // Name Label Background
+            const labelBg = this.add.rectangle(0, 160, 300, 60, 0x0a0703, 0.85);
+            
+            // Name Text
+            const nameText = this.add.text(0, 160, s.name.toUpperCase(), {
+                fontSize: '22px', 
+                fill: '#c9a84c', 
+                fontFamily: '"Special Elite", monospace',
+                letterSpacing: 2
             }).setOrigin(0.5);
 
-            this.suspectImages.push(img);
+            group.add([shadow, frame, img, labelBg, nameText]);
+            
+            // Hover Animations
+            frame.on('pointerover', () => {
+                frame.setStrokeStyle(3, 0xc9a84c);
+                img.setTint(0xffeeba);
+                nameText.setColor('#ffffff');
+                this.tweens.add({
+                    targets: group,
+                    y: height / 2 + 65,
+                    scaleX: 1.04,
+                    scaleY: 1.04,
+                    duration: 200,
+                    ease: 'Power2'
+                });
+            });
+            
+            frame.on('pointerout', () => {
+                frame.setStrokeStyle(2, 0x3a2c18);
+                img.clearTint();
+                nameText.setColor('#c9a84c');
+                this.tweens.add({
+                    targets: group,
+                    y: height / 2 + 80,
+                    scaleX: 1,
+                    scaleY: 1,
+                    duration: 200,
+                    ease: 'Power2'
+                });
+            });
+            
+            frame.on('pointerdown', () => this.handleAccusation(s.key));
+
+            this.suspectGroups.push(group);
+            
+            // Staggered entry animation
+            this.tweens.add({
+                targets: group,
+                alpha: 1,
+                duration: 800,
+                delay: 500 + (index * 250),
+                ease: 'Power2'
+            });
         });
     }
 
     handleAccusation(suspectKey) {
-        this.promptText.setVisible(false);
-        this.suspectImages.forEach(img => img.setVisible(false));
+        if (this.interrogationScrim) this.interrogationScrim.setVisible(false);
+        this.promptElements.forEach(el => el.setVisible(false));
+        this.suspectGroups.forEach(g => g.setVisible(false));
 
         if (suspectKey === 'Marcus') {
             this.dialogueController.playDialogue('Marcus', 'Marcus', "Me? Breaking into City Hall? Detective, look at me. I haven't seen the sun in three days.", () => {
