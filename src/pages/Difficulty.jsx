@@ -141,7 +141,7 @@ export default function Difficulty() {
 
         .df-title {
           font-family: 'Playfair Display', serif;
-          font-size: clamp(34px, 5.5vw, 60px);
+          font-size: 60px;
           font-weight: 900;
           letter-spacing: 0.14em;
           color: var(--gold-light);
@@ -154,7 +154,7 @@ export default function Difficulty() {
           display: flex;
           align-items: center;
           gap: 10px;
-          width: clamp(240px, 38vw, 500px);
+          width: 500px;
           margin-top: 10px;
         }
         .df-rule-line { flex: 1; height: 1px; background: linear-gradient(to right, transparent, var(--gold-dim), transparent); }

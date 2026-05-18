@@ -25,13 +25,13 @@ export default class DialogueController {
         const PORTRAIT_Y = 0.115;  // portrait Y as % of box height from center
 
         const NAME_X = 0.27;   // name text X as % of box width from left
-        const NAME_Y = -0.03;  // name text Y as % of box height from center (negative = up)
-        const NAME_FONT_SIZE = 40;     // name font size in px
+        const NAME_Y = -0.04;  // name text Y as % of box height from center (negative = up)
+        const NAME_FONT_SIZE_RATIO = 0.045;     // name font size as % of box height
 
         const TEXT_X = 0.27;   // dialogue text X as % of box width from left
-        const TEXT_Y = 0.04;  // dialogue text Y as % of box height from center
-        const TEXT_WIDTH = 0.55;   // text wrap width as % of box width
-        const TEXT_FONT_SIZE = 35;     // dialogue font size in px
+        const TEXT_Y = 0.02;  // dialogue text Y as % of box height from center
+        const TEXT_WIDTH = 0.65;   // text wrap width as % of box width
+        const TEXT_FONT_SIZE_RATIO = 0.040;     // dialogue font size as % of box height
         // ══════════════════════════════════════════════════════════════════════
 
         // ─── DIALOGUE BOX ────────────────────────────────────────────────────
@@ -61,9 +61,10 @@ export default class DialogueController {
         // ─── NAME TEXT ───────────────────────────────────────────────────────
         const nameX = boxX - boxWidth / 2 + boxWidth * NAME_X;
         const nameY = boxY + boxHeight * NAME_Y;
+        const nameFontSize = Math.max(12, boxHeight * NAME_FONT_SIZE_RATIO);
 
         this.nameText = this.scene.add.text(nameX, nameY, '', {
-            fontSize: `${NAME_FONT_SIZE}px`,
+            fontSize: `${nameFontSize}px`,
             fill: '#4a2c17',
             fontFamily: 'serif',
             fontStyle: 'bold'
@@ -72,13 +73,14 @@ export default class DialogueController {
         // ─── DIALOGUE TEXT ───────────────────────────────────────────────────
         const textX = boxX - boxWidth / 2 + boxWidth * TEXT_X;
         const textY = boxY + boxHeight * TEXT_Y;
+        const textFontSize = Math.max(10, boxHeight * TEXT_FONT_SIZE_RATIO);
 
         this.dialogueText = this.scene.add.text(textX, textY, '', {
-            fontSize: `${TEXT_FONT_SIZE}px`,
+            fontSize: `${textFontSize}px`,
             fill: '#1a1008',
             fontFamily: 'sans-serif',
             wordWrap: { width: boxWidth * TEXT_WIDTH },
-            lineSpacing: 8
+            lineSpacing: Math.max(2, boxHeight * 0.01)
         });
 
         this.container.add([this.dialogueBox, this.speakerSprite, this.nameText, this.dialogueText]);

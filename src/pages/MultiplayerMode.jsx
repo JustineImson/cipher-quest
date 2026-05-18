@@ -65,6 +65,23 @@ export default function MultiplayerMode() {
     }
   }, [location.state, multiplayerState]);
 
+  // ─── Guest Authentication: Auto-login if entering logged out ──────
+  useEffect(() => {
+    const initGuest = async () => {
+      const { auth } = await import('../services/firebase');
+      await auth.authStateReady();
+      if (!auth.currentUser) {
+        const { loginAnonymously } = await import('../services/authService');
+        try {
+          await loginAnonymously();
+        } catch (err) {
+          console.warn('Failed to login as guest:', err);
+        }
+      }
+    };
+    initGuest();
+  }, []);
+
   // ─── Direct Challenge: Auto-send invite once room is created ──────
   useEffect(() => {
     if (multiplayerState === 'waiting' && roomCode && pendingDirectInviteUid && currentUser?.uid) {
@@ -132,14 +149,14 @@ export default function MultiplayerMode() {
             const userRef = doc(db, 'users', currentUser.uid);
             const userSnap = await getDoc(userRef);
             const userData = userSnap.exists() ? userSnap.data() : {};
-            
+
             const taRef = doc(db, 'leaderboards', 'timeAttack', 'entries', currentUser.uid);
             const taSnap = await getDoc(taRef);
             const best_ta_score = taSnap.exists() ? taSnap.data().score : 0;
-            
+
             const cStats = userData.cipherStats || {};
             const getAcc = (c) => cStats[c] && cStats[c].attempts > 0 ? cStats[c].solved / cStats[c].attempts : 0;
-            
+
             const playerStats = {
               puzzles_solved: Object.values(cStats).reduce((sum, c) => sum + (c.solved || 0), 0),
               best_ta_score,
@@ -152,12 +169,12 @@ export default function MultiplayerMode() {
               substitution_accuracy: getAcc('substitution'),
               caesar_accuracy: getAcc('caesar')
             };
-            
+
             const mlResult = await Promise.race([
               getPlayerInsights(playerStats),
               new Promise(resolve => setTimeout(() => resolve(null), 3000))
             ]);
-            
+
             const seedMap = { beginner: 'Easy', intermediate: 'Normal', advanced: 'Hard' };
             startDifficulty = seedMap[mlResult?.skill_tier] ?? 'Easy';
           } catch (err) {
@@ -449,52 +466,45 @@ export default function MultiplayerMode() {
   );
 
   const renderPlaying = () => (
-    <div className="flex flex-col w-full max-w-5xl mx-auto relative z-10 transition-all p-2 animate-fade-in flex-1">
-      <button 
+    <div className="flex flex-col w-full max-w-5xl mx-auto relative z-10 transition-all p-4 animate-fade-in">
+      <button
         onClick={() => {
-           if (window.confirm("Are you sure you want to forfeit? You will lose this match.")) {
-             playClick();
-             forfeitMatch();
-           }
+          if (window.confirm("Are you sure you want to forfeit? You will lose this match.")) {
+            playClick();
+            forfeitMatch();
+          }
         }}
-        className="absolute -top-10 md:-top-4 right-2 md:right-0 z-50 text-[10px] bg-[rgba(139,26,26,0.15)] text-[var(--red)] border border-[rgba(139,26,26,0.5)] px-4 py-2 hover:bg-[var(--red)] hover:text-[#0e0a04] transition-all uppercase tracking-[0.2em] flex items-center gap-2"
+        className="absolute top-2 right-2 z-50 text-[10px] bg-[rgba(139,26,26,0.15)] text-[var(--red)] border border-[rgba(139,26,26,0.5)] px-4 py-2 hover:bg-[var(--red)] hover:text-[#0e0a04] transition-all uppercase tracking-[0.2em] flex items-center gap-2"
       >
         <span className="w-1.5 h-1.5 rounded-full bg-[var(--red)] animate-pulse"></span> Forfeit
       </button>
 
-      {/* Top bar with Dual Scores */}
-      <div className="flex justify-between items-center mb-8 w-full bg-[rgba(18,12,4,0.85)] p-4 border border-[rgba(201,168,76,0.3)] shadow-[0_4px_20px_rgba(0,0,0,0.6)]">
-        <div className="w-1/3 flex flex-col pl-4">
-          <span className="text-[10px] font-mono tracking-[0.2em] text-[#5a9e6f] uppercase mb-1">You</span>
-          <span className="text-3xl font-serif text-[var(--cream)] drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]">{score}</span>
+      {/* Center Box */}
+      <div className="flex flex-col items-center relative w-full mb-8 pt-16 mt-2">
+        {/* Score & Time & Opponent OVERLAYS */}
+        <div className="absolute top-0 left-0 md:left-4 text-2xl font-serif flex flex-col items-start z-20">
+          <span className="text-sm uppercase tracking-widest text-[#5a9e6f]/70 font-mono">You</span>
+          <span className="text-[var(--cream)] drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]">{score}</span>
         </div>
 
-        <div className={`w-1/3 text-center text-4xl font-serif flex flex-col items-center transition-colors ${timeLeft <= 10 ? 'text-[var(--red)] animate-pulse drop-shadow-[0_0_8px_rgba(139,26,26,0.8)]' : 'text-[var(--gold-light)] drop-shadow-[0_0_5px_rgba(232,201,106,0.4)]'}`}>
-          <span className="text-[9px] font-mono tracking-[0.3em] text-[var(--gold-dim)] uppercase mb-1">Time Remaining</span>
+        <div className={`absolute top-0 left-1/2 -translate-x-1/2 text-4xl font-serif flex flex-col items-center z-20 transition-colors ${timeLeft <= 10 ? 'text-[var(--red)] animate-pulse drop-shadow-[0_0_8px_rgba(139,26,26,0.8)]' : 'text-[var(--gold-light)] drop-shadow-[0_0_5px_rgba(232,201,106,0.4)]'}`}>
+          <span className="text-sm font-mono tracking-widest text-[var(--gold-dim)] uppercase">Time</span>
           {timeLeft}
         </div>
 
-        <div className="w-1/3 flex flex-col items-end pr-4">
-          <span className="text-[10px] font-mono tracking-[0.2em] text-[var(--red)] uppercase mb-1">Opponent</span>
-          <span className="text-3xl font-serif text-[#a09070] opacity-90">{opponentScore}</span>
+        <div className="absolute top-0 right-0 md:right-4 text-2xl font-serif flex flex-col items-end z-20">
+          <span className="text-sm uppercase tracking-widest text-[var(--red)]/70 font-mono">Opponent</span>
+          <span className="text-[#a09070] opacity-90">{opponentScore}</span>
         </div>
-      </div>
-
-      <div className="w-full text-center mb-6 text-[10px] font-mono tracking-[0.4em] text-[var(--gold-dim)] opacity-70">
-        RACE TO 500 POINTS
-      </div>
-
-      {/* Center Box */}
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[200px] w-full relative">
         {!encryptedWord ? (
           <LoadingSpinner text="Synchronizing Cryptographs..." />
         ) : (
           <div className={`bg-[rgba(8,5,2,0.8)] border p-12 py-16 relative max-w-3xl w-full text-center mt-4 transition-all duration-300
             ${feedback === 'wrong' ? 'animate-shake border-[var(--red)] shadow-[0_0_40px_rgba(139,26,26,0.6)]' :
               feedback === 'correct' ? 'border-[#5a9e6f] shadow-[0_0_40px_rgba(90,158,111,0.4)]' :
-              'border-[var(--gold-dim)] shadow-[0_0_40px_rgba(0,0,0,0.9)]'}
+                'border-[var(--gold-dim)] shadow-[0_0_40px_rgba(0,0,0,0.9)]'}
           `}>
-            
+
             {/* Feedback Overlays */}
             {feedback === 'correct' && (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#5a9e6f]/10 rounded pointer-events-none">
@@ -622,21 +632,11 @@ export default function MultiplayerMode() {
         }
 
         .mp-bg {
-          position: absolute;
-          inset: -20px;
-          background-image: url(/mainMenuBg.png);
-          background-size: cover;
-          background-position: center top;
-          filter: blur(14px) brightness(0.25) saturate(0.6);
-          transform: scale(1.08);
-          z-index: 0;
+          background: radial-gradient(circle at 50% 10%, #1a1e26 0%, #0f1115 45%, #050608 100%);
         }
 
         .mp-scrim {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(160deg, rgba(8,5,2,0.8) 0%, rgba(5,3,1,0.95) 100%);
-          z-index: 1;
+          background: linear-gradient(to bottom, rgba(15,17,21,0.2) 0%, rgba(5,6,8,0.8) 100%);
         }
 
         .mp-bloom {
@@ -652,12 +652,8 @@ export default function MultiplayerMode() {
         }
 
         .mp-grain {
-          position: absolute;
-          inset: 0;
           background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
           opacity: 0.04;
-          z-index: 3;
-          pointer-events: none;
           mix-blend-mode: screen;
         }
 
@@ -677,12 +673,15 @@ export default function MultiplayerMode() {
 
       <div className="mp-root">
         <DifficultySplash />
-        <div className="mp-bg" />
-        <div className="mp-scrim" />
-        <div className="mp-bloom" />
-        <div className="mp-grain" />
+        
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <div className="mp-bg absolute inset-0 z-0" />
+          <div className="mp-scrim absolute inset-0 z-10" />
+          <div className="mp-bloom absolute inset-0 z-20" />
+          <div className="mp-grain absolute inset-0 z-30" />
+        </div>
 
-        <div className={`mp-layout flex-1 ${multiplayerState === 'playing' ? 'mp-layout-playing' : 'mp-layout-lobby'}`}>
+        <div className={`mp-layout flex-1 bg-black/0 ${multiplayerState === 'playing' ? 'mp-layout-playing' : 'mp-layout-lobby'}`}>
           {multiplayerState === 'lobby' && renderLobby()}
           {multiplayerState === 'waiting' && renderWaiting()}
           {multiplayerState === 'finished' && renderFinished()}

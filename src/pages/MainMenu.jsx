@@ -13,7 +13,7 @@ export default function MainMenu() {
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const currentUser = useGameStore((state) => state.currentUser);
-  
+
   const isLoggedIn = !!currentUser;
 
   const handleProfileClick = () => {
@@ -141,7 +141,7 @@ export default function MainMenu() {
           flex-direction: column;
           align-items: center;
           justify-content: flex-end;
-          padding-bottom:17vh;
+          padding-bottom: 143px;
         }
 
         /* ── Title ── */
@@ -149,7 +149,7 @@ export default function MainMenu() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          margin-bottom: 3.5vh;
+          margin-bottom: 38px;
           opacity: 0;
           transform: translateY(-18px);
           transition: opacity 0.9s ease, transform 0.9s ease;
@@ -158,7 +158,7 @@ export default function MainMenu() {
 
         .cq-eyebrow {
           font-family: 'Special Elite', monospace;
-          font-size: clamp(9px, 1.1vw, 13px);
+          font-size: 13px;
           letter-spacing: 0.35em;
           color: var(--gold-dim);
           margin-bottom: 6px;
@@ -167,7 +167,7 @@ export default function MainMenu() {
 
         .cq-title {
           font-family: 'Playfair Display', serif;
-          font-size: clamp(42px, 7vw, 96px);
+          font-size: 96px;
           font-weight: 900;
           letter-spacing: 0.12em;
           color: var(--gold-light);
@@ -186,7 +186,7 @@ export default function MainMenu() {
           align-items: center;
           gap: 12px;
           margin-top: 10px;
-          width: clamp(260px, 40vw, 560px);
+          width: 560px;
         }
         .cq-rule-line {
           flex: 1;
@@ -266,7 +266,7 @@ export default function MainMenu() {
 
         .cq-nav-label {
           font-family: 'Special Elite', monospace;
-          font-size: clamp(14px, 1.6vw, 18px);
+          font-size: 18px;
           letter-spacing: 0.18em;
           text-transform: uppercase;
           color: var(--cream);
@@ -317,7 +317,7 @@ export default function MainMenu() {
         .cq-lore {
           font-family: 'IM Fell English', serif;
           font-style: italic;
-          font-size: clamp(10px, 1.1vw, 13px);
+          font-size: 13px;
           color: var(--gold-dim);
           line-height: 1.6;
           max-width: 220px;
@@ -423,7 +423,7 @@ export default function MainMenu() {
 
           {/* Top Right Profile Button */}
           <div className={`absolute top-6 right-8 z-50 ${visible ? 'show' : ''} cq-profile-wrap`}>
-            <button 
+            <button
               className="cq-profile-btn"
               onClick={handleProfileClick}
             >
@@ -478,7 +478,7 @@ export default function MainMenu() {
 
         </div>
       </div>
-      
+
       {showLoginModal && (
         <LoginModal onClose={() => setShowLoginModal(false)} />
       )}

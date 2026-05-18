@@ -3,7 +3,8 @@ import {
   createUserWithEmailAndPassword, 
   sendPasswordResetEmail, 
   signOut,
-  updateProfile
+  updateProfile,
+  signInAnonymously
 } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "./firebase";
@@ -34,6 +35,37 @@ export const registerUser = async (email, password, username) => {
         caesar:       { attempts: 0, solved: 0 }
       }
     });
+  }
+  return userCredential;
+};
+
+export const loginAnonymously = async () => {
+  const userCredential = await signInAnonymously(auth);
+  if (userCredential.user) {
+    const uid = userCredential.user.uid;
+    // Check if doc exists already (if they were already a guest before)
+    const docRef = doc(db, 'users', uid);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) {
+      const guestName = `Guest-${Math.floor(1000 + Math.random() * 9000)}`;
+      await updateProfile(userCredential.user, { displayName: guestName });
+      
+      const friendCode = await generateUniqueFriendCode(db);
+      await setDoc(docRef, {
+        username: guestName,
+        email: 'Guest Account',
+        friendCode: friendCode,
+        createdAt: new Date().toISOString(),
+        isGuest: true,
+        cipherStats: {
+          vigenere:     { attempts: 0, solved: 0 },
+          railfence:    { attempts: 0, solved: 0 },
+          columnar:     { attempts: 0, solved: 0 },
+          substitution: { attempts: 0, solved: 0 },
+          caesar:       { attempts: 0, solved: 0 }
+        }
+      });
+    }
   }
   return userCredential;
 };

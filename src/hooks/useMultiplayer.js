@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { auth } from '../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import fallbackPuzzles from '../data/fallbackPuzzles';
 import { selectCipherMethod } from '../engine/gameLogic';
 
@@ -39,16 +40,24 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
     let mounted = true;
     let socket = null;
 
-    const init = async () => {
-      // Require a logged-in Firebase user before connecting
-      if (!auth.currentUser) {
-        alert('You must be logged in to play multiplayer');
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+          socketRef.current = null;
+        }
         return;
       }
 
+      if (!mounted) return;
+
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+
       try {
-        const token = await auth.currentUser.getIdToken();
-        clientUidRef.current = auth.currentUser.uid;
+        const token = await user.getIdToken();
+        clientUidRef.current = user.uid;
 
         socket = io(serverUrl, { auth: { token } });
         socketRef.current = socket;
@@ -127,12 +136,11 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
       } catch (err) {
         console.error('Failed to initialize multiplayer socket:', err);
       }
-    };
-
-    init();
+    });
 
     return () => {
       mounted = false;
+      unsubscribe();
       if (socketRef.current) socketRef.current.disconnect();
     };
   }, [serverUrl]);

@@ -24,11 +24,11 @@ export default function DeductionBoardOverlay() {
   return (
     <div className="absolute inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 md:p-8 animate-[fadeIn_0.3s_ease-out]">
       {/* Leather Notebook Background */}
-      <div className="relative w-full max-w-5xl h-[85vh] bg-[#2a1c11] rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.9),inset_0_0_100px_rgba(20,10,5,1)] border-2 border-[#1a100a] flex flex-col md:flex-row overflow-hidden">
-        
+      <div className="relative w-full max-w-5xl h-[918px] bg-[#2a1c11] rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.9),inset_0_0_100px_rgba(20,10,5,1)] border-2 border-[#1a100a] flex flex-col md:flex-row overflow-hidden">
+
         {/* Leather texture overlay */}
-        <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-multiply" 
-             style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.85\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")' }}>
+        <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-multiply"
+          style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.85\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")' }}>
         </div>
 
         {/* Notebook Spine (Center fold on desktop, top fold on mobile) */}
@@ -37,14 +37,14 @@ export default function DeductionBoardOverlay() {
 
         {/* Left Page (Evidence List) */}
         <div className="flex-1 bg-[#e8dcc0] m-2 md:mr-4 md:my-4 rounded shadow-inner p-6 overflow-y-auto relative z-20 h-full"
-             style={{ backgroundImage: 'radial-gradient(#d8ccb0 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-          
-            <div className="flex justify-between items-start mb-6 border-b-2 border-[#7a6030] pb-4">
+          style={{ backgroundImage: 'radial-gradient(#d8ccb0 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+
+          <div className="flex justify-between items-start mb-6 border-b-2 border-[#7a6030] pb-4">
             <div>
               <h2 className="font-serif text-3xl text-[#2a1c11] uppercase tracking-widest font-black drop-shadow-sm">Case File</h2>
               <p className="font-mono text-xs text-[#5a4225] tracking-widest uppercase mt-1">Acquired Intel ({collectedEvidence?.length || 0}/4)</p>
             </div>
-            <button 
+            <button
               onClick={toggleDeductionBoard}
               className="text-[#5a4225] hover:text-[#8b1a1a] transition-colors p-2 bg-[#d8ccb0] rounded-full shadow-sm border border-[#7a6030]/20"
               title="Close Notebook"
@@ -63,11 +63,10 @@ export default function DeductionBoardOverlay() {
                 <button
                   key={ev.id}
                   onClick={() => setSelectedEvidence(ev)}
-                  className={`flex items-center gap-4 p-4 text-left border-l-4 transition-all ${
-                    selectedEvidence?.id === ev.id 
-                      ? 'bg-[#d8ccb0] border-[#8b1a1a] shadow-md scale-[1.02]' 
+                  className={`flex items-center gap-4 p-4 text-left border-l-4 transition-all ${selectedEvidence?.id === ev.id
+                      ? 'bg-[#d8ccb0] border-[#8b1a1a] shadow-md scale-[1.02]'
                       : 'bg-transparent border-[#7a6030] hover:bg-[#d8ccb0]/50 hover:scale-[1.01]'
-                  }`}
+                    }`}
                 >
                   <div className="bg-[#2a1c11] p-2 rounded-full text-[#e8dcc0] shadow-sm">
                     <FileText size={20} />
@@ -84,8 +83,8 @@ export default function DeductionBoardOverlay() {
 
         {/* Right Page (Details Pane) */}
         <div className="flex-1 bg-[#e8dcc0] m-2 md:ml-4 md:my-4 rounded shadow-inner p-8 overflow-y-auto relative z-20 flex flex-col h-full"
-             style={{ backgroundImage: 'linear-gradient(rgba(122, 96, 48, 0.1) 1px, transparent 1px)', backgroundSize: '100% 30px', backgroundPositionY: '8px' }}>
-          
+          style={{ backgroundImage: 'linear-gradient(rgba(122, 96, 48, 0.1) 1px, transparent 1px)', backgroundSize: '100% 30px', backgroundPositionY: '8px' }}>
+
           {selectedEvidence ? (
             <div className="animate-[fadeIn_0.4s_ease-out] flex-1 flex flex-col">
               <div className="mb-8 flex items-center justify-between border-b border-[#7a6030]/30 pb-4">

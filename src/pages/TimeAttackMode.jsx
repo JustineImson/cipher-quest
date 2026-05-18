@@ -158,14 +158,14 @@ function TimeAttackMode() {
         const userRef = doc(db, 'users', currentUser.uid);
         const userSnap = await getDoc(userRef);
         const userData = userSnap.exists() ? userSnap.data() : {};
-        
+
         const taRef = doc(db, 'leaderboards', 'timeAttack', 'entries', currentUser.uid);
         const taSnap = await getDoc(taRef);
         const best_ta_score = taSnap.exists() ? taSnap.data().score : 0;
-        
+
         const cStats = userData.cipherStats || {};
         const getAcc = (c) => cStats[c] && cStats[c].attempts > 0 ? cStats[c].solved / cStats[c].attempts : 0;
-        
+
         const playerStats = {
           puzzles_solved: Object.values(cStats).reduce((sum, c) => sum + (c.solved || 0), 0),
           best_ta_score,
@@ -178,12 +178,12 @@ function TimeAttackMode() {
           substitution_accuracy: getAcc('substitution'),
           caesar_accuracy: getAcc('caesar')
         };
-        
+
         const mlResult = await Promise.race([
           getPlayerInsights(playerStats),
           new Promise(resolve => setTimeout(() => resolve(null), 3000))
         ]);
-        
+
         const seedMap = { beginner: 'Easy', intermediate: 'Normal', advanced: 'Hard' };
         startDifficulty = seedMap[mlResult?.skill_tier] ?? 'Easy';
       } catch (err) {
@@ -231,10 +231,10 @@ function TimeAttackMode() {
     const cName = cipherMethod.name || '';
     const cType = cName.startsWith('Columnar') ? 'columnar'
       : cName.startsWith('Rail Fence') ? 'railfence'
-      : cName.startsWith('Vigenere') ? 'vigenere'
-      : cName.startsWith('Substitution') ? 'substitution'
-      : cName.startsWith('Caesar') ? 'caesar'
-      : null;
+        : cName.startsWith('Vigenere') ? 'vigenere'
+          : cName.startsWith('Substitution') ? 'substitution'
+            : cName.startsWith('Caesar') ? 'caesar'
+              : null;
 
     if (isCorrect) {
       if (cType) trackCipherAttempt(uid, cType, true);
@@ -416,266 +416,281 @@ function TimeAttackMode() {
     );
   }
 
-  // Playing Mode
   return (
-    <div className="flex flex-col h-full w-full relative z-10 transition-all overflow-y-auto">
-      <div className="max-w-4xl mx-auto w-full p-6">
-        <DifficultySplash />
-        {/* Fixed Top Right Pause Button */}
+    <>
+      <style>{`
+        .ta-bg {
+          background: radial-gradient(circle at 50% 10%, #1a1e26 0%, #0f1115 45%, #050608 100%);
+        }
+        .ta-scrim {
+          background: linear-gradient(to bottom, rgba(15,17,21,0.2) 0%, rgba(5,6,8,0.8) 100%);
+        }
+        .ta-grain {
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+          opacity: 0.05;
+          mix-blend-mode: screen;
+        }
+      `}</style>
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="ta-bg absolute inset-0 z-0" />
+        <div className="ta-scrim absolute inset-0 z-10 pointer-events-none" />
+        <div className="ta-grain absolute inset-0 z-20 pointer-events-none" />
+      </div>
+      <div className="flex flex-col h-full w-full relative z-10 transition-all overflow-y-auto bg-black/0">
+
+        {/* Absolute Top Right Pause Button */}
         <button
           onClick={handlePause}
           disabled={isLoading}
-          className={`fixed top-10 right-20 z-50 transition-colors p-4 border-2 rounded-full shadow-[0_0_25px_rgba(0,0,0,0.9)] backdrop-blur-md ${isLoading ? 'text-gray-500 bg-black/40 border-gray-600 cursor-not-allowed opacity-50' : 'text-mystery-gold/70 hover:text-mystery-gold bg-black/80 border-mystery-gold/50 hover:border-mystery-gold group'}`}
+          className={`absolute top-6 right-6 md:top-8 md:right-8 z-50 transition-colors p-4 border-2 rounded-full shadow-[0_0_25px_rgba(0,0,0,0.9)] backdrop-blur-md ${isLoading ? 'text-gray-500 bg-black/40 border-gray-600 cursor-not-allowed opacity-50' : 'text-mystery-gold/70 hover:text-mystery-gold bg-black/80 border-mystery-gold/50 hover:border-mystery-gold group'}`}
           title="Pause Operation"
         >
           <Pause size={36} className={isLoading ? '' : 'group-hover:scale-110 transition-transform'} />
         </button>
 
-        {/* Top bar */}
-        <div className="flex justify-between items-center mb-10 w-full bg-black/40 p-4 border border-mystery-gold/30 rounded backdrop-blur-md shadow-lg shadow-black/50 mt-4 md:mt-0">
-          <Button onClick={() => navigate('/')} className="text-sm">Abscind (Menu)</Button>
-          <div className="text-2xl font-serif text-mystery-gold flex flex-col items-center">
-            <span className="text-sm uppercase tracking-widest text-mystery-gold/70">Score</span>
-            <span className="drop-shadow-[0_0_5px_rgba(212,175,55,0.8)]">{score}</span>
-          </div>
-          <div className={`text-4xl font-mono flex flex-col items-end transition-colors ${timeLeft <= 10 ? 'text-red-500 animate-pulse drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'text-mystery-gold shadow-black drop-shadow-[0_0_5px_rgba(212,175,55,0.5)]'}`}>
-            <span className="text-sm font-serif tracking-widest text-mystery-gold/70 uppercase">Time</span>
-            {timeLeft}
-          </div>
-        </div>
+        <div className="max-w-4xl mx-auto w-full p-4 relative z-10 flex flex-col">
+          <DifficultySplash />
 
-        {/* Center Box */}
-        <div className="flex-1 flex flex-col items-center justify-center relative w-full">
-          {isLoading ? (
-            <LoadingSpinner text="Consulting Informants..." />
-          ) : (
-            <div className={`bg-gray-900/60 border p-12 py-16 rounded relative max-w-2xl w-full text-center group backdrop-blur-md transition-all duration-300
-              ${feedback === 'wrong' ? 'animate-shake border-red-500 shadow-[0_0_40px_rgba(239,68,68,0.6)]' :
-                feedback === 'correct' ? 'border-green-400 shadow-[0_0_40px_rgba(74,222,128,0.4)]' :
-                'border-mystery-gold shadow-[0_0_40px_rgba(0,0,0,0.8)]'}
-            `}>
-              
-              {/* Feedback Overlays */}
-              {feedback === 'correct' && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-green-500/10 rounded pointer-events-none">
-                  <span className="text-5xl md:text-6xl font-serif text-green-400 opacity-90 drop-shadow-[0_0_20px_rgba(74,222,128,1)] animate-stamp uppercase tracking-widest border-4 border-green-400/80 px-8 py-4 rounded-lg transform -rotate-12 bg-black/40 backdrop-blur-sm">
-                    DECRYPTED
-                  </span>
-                </div>
-              )}
-              {feedback === 'wrong' && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-red-500/10 rounded pointer-events-none">
-                  <span className="text-5xl md:text-6xl font-serif text-red-500 opacity-90 drop-shadow-[0_0_20px_rgba(239,68,68,1)] animate-stamp uppercase tracking-widest border-4 border-red-500/80 px-8 py-4 rounded-lg transform rotate-12 bg-black/40 backdrop-blur-sm">
-                    FAILED
-                  </span>
-                </div>
-              )}
 
-              <div className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center bg-mystery-dark px-8 py-2 border rounded shadow-md pb-3 w-64 transition-colors duration-300 ${feedback === 'wrong' ? 'border-red-500' : feedback === 'correct' ? 'border-green-400' : 'border-mystery-gold'}`}>
-                <span className={`text-sm tracking-[0.2em] font-serif uppercase border-b pb-1 mb-1 w-full text-center transition-colors duration-300 ${feedback === 'wrong' ? 'text-red-500 border-red-500/30' : feedback === 'correct' ? 'text-green-400 border-green-400/30' : 'text-mystery-gold border-mystery-gold/30'}`}>Cipher: {cipherMethod.name}</span>
-                <span className="text-blue-300 font-mono text-xs tracking-widest uppercase">Intel: {cipherMethod.key}</span>
-              </div>
+          {/* Center Box */}
+          <div className="flex flex-col items-center relative w-full mb-8 pt-16 mt-2">
+            {/* Score & Time OVERLAYS */}
+            <div className="absolute top-0 left-0 md:left-4 text-2xl font-serif text-mystery-gold flex flex-col items-start z-20">
+              <span className="text-sm uppercase tracking-widest text-mystery-gold/70">Score</span>
+              <span className="drop-shadow-[0_0_5px_rgba(212,175,55,0.8)]">{score}</span>
+            </div>
+            <div className={`absolute top-0 right-0 md:right-4 text-4xl font-mono flex flex-col items-end z-20 transition-colors ${timeLeft <= 10 ? 'text-red-500 animate-pulse drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'text-mystery-gold shadow-black drop-shadow-[0_0_5px_rgba(212,175,55,0.5)]'}`}>
+              <span className="text-sm font-serif tracking-widest text-mystery-gold/70 uppercase">Time</span>
+              {timeLeft}
+            </div>
+            {isLoading ? (
+              <LoadingSpinner text="Consulting Informants..." />
+            ) : (
+              <div className={`bg-[#0a0a0f]/80 border p-12 py-16 rounded relative max-w-2xl w-full text-center group backdrop-blur-md transition-all duration-300
+                ${feedback === 'wrong' ? 'animate-shake border-red-500 shadow-[0_0_40px_rgba(239,68,68,0.6)]' :
+                  feedback === 'correct' ? 'border-green-400 shadow-[0_0_40px_rgba(74,222,128,0.4)]' :
+                    'border-mystery-gold shadow-[0_0_40px_rgba(0,0,0,0.8)]'}
+              `}>
 
-              <p className={`font-mono text-4xl sm:text-5xl md:text-6xl text-white tracking-[0.3em] font-light break-all selection:bg-mystery-gold/30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${isGlitching ? 'animate-glitch' : ''}`}>
-                {cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
-              </p>
-
-              {currentClue && (
-                <div className="mt-8 text-mystery-gold/90 italic font-serif text-lg bg-black/40 px-6 py-3 border border-mystery-gold/30 rounded inline-block max-w-[90%] relative">
-                  <span className="font-mono text-xs text-mystery-gold/50 block mb-1 uppercase tracking-widest text-center">
-                    Intercepted Clue
-                    <span className={`ml-2 text-[10px] px-2 py-0.5 rounded border ${isFallback ? 'border-red-500/50 text-red-400' : 'border-green-500/50 text-green-400'}`}>
-                      {isFallback ? 'SOURCE: FALLBACK' : 'SOURCE: AI'}
+                {/* Feedback Overlays */}
+                {feedback === 'correct' && (
+                  <div className="absolute inset-0 z-50 flex items-center justify-center bg-green-500/10 rounded pointer-events-none">
+                    <span className="text-5xl md:text-6xl font-serif text-green-400 opacity-90 drop-shadow-[0_0_20px_rgba(74,222,128,1)] animate-stamp uppercase tracking-widest border-4 border-green-400/80 px-8 py-4 rounded-lg transform -rotate-12 bg-black/40 backdrop-blur-sm">
+                      DECRYPTED
                     </span>
-                  </span>
-                  "{currentClue}"
+                  </div>
+                )}
+                {feedback === 'wrong' && (
+                  <div className="absolute inset-0 z-50 flex items-center justify-center bg-red-500/10 rounded pointer-events-none">
+                    <span className="text-5xl md:text-6xl font-serif text-red-500 opacity-90 drop-shadow-[0_0_20px_rgba(239,68,68,1)] animate-stamp uppercase tracking-widest border-4 border-red-500/80 px-8 py-4 rounded-lg transform rotate-12 bg-black/40 backdrop-blur-sm">
+                      FAILED
+                    </span>
+                  </div>
+                )}
+
+                <div className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center bg-mystery-dark px-8 py-2 border rounded shadow-md pb-3 w-64 transition-colors duration-300 ${feedback === 'wrong' ? 'border-red-500' : feedback === 'correct' ? 'border-green-400' : 'border-mystery-gold'}`}>
+                  <span className={`text-sm tracking-[0.2em] font-serif uppercase border-b pb-1 mb-1 w-full text-center transition-colors duration-300 ${feedback === 'wrong' ? 'text-red-500 border-red-500/30' : feedback === 'correct' ? 'text-green-400 border-green-400/30' : 'text-mystery-gold border-mystery-gold/30'}`}>Cipher: {cipherMethod.name}</span>
+                  <span className="text-blue-300 font-mono text-xs tracking-widest uppercase">Intel: {cipherMethod.key}</span>
                 </div>
-              )}
-            </div>
-          )}
-        </div>
 
-        {/* Bottom Input Area */}
-        <div className="mt-8 flex flex-col items-center w-full gap-4">
-          {isColumnar && (cipherMethod.isEncryptionMode ? currentWord : encryptedWord) ? (
-            /* ── Columnar Transposition: Interactive Grid ── */
-            <>
-              <ColumnarInteractive
-                key={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
-                mode={cipherMethod.isEncryptionMode ? "encrypt" : "decrypt"}
-                text={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
-                keyword={columnarKeyword}
-                onComplete={handleInteractiveComplete}
-              />
-              {/* Feedback overlay for columnar */}
-              <div className={`text-sm font-serif tracking-[0.4em] transition-opacity duration-300 ${feedback === 'correct' ? 'text-green-400 opacity-100' : feedback === 'wrong' ? 'text-red-500 opacity-100' : 'opacity-0'}`}>
-                {feedback === 'correct' ? 'EXCELLENT' : 'INCORRECT'}
+                <p className={`font-mono text-4xl sm:text-5xl md:text-6xl text-white tracking-[0.3em] font-light break-all selection:bg-mystery-gold/30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${isGlitching ? 'animate-glitch' : ''}`}>
+                  {cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
+                </p>
+
+                {currentClue && (
+                  <div className="mt-8 text-mystery-gold/90 italic font-serif text-lg bg-black/60 px-6 py-3 border border-mystery-gold/30 rounded inline-block max-w-[90%] relative">
+                    <span className="font-mono text-xs text-mystery-gold/50 block mb-1 uppercase tracking-widest text-center">
+                      Intercepted Clue
+                      <span className={`ml-2 text-[10px] px-2 py-0.5 rounded border ${isFallback ? 'border-red-500/50 text-red-400' : 'border-green-500/50 text-green-400'}`}>
+                        {isFallback ? 'SOURCE: FALLBACK' : 'SOURCE: AI'}
+                      </span>
+                    </span>
+                    "{currentClue}"
+                  </div>
+                )}
               </div>
-            </>
-          ) : isRailFence && (cipherMethod.isEncryptionMode ? currentWord : encryptedWord) ? (
-            /* ── Rail Fence: Interactive Grid ── */
-            <>
-              <RailFenceInteractive
-                key={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
-                mode={cipherMethod.isEncryptionMode ? "encrypt" : "decrypt"}
-                text={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
-                rails={railFenceRails}
-                onComplete={handleInteractiveComplete}
-              />
-              {/* Feedback overlay for rail fence */}
-              <div className={`text-sm font-serif tracking-[0.4em] transition-opacity duration-300 ${feedback === 'correct' ? 'text-green-400 opacity-100' : feedback === 'wrong' ? 'text-red-500 opacity-100' : 'opacity-0'}`}>
-                {feedback === 'correct' ? 'EXCELLENT' : 'INCORRECT'}
-              </div>
-            </>
-          ) : isVigenere && (cipherMethod.isEncryptionMode ? currentWord : encryptedWord) ? (
-            /* ── Vigenere: Interactive Grid ── */
-            <>
-              <VigenereInteractive
-                key={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
-                mode={cipherMethod.isEncryptionMode ? "encrypt" : "decrypt"}
-                text={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
-                keyword={vigenereKeyword}
-                onComplete={handleInteractiveComplete}
-              />
-              <div className={`text-sm font-serif tracking-[0.4em] transition-opacity duration-300 ${feedback === 'correct' ? 'text-green-400 opacity-100' : feedback === 'wrong' ? 'text-red-500 opacity-100' : 'opacity-0'}`}>
-                {feedback === 'correct' ? 'EXCELLENT' : 'INCORRECT'}
-              </div>
-            </>
-          ) : isSubstitution && (cipherMethod.isEncryptionMode ? currentWord : encryptedWord) ? (
-            /* ── Substitution: Interactive Grid ── */
-            <>
-              <SubstitutionInteractive
-                key={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
-                mode={cipherMethod.isEncryptionMode ? "encrypt" : "decrypt"}
-                text={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
-                keyword={substitutionKeyword}
-                onComplete={handleInteractiveComplete}
-              />
-              <div className={`text-sm font-serif tracking-[0.4em] transition-opacity duration-300 ${feedback === 'correct' ? 'text-green-400 opacity-100' : feedback === 'wrong' ? 'text-red-500 opacity-100' : 'opacity-0'}`}>
-                {feedback === 'correct' ? 'EXCELLENT' : 'INCORRECT'}
-              </div>
-            </>
-          ) : (
-            /* ── Standard ciphers: Text Input + Virtual Keyboard ── */
-            <>
-              <input
-                ref={inputRef}
-                type="text"
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isLoading || gameState !== 'playing'}
-                placeholder="DECIPHER THE TEXT..."
-                className={`w-full max-w-lg bg-transparent border-b-2 outline-none text-3xl font-mono text-center transition-all pb-2 uppercase tracking-widest
-                ${feedback === 'correct' ? 'border-green-400 text-green-300 drop-shadow-[0_0_8px_rgba(74,222,128,0.8)]' :
-                    feedback === 'wrong' ? 'border-red-500 text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse' :
-                      'border-mystery-gold/50 text-white focus:border-mystery-gold hover:border-mystery-gold/80 placeholder:text-mystery-gold/20'}`}
-                autoComplete="off"
-                spellCheck="false"
-              />
+            )}
+          </div>
 
-              {/* Subtle effect for feedback */}
-              <div className={`text-sm font-serif tracking-[0.4em] transition-opacity duration-300 ${feedback === 'correct' ? 'text-green-400 opacity-100' : feedback === 'wrong' ? 'text-red-500 opacity-100' : 'opacity-0'}`}>
-                {feedback === 'correct' ? 'EXCELLENT' : 'INCORRECT'}
-              </div>
-
-              {/* Virtual Keyboard */}
-              <VirtualKeyboard
-                onKeyPress={handleVirtualKeyPress}
-                onDelete={handleVirtualDelete}
-                onEnter={handleSubmit}
-              />
-            </>
-          )}
-        </div>
-
-        {/* DevMode Panel */}
-        <div className="fixed bottom-4 right-4 flex flex-col items-end z-50">
-          <button
-            onClick={() => { playClick(); setDevModeVisible(!devModeVisible); }}
-            className="text-xs text-mystery-gold/30 hover:text-mystery-gold/80 transition-colors mb-2 font-mono"
-          >
-            {devModeVisible ? '[HIDE_DEV]' : '[DEV_TOOLS]'}
-          </button>
-
-          {devModeVisible && (
-            <div className="bg-black/90 border border-red-900/50 p-4 rounded text-xs flex flex-col gap-3 shadow-2xl backdrop-blur-md w-64 transition-all font-mono">
-              <span className="text-red-500 font-bold uppercase tracking-widest border-b border-red-900/50 pb-2 text-center text-[10px]">Developer Access</span>
-
-              {/* Progression Status */}
-              <div className="py-2 border-b border-red-900/50 flex flex-col gap-1">
-                <div className="flex justify-between">
-                  <span className="text-red-500/70">Diff:</span>
-                  <span className="text-red-300 uppercase font-bold">{currentDifficulty}</span>
+          {/* Bottom Input Area */}
+          <div className="mt-auto flex flex-col items-center w-full gap-4">
+            {isColumnar && (cipherMethod.isEncryptionMode ? currentWord : encryptedWord) ? (
+              /* ── Columnar Transposition: Interactive Grid ── */
+              <>
+                <ColumnarInteractive
+                  key={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
+                  mode={cipherMethod.isEncryptionMode ? "encrypt" : "decrypt"}
+                  text={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
+                  keyword={columnarKeyword}
+                  onComplete={handleInteractiveComplete}
+                />
+                {/* Feedback overlay for columnar */}
+                <div className={`text-sm font-serif tracking-[0.4em] transition-opacity duration-300 ${feedback === 'correct' ? 'text-green-400 opacity-100' : feedback === 'wrong' ? 'text-red-500 opacity-100' : 'opacity-0'}`}>
+                  {feedback === 'correct' ? 'EXCELLENT' : 'INCORRECT'}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-red-500/70">Rolling Avg:</span>
-                  <span className="text-red-300 font-bold">
-                    {rollingAttempts?.length ? (rollingAttempts.reduce((a, b) => a + b, 0) / rollingAttempts.length).toFixed(2) : '0.00'}
-                  </span>
+              </>
+            ) : isRailFence && (cipherMethod.isEncryptionMode ? currentWord : encryptedWord) ? (
+              /* ── Rail Fence: Interactive Grid ── */
+              <>
+                <RailFenceInteractive
+                  key={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
+                  mode={cipherMethod.isEncryptionMode ? "encrypt" : "decrypt"}
+                  text={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
+                  rails={railFenceRails}
+                  onComplete={handleInteractiveComplete}
+                />
+                {/* Feedback overlay for rail fence */}
+                <div className={`text-sm font-serif tracking-[0.4em] transition-opacity duration-300 ${feedback === 'correct' ? 'text-green-400 opacity-100' : feedback === 'wrong' ? 'text-red-500 opacity-100' : 'opacity-0'}`}>
+                  {feedback === 'correct' ? 'EXCELLENT' : 'INCORRECT'}
                 </div>
-                <button
-                  onClick={() => { playClick(); recordCipherAttempt(true, 5, currentDifficulty); }}
-                  className="mt-1 bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors border border-red-900/30"
-                >
-                  Force +1 Solve
-                </button>
-              </div>
+              </>
+            ) : isVigenere && (cipherMethod.isEncryptionMode ? currentWord : encryptedWord) ? (
+              /* ── Vigenere: Interactive Grid ── */
+              <>
+                <VigenereInteractive
+                  key={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
+                  mode={cipherMethod.isEncryptionMode ? "encrypt" : "decrypt"}
+                  text={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
+                  keyword={vigenereKeyword}
+                  onComplete={handleInteractiveComplete}
+                />
+                <div className={`text-sm font-serif tracking-[0.4em] transition-opacity duration-300 ${feedback === 'correct' ? 'text-green-400 opacity-100' : feedback === 'wrong' ? 'text-red-500 opacity-100' : 'opacity-0'}`}>
+                  {feedback === 'correct' ? 'EXCELLENT' : 'INCORRECT'}
+                </div>
+              </>
+            ) : isSubstitution && (cipherMethod.isEncryptionMode ? currentWord : encryptedWord) ? (
+              /* ── Substitution: Interactive Grid ── */
+              <>
+                <SubstitutionInteractive
+                  key={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
+                  mode={cipherMethod.isEncryptionMode ? "encrypt" : "decrypt"}
+                  text={cipherMethod.isEncryptionMode ? currentWord : encryptedWord}
+                  keyword={substitutionKeyword}
+                  onComplete={handleInteractiveComplete}
+                />
+                <div className={`text-sm font-serif tracking-[0.4em] transition-opacity duration-300 ${feedback === 'correct' ? 'text-green-400 opacity-100' : feedback === 'wrong' ? 'text-red-500 opacity-100' : 'opacity-0'}`}>
+                  {feedback === 'correct' ? 'EXCELLENT' : 'INCORRECT'}
+                </div>
+              </>
+            ) : (
+              /* ── Standard ciphers: Text Input + Virtual Keyboard ── */
+              <>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={isLoading || gameState !== 'playing'}
+                  placeholder="DECIPHER THE TEXT..."
+                  className={`w-full max-w-lg bg-black/40 backdrop-blur-sm border-b-2 outline-none text-3xl font-mono text-center transition-all pt-4 pb-2 px-4 rounded-t uppercase tracking-widest shadow-inner
+                  ${feedback === 'correct' ? 'border-green-400 text-green-300 drop-shadow-[0_0_8px_rgba(74,222,128,0.8)]' :
+                      feedback === 'wrong' ? 'border-red-500 text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse' :
+                        'border-mystery-gold/50 text-white focus:border-mystery-gold hover:border-mystery-gold/80 placeholder:text-mystery-gold/20'}`}
+                  autoComplete="off"
+                  spellCheck="false"
+                />
 
-              {/* Force Difficulty */}
-              <div className="flex gap-1 w-full border-b border-red-900/50 pb-2">
-                <button onClick={() => { playClick(); setDifficulty('Easy'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">EZ</button>
-                <button onClick={() => { playClick(); setDifficulty('Normal'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">NRM</button>
-                <button onClick={() => { playClick(); setDifficulty('Hard'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">HRD</button>
-              </div>
+                {/* Subtle effect for feedback */}
+                <div className={`text-sm font-serif tracking-[0.4em] transition-opacity duration-300 ${feedback === 'correct' ? 'text-green-400 opacity-100' : feedback === 'wrong' ? 'text-red-500 opacity-100' : 'opacity-0'}`}>
+                  {feedback === 'correct' ? 'EXCELLENT' : 'INCORRECT'}
+                </div>
 
-              <button
-                onClick={() => {
-                  playClick();
-                  const correctAnswer = cipherMethod.isEncryptionMode ? encryptedWord : currentWord;
-                  // For interactive cipher components, call completion handler directly.
-                  // For text input, populate the field and focus it.
-                  if (isColumnar || isRailFence || isVigenere || isSubstitution) {
-                    handleInteractiveComplete(correctAnswer);
-                  } else if (inputRef.current) {
-                    setUserInput(correctAnswer);
-                    inputRef.current.focus();
-                  }
-                }}
-                className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1.5 rounded transition-colors border border-red-900/30"
-              >
-                Autofill Answer
-              </button>
-              <button
-                onClick={() => { playClick(); fetchNewWord(); }}
-                className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1.5 rounded transition-colors border border-red-900/30"
-              >
-                Skip Puzzle
-              </button>
-              <div className="py-2 border-t border-b border-red-900/50 text-center">
-                <span className="text-red-500/50 text-[10px] block mb-1">RAW TARGET:</span>
-                <span className="text-white font-bold tracking-widest">{cipherMethod.isEncryptionMode ? encryptedWord : currentWord}</span>
-              </div>
-              <div className="flex gap-2 w-full">
+                {/* Virtual Keyboard */}
+                <VirtualKeyboard
+                  onKeyPress={handleVirtualKeyPress}
+                  onDelete={handleVirtualDelete}
+                  onEnter={handleSubmit}
+                />
+              </>
+            )}
+          </div>
+
+          {/* DevMode Panel */}
+          <div className="fixed bottom-4 right-4 flex flex-col items-end z-50">
+            <button
+              onClick={() => { playClick(); setDevModeVisible(!devModeVisible); }}
+              className="text-xs text-mystery-gold/30 hover:text-mystery-gold/80 transition-colors mb-2 font-mono bg-black/40 px-2 py-1 rounded"
+            >
+              {devModeVisible ? '[HIDE_DEV]' : '[DEV_TOOLS]'}
+            </button>
+
+            {devModeVisible && (
+              <div className="bg-black/90 border border-red-900/50 p-4 rounded text-xs flex flex-col gap-3 shadow-2xl backdrop-blur-md w-64 transition-all font-mono">
+                <span className="text-red-500 font-bold uppercase tracking-widest border-b border-red-900/50 pb-2 text-center text-[10px]">Developer Access</span>
+
+                {/* Progression Status */}
+                <div className="py-2 border-b border-red-900/50 flex flex-col gap-1">
+                  <div className="flex justify-between">
+                    <span className="text-red-500/70">Diff:</span>
+                    <span className="text-red-300 uppercase font-bold">{currentDifficulty}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-red-500/70">Rolling Avg:</span>
+                    <span className="text-red-300 font-bold">
+                      {rollingAttempts?.length ? (rollingAttempts.reduce((a, b) => a + b, 0) / rollingAttempts.length).toFixed(2) : '0.00'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => { playClick(); recordCipherAttempt(true, 5, currentDifficulty); }}
+                    className="mt-1 bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors border border-red-900/30"
+                  >
+                    Force +1 Solve
+                  </button>
+                </div>
+
+                {/* Force Difficulty */}
+                <div className="flex gap-1 w-full border-b border-red-900/50 pb-2">
+                  <button onClick={() => { playClick(); setDifficulty('Easy'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">EZ</button>
+                  <button onClick={() => { playClick(); setDifficulty('Normal'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">NRM</button>
+                  <button onClick={() => { playClick(); setDifficulty('Hard'); fetchNewWord(); }} className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 text-[9px]">HRD</button>
+                </div>
+
                 <button
-                  onClick={() => { playClick(); addTime(15); }}
-                  className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 font-bold"
+                  onClick={() => {
+                    playClick();
+                    const correctAnswer = cipherMethod.isEncryptionMode ? encryptedWord : currentWord;
+                    if (isColumnar || isRailFence || isVigenere || isSubstitution) {
+                      handleInteractiveComplete(correctAnswer);
+                    } else if (inputRef.current) {
+                      setUserInput(correctAnswer);
+                      inputRef.current.focus();
+                    }
+                  }}
+                  className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1.5 rounded transition-colors border border-red-900/30"
                 >
-                  +15s
+                  Autofill Answer
                 </button>
                 <button
-                  onClick={() => { playClick(); addTime(-15); }}
-                  className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 font-bold"
+                  onClick={() => { playClick(); fetchNewWord(); }}
+                  className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1.5 rounded transition-colors border border-red-900/30"
                 >
-                  -15s
+                  Skip Puzzle
                 </button>
+                <div className="py-2 border-t border-b border-red-900/50 text-center">
+                  <span className="text-red-500/50 text-[10px] block mb-1">RAW TARGET:</span>
+                  <span className="text-white font-bold tracking-widest">{cipherMethod.isEncryptionMode ? encryptedWord : currentWord}</span>
+                </div>
+                <div className="flex gap-2 w-full">
+                  <button
+                    onClick={() => { playClick(); addTime(15); }}
+                    className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 font-bold"
+                  >
+                    +15s
+                  </button>
+                  <button
+                    onClick={() => { playClick(); addTime(-15); }}
+                    className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1 rounded transition-colors flex-1 border border-red-900/30 font-bold"
+                  >
+                    -15s
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-
       </div>
-    </div>
+    </>
   );
 }
 

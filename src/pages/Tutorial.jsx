@@ -337,7 +337,7 @@ export default function Tutorial() {
 
         .tu-title {
           font-family: 'Playfair Display', serif;
-          font-size: clamp(28px, 4vw, 52px);
+          font-size: 52px;
           font-weight: 900;
           letter-spacing: 0.12em;
           color: var(--gold-light);
@@ -467,7 +467,7 @@ export default function Tutorial() {
 
         .tu-card-title {
           font-family: 'Playfair Display', serif;
-          font-size: clamp(14px, 1.6vw, 18px);
+          font-size: 18px;
           font-weight: 700;
           color: var(--cream);
           letter-spacing: 0.06em;
@@ -485,7 +485,7 @@ export default function Tutorial() {
         .tu-card-body {
           font-family: system-ui, -apple-system, sans-serif;
           font-weight: 300;
-          font-size: clamp(15px, 1.6vw, 18px);
+          font-size: 18px;
           color: #e8dcc0;
           line-height: 1.8;
           margin-bottom: 16px;

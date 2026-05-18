@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../store/useGameStore';
-import { ArrowLeft, Volume2, Music, Settings as SettingsIcon, Play } from 'lucide-react';
+import { ArrowLeft, Volume2, Music, Settings as SettingsIcon, Play, Maximize } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useSfx } from '../hooks/useSfx';
 
@@ -9,8 +9,34 @@ export default function Settings({ isOverlay, onClose }) {
   const { settings, updateSettings } = useGameStore();
   const { playClick } = useSfx();
   const [visible, setVisible] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
+  useEffect(() => {
+    setTimeout(() => setVisible(true), 80);
+
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    setIsFullscreen(!!document.fullscreenElement);
+
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const requestFullscreen = () => {
+    playClick();
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => console.warn(err));
+    }
+  };
+
+  const exitFullscreen = () => {
+    playClick();
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    }
+  };
 
   return (
     <>
@@ -133,7 +159,7 @@ export default function Settings({ isOverlay, onClose }) {
 
         .st-title {
           font-family: 'Playfair Display', serif;
-          font-size: clamp(34px, 5.5vw, 60px);
+          font-size: 60px;
           font-weight: 900;
           letter-spacing: 0.14em;
           color: var(--gold-light);
@@ -146,7 +172,7 @@ export default function Settings({ isOverlay, onClose }) {
           display: flex;
           align-items: center;
           gap: 10px;
-          width: clamp(240px, 38vw, 500px);
+          width: 500px;
           margin-top: 10px;
         }
         .st-rule-line { flex: 1; height: 1px; background: linear-gradient(to right, transparent, var(--gold-dim), transparent); }
@@ -357,6 +383,24 @@ export default function Settings({ isOverlay, onClose }) {
                   onChange={(e) => updateSettings({ volume: parseInt(e.target.value) })}
                   className="st-slider"
                 />
+              </div>
+            </div>
+
+            {/* Fullscreen */}
+            <div className="st-row">
+              <div className="st-label">
+                <Maximize size={18} className="st-icon" /> Fullscreen
+              </div>
+              <div className="st-controls">
+                <button
+                  className={`st-toggle ${isFullscreen ? 'active' : 'inactive'}`}
+                  onClick={requestFullscreen}
+                >ON</button>
+                <span className="st-sep">/</span>
+                <button
+                  className={`st-toggle ${!isFullscreen ? 'active' : 'inactive'}`}
+                  onClick={exitFullscreen}
+                >OFF</button>
               </div>
             </div>
           </div>

@@ -195,7 +195,7 @@ export default function Leaderboards() {
 
         .lb-title {
           font-family: 'Playfair Display', serif;
-          font-size: clamp(34px, 5.5vw, 64px);
+          font-size: 64px;
           font-weight: 900;
           letter-spacing: 0.14em;
           color: var(--gold-light);
@@ -213,7 +213,7 @@ export default function Leaderboards() {
           display: flex;
           align-items: center;
           gap: 10px;
-          width: clamp(240px, 38vw, 500px);
+          width: 500px;
           margin-top: 10px;
         }
         .lb-rule-line {
@@ -249,7 +249,7 @@ export default function Leaderboards() {
           border-bottom: 2px solid transparent;
           color: var(--gold-dim);
           font-family: 'Special Elite', monospace;
-          font-size: clamp(10px, 1.3vw, 13px);
+          font-size: 13px;
           letter-spacing: 0.2em;
           text-transform: uppercase;
           cursor: pointer;
@@ -338,7 +338,7 @@ export default function Leaderboards() {
         }
         .lb-name {
           font-family: 'IM Fell English', serif;
-          font-size: clamp(13px, 1.5vw, 16px);
+          font-size: 16px;
           color: var(--cream);
           letter-spacing: 0.04em;
         }
@@ -347,7 +347,7 @@ export default function Leaderboards() {
         /* Score cell */
         .lb-score {
           font-family: 'Special Elite', monospace;
-          font-size: clamp(13px, 1.4vw, 15px);
+          font-size: 15px;
           color: var(--gold);
           letter-spacing: 0.08em;
           text-align: right;

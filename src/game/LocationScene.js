@@ -132,12 +132,12 @@ export default class LocationScene extends Phaser.Scene {
         bg.setScale(scale);
 
         // UI Container
-        const uiContainer = this.add.container(0, 0).setDepth(100);
+        const uiContainer = this.add.container(0, 0).setDepth(20000).setScrollFactor(0);
         uiContainer.isUI = true;
 
-        const btnX = 120;
-        const btnY = 95;
-        const btnW = 200;
+        const btnX = 90;
+        const btnY = 40;
+        const btnW = 120;
         const btnH = 40;
 
         const btnShadow = this.add.rectangle(btnX + 4, btnY + 4, btnW, btnH, 0x000000, 0.6)
@@ -162,24 +162,26 @@ export default class LocationScene extends Phaser.Scene {
             })
             .on('pointerover', () => {
                 returnBtn.setFillStyle(0x2a1e0e, 1);
+                returnText.setColor('#ffd700');
                 this.tweens.add({ targets: [returnBtn, innerLine, returnText], scaleX: 1.05, scaleY: 1.05, duration: 150, ease: 'Sine.easeOut' });
             })
             .on('pointerout', () => {
                 returnBtn.setFillStyle(0x1a1208, 0.95);
+                returnText.setColor('#d97706');
                 this.tweens.add({ targets: [returnBtn, innerLine, returnText], scaleX: 1, scaleY: 1, duration: 150, ease: 'Sine.easeOut' });
             });
 
-        const innerLine = this.add.rectangle(btnX, btnY, btnW - 8, btnH - 8, 0x000000, 0)
-            .setStrokeStyle(1, 0x8b6b32, 0.3)
+        const innerLine = this.add.rectangle(btnX, btnY, btnW - 6, btnH - 6, 0x000000, 0)
+            .setStrokeStyle(1, 0x8b6b32, 0.4)
             .setOrigin(0.5);
         innerLine.isUI = true;
 
-        const returnText = this.add.text(btnX, btnY, '◄ Return to Map', {
-            fontSize: '18px',
+        const returnText = this.add.text(btnX, btnY, '◄ MAP', {
+            fontSize: '16px',
             fill: '#d97706',
             fontFamily: 'serif',
             fontStyle: 'bold',
-            letterSpacing: 1
+            letterSpacing: 2
         }).setOrigin(0.5);
 
         uiContainer.add([btnShadow, returnBtn, innerLine, returnText]);

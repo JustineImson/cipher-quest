@@ -54,8 +54,11 @@ export default function PhaserGame({ difficulty, startScene }) {
     const config = {
       type: Phaser.AUTO,
       parent: gameRef.current,
-      width: gameRef.current.clientWidth,
-      height: gameRef.current.clientHeight,
+      scale: {
+        mode: Phaser.Scale.NONE,
+        width: gameRef.current ? gameRef.current.clientWidth : 1920,
+        height: gameRef.current ? gameRef.current.clientHeight : 1080
+      },
       physics: {
         default: 'matter',
         matter: {
@@ -144,13 +147,13 @@ export default function PhaserGame({ difficulty, startScene }) {
                 playClick(); 
                 unlockAllEvidence();
               }}
-              className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1.5 rounded transition-colors border border-red-900/30"
+              className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1.5 min-h-[var(--touch-min)] rounded transition-colors border border-red-900/30"
             >
               Unlock All Evidence
             </button>
             <button
               onClick={() => { playClick(); window.dispatchEvent(new Event('forceDeductionScene')); }}
-              className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1.5 rounded transition-colors border border-red-900/30"
+              className="bg-red-900/20 hover:bg-red-900/50 text-red-200/80 py-1.5 min-h-[var(--touch-min)] rounded transition-colors border border-red-900/30"
             >
               Force Open Board
             </button>

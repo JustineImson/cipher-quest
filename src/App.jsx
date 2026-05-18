@@ -18,6 +18,7 @@ import { app } from './services/firebase';
 import { listenToIncomingGameInvites, resolveGameInvite } from './services/socialService';
 import { requestFullscreenAndLock } from './utils/orientation';
 import RotatePrompt from './components/RotatePrompt';
+import GameScaleWrapper from './components/GameScaleWrapper';
 
 function App() {
   const location = useLocation();
@@ -183,75 +184,77 @@ function App() {
   const toastEntries = Array.from(activeToasts.entries());
 
   return (
-    <div className="h-screen w-screen bg-mystery-dark text-gray-200 relative overflow-hidden">
+    <div className="h-screen w-screen bg-black text-gray-200 relative overflow-hidden">
       <RotatePrompt />
-      {/* Dark Victorian thematic background */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.85)_100%)] pointer-events-none z-0"></div>
-      
-      {/* Route Container */}
-      <div className="relative z-10 h-full w-full">
-        {/* EDGE-4: Stacked toasts rendered from Map */}
-        {toastEntries.map(([id, toast], index) => (
-          <NoirToast
-            key={id}
-            title={toast.title}
-            body={toast.body}
-            onClose={() => dismissToast(id)}
-            offsetIndex={index}
-            actions={toast.isGameInvite ? [
-              { label: '✓ Accept', onClick: () => handleAcceptInvite(toast.inviteId, toast.roomCode), variant: 'accept' },
-              { label: '✗ Decline', onClick: () => handleDeclineInvite(toast.inviteId), variant: 'decline' },
-            ] : []}
-          />
-        ))}
+      <GameScaleWrapper>
+        {/* Dark Victorian thematic background */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.85)_100%)] pointer-events-none z-0"></div>
+        
+        {/* Route Container */}
+        <div className="relative z-10 h-full w-full bg-mystery-dark">
+          {/* EDGE-4: Stacked toasts rendered from Map */}
+          {toastEntries.map(([id, toast], index) => (
+            <NoirToast
+              key={id}
+              title={toast.title}
+              body={toast.body}
+              onClose={() => dismissToast(id)}
+              offsetIndex={index}
+              actions={toast.isGameInvite ? [
+                { label: '✓ Accept', onClick: () => handleAcceptInvite(toast.inviteId, toast.roomCode), variant: 'accept' },
+                { label: '✗ Decline', onClick: () => handleDeclineInvite(toast.inviteId), variant: 'decline' },
+              ] : []}
+            />
+          ))}
 
-        {/* EDGE-3: Mid-game confirmation modal */}
-        {confirmModal && (
-          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-            <div className="bg-[#1a1208] border border-[#c9a84c]/50 p-8 max-w-md w-full mx-4 shadow-[0_0_40px_rgba(0,0,0,0.9)] font-['Special_Elite']">
-              <h3 className="text-[#e8c96a] text-lg tracking-widest uppercase mb-4 font-['Playfair_Display'] border-b border-[#7a6030]/50 pb-3">
-                ⚠ Active Case Warning
-              </h3>
-              <p className="text-[#e8dcc0] text-sm leading-relaxed mb-6 opacity-90">
-                {confirmModal.message}
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={confirmModal.onConfirm}
-                  className="flex-1 py-2.5 bg-[#0a1a0f]/80 border border-[#5a9e6f]/40 text-[#5a9e6f] text-xs tracking-widest uppercase hover:bg-[#5a9e6f] hover:text-[#0e0a04] transition-all"
-                >
-                  Accept Duel
-                </button>
-                <button
-                  onClick={confirmModal.onCancel}
-                  className="flex-1 py-2.5 bg-[#1a0f0f]/80 border border-[#8b1a1a]/40 text-[#8b1a1a] text-xs tracking-widest uppercase hover:bg-[#8b1a1a] hover:text-[#0e0a04] transition-all"
-                >
-                  Stay on Case
-                </button>
+          {/* EDGE-3: Mid-game confirmation modal */}
+          {confirmModal && (
+            <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+              <div className="bg-[#1a1208] border border-[#c9a84c]/50 p-8 max-w-md w-full mx-4 shadow-[0_0_40px_rgba(0,0,0,0.9)] font-['Special_Elite']">
+                <h3 className="text-[#e8c96a] text-lg tracking-widest uppercase mb-4 font-['Playfair_Display'] border-b border-[#7a6030]/50 pb-3">
+                  ⚠ Active Case Warning
+                </h3>
+                <p className="text-[#e8dcc0] text-sm leading-relaxed mb-6 opacity-90">
+                  {confirmModal.message}
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={confirmModal.onConfirm}
+                    className="flex-1 py-2.5 bg-[#0a1a0f]/80 border border-[#5a9e6f]/40 text-[#5a9e6f] text-xs tracking-widest uppercase hover:bg-[#5a9e6f] hover:text-[#0e0a04] transition-all"
+                  >
+                    Accept Duel
+                  </button>
+                  <button
+                    onClick={confirmModal.onCancel}
+                    className="flex-1 py-2.5 bg-[#1a0f0f]/80 border border-[#8b1a1a]/40 text-[#8b1a1a] text-xs tracking-widest uppercase hover:bg-[#8b1a1a] hover:text-[#0e0a04] transition-all"
+                  >
+                    Stay on Case
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <Routes>
-          <Route path="/" element={<MainMenu />} />
-          <Route path="/tutorial" element={<Tutorial />} />
-          <Route path="/story" element={<StoryMode />} />
-          <Route path="/timeAttack" element={<TimeAttackMode />} />
-          <Route path="/multiplayer" element={<MultiplayerMode />} />
-          <Route path="/leaderboards" element={<Leaderboards />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/difficulty" element={<Difficulty />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/:uid" element={<Profile />} />
-        </Routes>
-        
-        {isSettingsOpen && (
-          <div className="absolute inset-0 z-[9999]">
-            <Settings isOverlay onClose={() => useGameStore.setState({ isSettingsOpen: false, isStoryPaused: false })} />
-          </div>
-        )}
-      </div>
+          <Routes>
+            <Route path="/" element={<MainMenu />} />
+            <Route path="/tutorial" element={<Tutorial />} />
+            <Route path="/story" element={<StoryMode />} />
+            <Route path="/timeAttack" element={<TimeAttackMode />} />
+            <Route path="/multiplayer" element={<MultiplayerMode />} />
+            <Route path="/leaderboards" element={<Leaderboards />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/difficulty" element={<Difficulty />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/:uid" element={<Profile />} />
+          </Routes>
+          
+          {isSettingsOpen && (
+            <div className="absolute inset-0 z-[9999]">
+              <Settings isOverlay onClose={() => useGameStore.setState({ isSettingsOpen: false, isStoryPaused: false })} />
+            </div>
+          )}
+        </div>
+      </GameScaleWrapper>
     </div>
   );
 }

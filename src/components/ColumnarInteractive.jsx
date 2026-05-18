@@ -232,10 +232,9 @@ export default function ColumnarInteractive({
             bg-black/50 border rounded-md backdrop-blur-md px-4 py-3
             font-mono text-xl sm:text-2xl tracking-[0.25em] uppercase text-center break-all
             transition-all duration-300
-            ${
-              finalAnswer.length > 0
-                ? "border-mystery-gold text-white shadow-[0_0_20px_rgba(203,161,83,0.15)]"
-                : "border-mystery-gold/30 text-mystery-gold/30"
+            ${finalAnswer.length > 0
+              ? "border-mystery-gold text-white shadow-[0_0_20px_rgba(203,161,83,0.15)]"
+              : "border-mystery-gold/30 text-mystery-gold/30"
             }
           `}
         >
@@ -270,12 +269,11 @@ export default function ColumnarInteractive({
                   border-x border-t
                   transition-all duration-200 cursor-pointer
 
-                  ${
-                    isClicked
-                      ? "bg-mystery-gold/20 border-mystery-gold/40 text-mystery-gold/50"
-                      : isSelected
-                        ? "bg-mystery-gold border-mystery-gold text-mystery-dark shadow-[0_0_16px_rgba(203,161,83,0.5)]"
-                        : "bg-mystery-dark/80 border-mystery-gold/50 text-mystery-gold hover:bg-mystery-gold/10 hover:border-mystery-gold"
+                  ${isClicked
+                    ? "bg-mystery-gold/20 border-mystery-gold/40 text-mystery-gold/50"
+                    : isSelected
+                      ? "bg-mystery-gold border-mystery-gold text-mystery-dark shadow-[0_0_16px_rgba(203,161,83,0.5)]"
+                      : "bg-mystery-dark/80 border-mystery-gold/50 text-mystery-gold hover:bg-mystery-gold/10 hover:border-mystery-gold"
                   }
                 `}
               >
@@ -303,18 +301,17 @@ export default function ColumnarInteractive({
                     font-mono text-lg sm:text-xl uppercase
                     border transition-all duration-150 cursor-pointer
 
-                    ${
-                      isOutOfBounds
-                        ? "bg-gray-900/30 border-gray-800/40 text-gray-700"
-                        : isDecryptActive
-                          ? cell
-                            ? "bg-mystery-gold/25 border-mystery-gold text-white shadow-[inset_0_0_12px_rgba(203,161,83,0.15)]"
-                            : "bg-mystery-gold/10 border-mystery-gold/80 text-mystery-gold/60 shadow-[inset_0_0_8px_rgba(203,161,83,0.08)] animate-pulse"
-                          : isInSelectedCol
-                            ? "bg-mystery-gold/10 border-mystery-gold/70 text-white shadow-[inset_0_0_8px_rgba(203,161,83,0.1)]"
-                            : cell
-                              ? "bg-mystery-dark/60 border-mystery-gold/40 text-gray-200"
-                              : "bg-mystery-dark/40 border-mystery-gold/20 text-gray-500"
+                    ${isOutOfBounds
+                      ? "bg-gray-900/30 border-gray-800/40 text-gray-700"
+                      : isDecryptActive
+                        ? cell
+                          ? "bg-mystery-gold/25 border-mystery-gold text-white shadow-[inset_0_0_12px_rgba(203,161,83,0.15)]"
+                          : "bg-mystery-gold/10 border-mystery-gold/80 text-mystery-gold/60 shadow-[inset_0_0_8px_rgba(203,161,83,0.08)] animate-pulse"
+                        : isInSelectedCol
+                          ? "bg-mystery-gold/10 border-mystery-gold/70 text-white shadow-[inset_0_0_8px_rgba(203,161,83,0.1)]"
+                          : cell
+                            ? "bg-mystery-dark/60 border-mystery-gold/40 text-gray-200"
+                            : "bg-mystery-dark/40 border-mystery-gold/20 text-gray-500"
                     }
                   `}
                 >
@@ -342,7 +339,7 @@ export default function ColumnarInteractive({
             remaining
           </span>
 
-        /* ── Decrypt status ── */
+          /* ── Decrypt status ── */
         ) : mode === "decrypt" && selectedCol === null ? (
           <span className="text-mystery-gold/40">
             Click a column header to begin filling
@@ -364,7 +361,7 @@ export default function ColumnarInteractive({
             complete — select another
           </span>
 
-        /* ── Fallback ── */
+          /* ── Fallback ── */
         ) : selectedCol !== null ? (
           <span className="text-mystery-gold">
             Column{" "}

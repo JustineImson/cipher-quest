@@ -43,7 +43,8 @@ class GameManager {
     // Helper to collect evidence and add to the list
     collectEvidence(evidenceKey, evidenceData) {
         const clues = this.evidence;
-        if (clues.hasOwnProperty(evidenceKey) && !clues[evidenceKey]) {
+        // Safely check if the evidence hasn't been collected yet, without relying on hasOwnProperty
+        if (!clues[evidenceKey]) {
             // Try to resolve a full suspectEvidence entry from the provided evidenceData
             let fullEntry = null;
             if (evidenceData && evidenceData.name) {

@@ -214,6 +214,25 @@ export function createHUD(scene) {
     });
     scene.events.once('shutdown', () => unsubscribe());
     
+    // Handle Window Resize to keep HUD anchored correctly
+    scene.scale.on('resize', (gameSize) => {
+        const newWidth = gameSize.width;
+        
+        // Reposition Notebook Tab (centered)
+        const newTabX = (newWidth / 2) - (tabW / 2);
+        const tabDx = newTabX - tabBg.x;
+        [shadow, tabBg, innerTab, iconText, labelText, counterBg, countText].forEach(el => {
+            if (el && el.x !== undefined) el.setX(el.x + tabDx);
+        });
+
+        // Reposition Pause Button (top right)
+        const newPauseX = newWidth - 40;
+        const pauseDx = newPauseX - pauseBtn.x;
+        [pShadow, pauseBtn, pInner, bar1, bar2].forEach(el => {
+            if (el && el.x !== undefined) el.setX(el.x + pauseDx);
+        });
+    });
+    
     return {
         evidenceTrackerText: countText
     };

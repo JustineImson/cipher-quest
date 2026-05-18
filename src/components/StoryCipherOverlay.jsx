@@ -61,10 +61,10 @@ export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
   if (!cipherData) return null;
 
   return (
-    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md transition-opacity duration-300 pt-8 pr-12 pb-8 pl-4">
+    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md transition-opacity duration-300 p-8">
       
       {/* Tablet UI Wrapper */}
-      <div className="relative w-full h-full max-w-[1200px] max-h-[800px] bg-[#050505] rounded-[2.5rem] p-[35px] border-2 border-gray-600 ring-[8px] ring-black shadow-[20px_20px_60px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(0,0,0,1)] flex items-center justify-center">
+      <div className="relative w-full h-full max-w-6xl max-h-full bg-[#050505] rounded-3xl sm:rounded-[2.5rem] p-6 border-2 border-gray-600 ring-8 ring-black shadow-[20px_20px_60px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(0,0,0,1)] flex items-center justify-center">
         
         {/* Tablet Details: Camera Hole & Sensors (in the right bezel) */}
         <div className="absolute right-[12px] top-1/2 transform -translate-y-1/2 flex flex-col items-center gap-2 z-50">
@@ -77,8 +77,8 @@ export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
           
           {/* Top Left Back Button */}
           <div className="absolute top-6 left-6 z-50 shrink-0">
-            <Button onClick={onClose} variant="ghost" className="text-gray-400 hover:text-white px-4 py-2 border border-gray-700/50 bg-black/30 rounded-md backdrop-blur-sm" disabled={isClosing}>
-              <span className="flex items-center gap-2 text-sm uppercase tracking-widest font-mono">
+            <Button onClick={onClose} variant="ghost" className="text-gray-400 hover:text-white p-3 border border-gray-700/50 bg-black/30 rounded-md backdrop-blur-sm min-h-[var(--touch-min)]" disabled={isClosing}>
+              <span className="flex items-center gap-2 text-base uppercase tracking-widest font-mono">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
@@ -88,20 +88,20 @@ export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
           </div>
 
           {/* Top Header */}
-          <div className="mb-4 mt-8 flex flex-col items-center text-center shrink-0 w-full">
-            <h1 className="text-xl md:text-2xl text-mystery-gold font-serif tracking-[0.2em] uppercase mb-2 drop-shadow-[0_0_8px_rgba(212,175,55,0.5)]">
+          <div className="mb-6 mt-8 flex flex-col items-center text-center shrink-0 w-full">
+            <h1 className="text-2xl text-mystery-gold font-serif tracking-[0.2em] uppercase mb-4 drop-shadow-[0_0_8px_rgba(212,175,55,0.5)]">
               DECRYPT THE MESSAGE
             </h1>
             
             {(cipherData.type === 'columnar' || cipherData.type === 'railfence') && (
-              <div className="bg-black/60 border border-mystery-gold/30 px-6 py-2 rounded-md mb-2 shadow-inner w-full max-w-2xl">
-                 <span className="text-[10px] text-mystery-gold/60 uppercase tracking-widest block mb-1">Encrypted Data</span>
-                 <span className="font-mono text-base md:text-lg tracking-[0.2em] text-white break-all">{cipherData.ciphertext}</span>
+              <div className="bg-black/60 border border-mystery-gold/30 p-4 rounded-md mb-6 shadow-inner w-full max-w-2xl">
+                 <span className="text-sm text-mystery-gold/60 uppercase tracking-widest block mb-2">Encrypted Data</span>
+                 <span className="font-mono text-lg tracking-[0.2em] text-white break-all">{cipherData.ciphertext}</span>
               </div>
             )}
 
-            {loreText && <p className="text-gray-300 italic font-serif text-sm md:text-base mb-1 max-w-2xl">{loreText}</p>}
-            {hintText && <p className="text-blue-400/80 font-mono text-xs tracking-widest bg-blue-900/20 px-3 py-1 rounded border border-blue-900/50 mt-1">{hintText}</p>}
+            {loreText && <p className="text-gray-300 italic font-serif text-base mb-4 max-w-2xl">{loreText}</p>}
+            {hintText && <p className="text-blue-400/80 font-mono text-sm tracking-widest bg-blue-900/20 p-4 rounded border border-blue-900/50 mt-4">{hintText}</p>}
           </div>
 
           {/* Main Interactive Area */}
@@ -144,7 +144,7 @@ export default function StoryCipherOverlay({ cipherData, onClose, onSolve }) {
             )}
 
             {/* Feedback Overlay */}
-            <div className={`mt-8 text-xl md:text-2xl font-serif tracking-[0.4em] transition-opacity duration-300 ${
+            <div className={`mt-8 text-2xl font-serif tracking-[0.4em] transition-opacity duration-300 ${
               feedback === 'correct' ? 'text-green-400 opacity-100 drop-shadow-[0_0_8px_rgba(74,222,128,0.8)]' : 
               feedback === 'wrong' ? 'text-red-500 opacity-100 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse' : 
               'opacity-0'

@@ -6,25 +6,29 @@ export default class IntroScene extends Phaser.Scene {
     super({ key: 'IntroScene' });
   }
   preload() {
-    this.load.image('introBg', '/location/introSceneBg.png');
+    this.load.video('introBg', '/location/introSceneVid.mp4');
   }
 
   create() {
     // Silence — no BGM during the intro
     bgmController.stop();
 
-    // Background Image
-    const bg = this.add.image(this.cameras.main.centerX, this.cameras.main.centerY, 'introBg');
-    const scaleX = this.cameras.main.width / bg.width;
-    const scaleY = this.cameras.main.height / bg.height;
-    bg.setScale(Math.max(scaleX, scaleY));
+    const { width, height } = this.scale;
+
+    // Background Video
+    this.bg = this.add.video(width / 2, height, 'introBg').setOrigin(0.5, 1);
+    this.bg.setMute(true);
+    this.bg.play(true); // loop the video
+    const scaleX = width / this.bg.width;
+    const scaleY = height / this.bg.height;
+    this.bg.setScale(Math.max(scaleX, scaleY));
 
     // Scrim for readability
-    this.add.rectangle(
-      this.cameras.main.centerX,
-      this.cameras.main.centerY,
-      this.cameras.main.width,
-      this.cameras.main.height,
+    this.scrim = this.add.rectangle(
+      width / 2,
+      height / 2,
+      width,
+      height,
       0x000000,
       0.5
     );
@@ -41,13 +45,19 @@ export default class IntroScene extends Phaser.Scene {
     this.currentCharIndex = 0;
 
     // Text object for typewriter effect
-    this.textObject = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, '', {
+    this.textObject = this.add.text(width / 2, height / 2, '', {
       fontFamily: '"Courier New", Courier, monospace',
       fontSize: '24px',
       color: '#ffffff',
       align: 'center',
-      wordWrap: { width: this.cameras.main.width * 0.8 }
+      wordWrap: { width: width * 0.8 }
     }).setOrigin(0.5);
+
+    // Handle dynamic window resizing (which often happens immediately after create)
+    this.scale.on('resize', this.handleResize, this);
+    this.events.on('shutdown', () => {
+      this.scale.off('resize', this.handleResize, this);
+    });
 
     // Fade in camera
     this.cameras.main.fadeIn(1000, 0, 0, 0);
@@ -61,6 +71,27 @@ export default class IntroScene extends Phaser.Scene {
 
     // Start typing after a short delay
     this.time.delayedCall(1000, this.typeNextLine, [], this);
+  }
+
+  handleResize(gameSize) {
+    const { width, height } = gameSize;
+
+    if (this.bg) {
+      this.bg.setPosition(width / 2, height);
+      const scaleX = width / this.bg.width;
+      const scaleY = height / this.bg.height;
+      this.bg.setScale(Math.max(scaleX, scaleY));
+    }
+
+    if (this.scrim) {
+      this.scrim.setPosition(width / 2, height / 2);
+      this.scrim.setSize(width, height);
+    }
+
+    if (this.textObject) {
+      this.textObject.setPosition(width / 2, height / 2);
+      this.textObject.setStyle({ wordWrap: { width: width * 0.8 } });
+    }
   }
 
   typeNextLine() {

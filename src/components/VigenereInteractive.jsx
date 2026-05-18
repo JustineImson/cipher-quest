@@ -118,7 +118,7 @@ export default function VigenereInteractive({
     <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4 lg:gap-8 w-full max-w-6xl mx-auto select-none">
       
       {/* ── Left Side: Visual Alphabet Chart (Desktop) ── */}
-      <div className="hidden lg:grid grid-cols-2 gap-1 shrink-0 bg-black/30 p-3 rounded-lg border border-mystery-gold/20 shadow-lg h-fit max-h-[60vh] overflow-y-auto custom-scrollbar">
+      <div className="hidden lg:grid grid-cols-2 gap-1 shrink-0 bg-black/30 p-3 rounded-lg border border-mystery-gold/20 shadow-lg h-fit max-h-[648px] overflow-y-auto custom-scrollbar">
         <div className="col-span-2 text-center text-xs text-mystery-gold/60 mb-2 font-serif uppercase tracking-widest border-b border-mystery-gold/20 pb-1">Alphabet</div>
         {Array.from({ length: 26 }).map((_, i) => (
           <div key={i} className="flex items-center justify-between border border-mystery-gold/30 bg-black/60 rounded px-2 py-1 min-w-[3.5rem] shadow-[0_0_5px_rgba(0,0,0,0.5)]">

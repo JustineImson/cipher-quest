@@ -7,6 +7,8 @@ export default class UIScene extends Phaser.Scene {
     }
 
     create() {
+        this.isMobileOrTablet = window.innerWidth < 1024;
+
         // --- VIRTUAL JOYSTICK ---
         this.joystick = new VirtualJoystick(this, {
             x: 200,
@@ -19,6 +21,8 @@ export default class UIScene extends Phaser.Scene {
         // Ensure joystick base and thumb are drawn on top
         this.joystick.base.setDepth(100);
         this.joystick.thumb.setDepth(101);
+        
+        this.updateJoystickVisibility();
 
         // --- ACTION BUTTON ---
         const btnX = this.cameras.main.width - 200;
@@ -57,11 +61,39 @@ export default class UIScene extends Phaser.Scene {
         this.actionButtonContainer.on('pointerout', () => {
             btnGraphics.setFillStyle(0xff0000, 0.6);
         });
+
+        // Handle window resizing
+        this.scale.on('resize', (gameSize) => {
+            this.isMobileOrTablet = window.innerWidth < 1024;
+            this.updateJoystickVisibility();
+
+            if (!this.isMobileOrTablet && this.actionButtonContainer) {
+                this.actionButtonContainer.setVisible(false);
+            }
+
+            // Reposition controls dynamically
+            if (this.actionButtonContainer) {
+                this.actionButtonContainer.setPosition(gameSize.width - 200, gameSize.height - 200);
+            }
+            if (this.joystick) {
+                this.joystick.x = 200;
+                this.joystick.y = gameSize.height - 200;
+            }
+        });
+    }
+
+    updateJoystickVisibility() {
+        if (this.joystick) {
+            const visible = this.isMobileOrTablet;
+            this.joystick.base.setVisible(visible);
+            this.joystick.thumb.setVisible(visible);
+            this.joystick.enable = visible;
+        }
     }
 
     // Expose methods to show/hide the action button
     showActionButton() {
-        if (this.actionButtonContainer) {
+        if (this.actionButtonContainer && this.isMobileOrTablet) {
             this.actionButtonContainer.setVisible(true);
         }
     }
@@ -74,7 +106,7 @@ export default class UIScene extends Phaser.Scene {
 
     // Helper to get joystick state
     getJoystickState() {
-        if (!this.joystick) return { up: false, down: false, left: false, right: false };
+        if (!this.joystick || !this.joystick.enable) return { up: false, down: false, left: false, right: false };
         return {
             up: this.joystick.up,
             down: this.joystick.down,
