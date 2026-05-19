@@ -16,21 +16,10 @@ export async function lockLandscape() {
 
 export function requestFullscreenAndLock() {
   const el = document.documentElement;
-  // Use the first available fullscreen method (vendor-prefixed fallbacks)
-  const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-  if (rfs) {
-    // Wrap in try/catch because some browsers throw synchronously
-    // when not triggered by a user gesture
-    try {
-      const result = rfs.call(el);
-      // rfs.call may return a Promise (standard) or undefined (webkit)
-      if (result && result.then) {
-        result.then(lockLandscape).catch(() => {});
-      } else {
-        lockLandscape();
-      }
-    } catch {
-      // Not triggered by user gesture or unsupported
-    }
+  if (el.requestFullscreen) {
+    el.requestFullscreen().then(lockLandscape).catch(() => { });
+  } else if (el.webkitRequestFullscreen) {
+    el.webkitRequestFullscreen();
+    lockLandscape();
   }
 }

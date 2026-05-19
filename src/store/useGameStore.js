@@ -72,10 +72,10 @@ export const useGameStore = create(
               username: user.displayName || 'Agent',
               friendCode: user.uid.substring(0, 6).toUpperCase()
             };
-            
+
             // We use the existing state if available to prevent flashing
-            set((state) => ({ 
-              currentUser: state.currentUser?.uid === user.uid ? state.currentUser : fallbackUserData 
+            set((state) => ({
+              currentUser: state.currentUser?.uid === user.uid ? state.currentUser : fallbackUserData
             }));
 
             // Load cloud save and real user data
@@ -126,7 +126,7 @@ export const useGameStore = create(
                 updateDoc(doc(db, 'users', auth.currentUser.uid), {
                   lastActiveAt: Date.now(),
                   isOnline: true // backward compat
-                }).catch(() => {});
+                }).catch(() => { });
               }
             };
 
@@ -155,7 +155,7 @@ export const useGameStore = create(
             // User logged out or account was deleted — clear ALL local state
             const state = useGameStore.getState();
             if (state.currentUser?.uid) {
-                updateDoc(doc(db, 'users', state.currentUser.uid), { isOnline: false }).catch(() => {});
+              updateDoc(doc(db, 'users', state.currentUser.uid), { isOnline: false }).catch(() => { });
             }
 
             if (window._presenceInterval) {
@@ -217,7 +217,7 @@ export const useGameStore = create(
         const difficultyMultiplier = multipliers[currentDifficulty] ?? 1.0;
 
         const rawScore = speedBonus * difficultyMultiplier;
-        
+
         // Divide by the current difficulty's own multiplier so a perfect
         // Easy answer normalizes to 1.0 and promotion thresholds are reachable.
         const normalizedScore = Math.min(rawScore / difficultyMultiplier, 1.0);
@@ -226,26 +226,26 @@ export const useGameStore = create(
         const rollingAvg = updatedWindow.reduce((a, b) => a + b, 0) / updatedWindow.length;
 
         if (state.difficultyCooldown > 0) {
-          return { 
-            rollingAttempts: updatedWindow, 
-            difficultyCooldown: state.difficultyCooldown - 1 
+          return {
+            rollingAttempts: updatedWindow,
+            difficultyCooldown: state.difficultyCooldown - 1
           };
         }
 
         let newDifficulty = currentDifficulty;
 
-        if (currentDifficulty === 'Easy'   && rollingAvg >= 0.70) newDifficulty = 'Normal';
+        if (currentDifficulty === 'Easy' && rollingAvg >= 0.70) newDifficulty = 'Normal';
         if (currentDifficulty === 'Normal' && rollingAvg >= 0.75) newDifficulty = 'Hard';
-        if (currentDifficulty === 'Hard'   && rollingAvg <= 0.45) newDifficulty = 'Normal'; // raised from 0.40
+        if (currentDifficulty === 'Hard' && rollingAvg <= 0.45) newDifficulty = 'Normal'; // raised from 0.40
         if (currentDifficulty === 'Normal' && rollingAvg <= 0.35) newDifficulty = 'Easy';
 
         const didChange = newDifficulty !== currentDifficulty;
 
         const resolveSplashMessage = (from, to) => {
-          if (from === 'Easy'   && to === 'Normal') return 'Promoted — excellent performance';
-          if (from === 'Normal' && to === 'Hard')   return 'Promoted — outstanding accuracy';
-          if (from === 'Normal' && to === 'Easy')   return 'Adjusted — take your time';
-          if (from === 'Hard'   && to === 'Normal') return 'Adjusted — keep practicing';
+          if (from === 'Easy' && to === 'Normal') return 'Promoted — excellent performance';
+          if (from === 'Normal' && to === 'Hard') return 'Promoted — outstanding accuracy';
+          if (from === 'Normal' && to === 'Easy') return 'Adjusted — take your time';
+          if (from === 'Hard' && to === 'Normal') return 'Adjusted — keep practicing';
           return '';
         };
 
@@ -258,9 +258,9 @@ export const useGameStore = create(
         };
       }),
       resetProgression: (startDifficulty = 'Easy') => {
-        set({ 
-          currentDifficulty: startDifficulty, 
-          rollingAttempts: [], 
+        set({
+          currentDifficulty: startDifficulty,
+          rollingAttempts: [],
           difficultyCooldown: 0,
           showDifficultySplash: false,
           difficultyChangeReason: null
@@ -280,7 +280,7 @@ export const useGameStore = create(
       unlockAllEvidence: () => {
         set((state) => {
           if (!state.savedStoryProgress) return state;
-          return { 
+          return {
             collectedEvidence: suspectEvidence,
             savedStoryProgress: {
               ...state.savedStoryProgress,

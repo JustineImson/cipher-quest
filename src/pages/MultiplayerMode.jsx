@@ -97,14 +97,22 @@ export default function MultiplayerMode() {
       if (!auth.currentUser) {
         const { loginAnonymously } = await import('../services/authService');
         try {
+          console.log('[Guest Auth] Logging in anonymously...');
           await loginAnonymously();
+          console.log('[Guest Auth] Anonymous login successful');
         } catch (err) {
-          console.warn('Failed to login as guest:', err);
+          console.warn('[Guest Auth] Failed to login as guest:', err);
           // Anonymous auth may be disabled in Firebase Console —
           // user will need to register/login via Agent Profile.
         }
+      } else {
+        console.log('[Guest Auth] User already exists:', auth.currentUser.uid.substring(0, 8) + '...');
       }
-      setAuthReady(true);
+      // Small delay to let auth state propagate to store and socket
+      setTimeout(() => {
+        console.log('[Guest Auth] Auth ready');
+        setAuthReady(true);
+      }, 100);
     };
     initGuest();
   }, []);
@@ -447,28 +455,29 @@ export default function MultiplayerMode() {
         </h1>
       </div>
 
-      {/* Auth gate: show login prompt when not authenticated */}
+      {/* Auth status display - guests can still play but with limited features */}
       {!authReady ? (
         <div className="flex flex-col items-center py-16 animate-pulse">
           <span className="text-[var(--gold-dim)] font-mono text-sm tracking-widest uppercase">Establishing Secure Connection...</span>
         </div>
       ) : !isAuthenticated ? (
-        <div className="flex flex-col items-center w-full max-w-md mx-auto py-10">
-          <div className="bg-[rgba(18,12,4,0.85)] border border-[var(--red)] p-8 text-center shadow-[0_0_30px_rgba(139,26,26,0.3)] w-full">
-            <ShieldAlert size={36} className="text-[var(--red)] mx-auto mb-4" />
-            <h2 className="font-serif text-xl text-[var(--cream)] uppercase tracking-[0.1em] mb-3">Authorization Required</h2>
-            <p className="font-mono text-xs text-[#a09070] mb-6 leading-relaxed">
-              Multiplayer requires a verified identity. Register or login via Agent Profile to establish a secure connection.
+        <div className="flex flex-col items-center w-full max-w-md mx-auto py-4 mb-4">
+          <div className="bg-[rgba(18,12,4,0.6)] border border-[var(--gold-dim)]/50 p-4 text-center w-full">
+            <p className="font-mono text-xs text-[#a09070] leading-relaxed">
+              Playing as <span className="text-[var(--gold-light)]">Guest</span>.
+              <button
+                onClick={() => { playClick(); navigate('/'); }}
+                className="underline hover:text-[var(--gold)] ml-1"
+              >
+                Sign in
+              </button> to access friends and social features.
             </p>
-            <button
-              onClick={() => { playClick(); navigate('/'); }}
-              className="w-full py-3 bg-[rgba(201,168,76,0.15)] border border-[var(--gold)] text-[var(--gold-light)] font-mono text-xs tracking-[0.2em] uppercase hover:bg-[var(--gold-light)] hover:text-[#0e0a04] transition-colors"
-            >
-              Return to Menu & Verify Identity
-            </button>
           </div>
         </div>
-      ) : (
+      ) : null}
+
+      {/* Game controls - available to both guests and authenticated users */}
+      {authReady && (
         <div className="flex flex-col md:flex-row gap-6 w-full">
           {/* Host Node */}
           <div className="flex-1 bg-[rgba(18,12,4,0.75)] border border-[rgba(201,168,76,0.2)] border-l-[3px] border-l-[var(--red)] p-8 flex flex-col items-center text-center shadow-2xl relative overflow-hidden group hover:bg-[rgba(22,15,5,0.9)] hover:border-[rgba(201,168,76,0.4)] transition-all">
@@ -509,9 +518,17 @@ export default function MultiplayerMode() {
         </div>
       )}
 
-      <Button onClick={() => { playClick(); navigate('/'); }} className="mt-12 !text-[11px] !py-2 !px-4">
-        <ArrowLeft size={14} /> Disconnect & Return
-      </Button>
+      {authReady && !isAuthenticated && (
+        <Button onClick={() => { playClick(); navigate('/'); }} className="mt-8 !text-[11px] !py-2 !px-4">
+          <ArrowLeft size={14} /> Return to Menu
+        </Button>
+      )}
+
+      {authReady && isAuthenticated && (
+        <Button onClick={() => { playClick(); navigate('/'); }} className="mt-12 !text-[11px] !py-2 !px-4">
+          <ArrowLeft size={14} /> Disconnect & Return
+        </Button>
+      )}
     </div>
   );
 

@@ -187,7 +187,7 @@ function App() {
       <GameScaleWrapper>
         {/* Dark Victorian thematic background */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.85)_100%)] pointer-events-none z-0"></div>
-        
+
         {/* Route Container */}
         <div className="relative z-10 h-full w-full bg-mystery-dark">
           {/* EDGE-4: Stacked toasts rendered from Map */}
@@ -246,7 +246,7 @@ function App() {
             <Route path="/profile/:uid" element={<Profile />} />
             <Route path="/auth/action" element={<AuthAction />} />
           </Routes>
-          
+
           {isSettingsOpen && (
             <div className="absolute inset-0 z-[9999]">
               <Settings isOverlay onClose={() => useGameStore.setState({ isSettingsOpen: false, isStoryPaused: false })} />

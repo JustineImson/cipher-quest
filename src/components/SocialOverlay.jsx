@@ -46,6 +46,9 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
     };
   }, [currentUser]);
 
+  // Check if user is a guest (anonymous auth)
+  const isGuest = !currentUser || currentUser.email === 'Guest Account';
+
   if (!currentUser) {
     return (
       <div className="flex flex-col items-center justify-center w-full md:w-80 h-full bg-[#1a1208]/95 border-l border-[#c9a84c]/30 shadow-[-10px_0_30px_rgba(0,0,0,0.8)] p-6 font-['Special_Elite'] text-[#e8dcc0]">
@@ -55,6 +58,27 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
           <br /><br />
           Return to main menu<br />to verify identity.
         </p>
+      </div>
+    );
+  }
+
+  // Guest users see simplified info - no social features
+  if (isGuest) {
+    return (
+      <div className="flex flex-col w-full md:w-80 h-full bg-[#1a1208]/95 border-l border-[#c9a84c]/30 shadow-[-10px_0_30px_rgba(0,0,0,0.8)] p-6 font-['Special_Elite'] text-[#e8dcc0] overflow-y-auto">
+        <div className="flex flex-col items-center mb-8 border-b border-[#7a6030]/50 pb-6">
+          <Users size={32} className="text-[#c9a84c] mb-2" />
+          <h2 className="font-['Playfair_Display'] text-2xl tracking-widest text-[#e8c96a] uppercase text-center">Social Intel</h2>
+        </div>
+
+        <div className="flex flex-col items-center justify-center flex-1">
+          <AlertCircle size={48} className="text-[#7a6030] mb-4 opacity-30" />
+          <p className="text-center text-[#7a6030] text-xs tracking-[0.2em] uppercase leading-loose">
+            Social features<br />require a verified account.
+            <br /><br />
+            You can still create<br />rooms and join via code!
+          </p>
+        </div>
       </div>
     );
   }
