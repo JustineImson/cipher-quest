@@ -120,33 +120,32 @@ export const useGameStore = create(
               }
             });
 
-            // Record login timestamp for engagement notifications (Phase 3A)
-            updateDoc(doc(db, 'users', user.uid), {
-              lastLoginAt: Date.now(),
-              isOnline: true
-            }).catch((err) => console.warn('Failed to update lastLoginAt:', err));
-
-            // Presence tracking: visibility and unload
-            const handleVisibility = () => {
-              if (document.visibilityState === 'hidden') {
-                updateDoc(doc(db, 'users', user.uid), { isOnline: false }).catch(()=>console.warn('Visibility offline update failed'));
-              } else {
-                updateDoc(doc(db, 'users', user.uid), { isOnline: true }).catch(()=>console.warn('Visibility online update failed'));
+            // Presence tracking: Robust Heartbeat System
+            const updatePresence = () => {
+              if (auth.currentUser) {
+                updateDoc(doc(db, 'users', auth.currentUser.uid), {
+                  lastActiveAt: Date.now(),
+                  isOnline: true // backward compat
+                }).catch(() => {});
               }
             };
-            const handleUnload = () => {
-              updateDoc(doc(db, 'users', user.uid), { isOnline: false }).catch(()=>console.warn('Unload offline update failed'));
-            };
 
-            // Clean up existing listeners if any
-            if (window._authVisListener) document.removeEventListener('visibilitychange', window._authVisListener);
-            if (window._authUnloadListener) window.removeEventListener('beforeunload', window._authUnloadListener);
+            // Immediate update on login
+            updatePresence();
 
-            document.addEventListener('visibilitychange', handleVisibility);
-            window.addEventListener('beforeunload', handleUnload);
-            
-            window._authVisListener = handleVisibility;
-            window._authUnloadListener = handleUnload;
+            // Run heartbeat every 10 seconds
+            if (window._presenceInterval) clearInterval(window._presenceInterval);
+            window._presenceInterval = setInterval(updatePresence, 10000);
+
+            // Clean up old legacy listeners if any
+            if (window._authVisListener) {
+              document.removeEventListener('visibilitychange', window._authVisListener);
+              window._authVisListener = null;
+            }
+            if (window._authUnloadListener) {
+              window.removeEventListener('beforeunload', window._authUnloadListener);
+              window._authUnloadListener = null;
+            }
 
             // Request notification permission & register FCM token
             requestNotificationPermission().catch((err) =>
@@ -159,6 +158,10 @@ export const useGameStore = create(
                 updateDoc(doc(db, 'users', state.currentUser.uid), { isOnline: false }).catch(() => {});
             }
 
+            if (window._presenceInterval) {
+              clearInterval(window._presenceInterval);
+              window._presenceInterval = null;
+            }
             if (window._authVisListener) {
               document.removeEventListener('visibilitychange', window._authVisListener);
               window._authVisListener = null;

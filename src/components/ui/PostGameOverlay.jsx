@@ -7,6 +7,7 @@ export default function PostGameOverlay() {
   const showPostGameMenu = useGameStore((s) => s.showPostGameMenu);
   const setShowPostGameMenu = useGameStore((s) => s.setShowPostGameMenu);
   const resetProgress = useGameStore((s) => s.resetProgress);
+  const startNewStory = useGameStore((s) => s.startNewStory);
   const navigate = useNavigate();
   const { playClick } = useSfx();
 
@@ -14,8 +15,12 @@ export default function PostGameOverlay() {
 
   const handleRestart = () => {
     playClick();
+    // Capture difficulty before resetting so we can re-initialise the story
+    const prevDifficulty = useGameStore.getState().savedStoryProgress?.difficulty || 'Normal';
     setShowPostGameMenu(false);
     resetProgress();
+    // Re-initialise a fresh savedStoryProgress so evidence collection works
+    startNewStory(prevDifficulty);
     // Dispatch event that PhaserGame listens for to restart the scene
     window.dispatchEvent(new CustomEvent('restartToIntro'));
   };

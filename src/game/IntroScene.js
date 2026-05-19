@@ -19,9 +19,26 @@ export default class IntroScene extends Phaser.Scene {
     this.bg = this.add.video(width / 2, height, 'introBg').setOrigin(0.5, 1);
     this.bg.setMute(true);
     this.bg.play(true); // loop the video
-    const scaleX = width / this.bg.width;
-    const scaleY = height / this.bg.height;
-    this.bg.setScale(Math.max(scaleX, scaleY));
+
+    // Helper to compute cover-fit scale from the native video dimensions.
+    const fitVideo = (vw, vh) => {
+      if (!this.bg || vw <= 0 || vh <= 0) return;
+      const sx = width / vw;
+      const sy = height / vh;
+      this.bg.setScale(Math.max(sx, sy));
+    };
+
+    // In Phaser 4 the Video texture is created asynchronously via
+    // requestVideoFrame. The 'created' event fires once with the native
+    // video dimensions — this is the only reliable moment to compute scale.
+    this.bg.once('created', (_vid, vw, vh) => {
+      fitVideo(vw, vh);
+    });
+
+    // Also try immediately in case the texture was already created (fast cache hit)
+    if (this.bg.video && this.bg.video.videoWidth > 0) {
+      fitVideo(this.bg.video.videoWidth, this.bg.video.videoHeight);
+    }
 
     // Scrim for readability
     this.scrim = this.add.rectangle(
@@ -78,9 +95,12 @@ export default class IntroScene extends Phaser.Scene {
 
     if (this.bg) {
       this.bg.setPosition(width / 2, height);
-      const scaleX = width / this.bg.width;
-      const scaleY = height / this.bg.height;
-      this.bg.setScale(Math.max(scaleX, scaleY));
+      const vid = this.bg.video;
+      if (vid && vid.videoWidth > 0 && vid.videoHeight > 0) {
+        const scaleX = width / vid.videoWidth;
+        const scaleY = height / vid.videoHeight;
+        this.bg.setScale(Math.max(scaleX, scaleY));
+      }
     }
 
     if (this.scrim) {

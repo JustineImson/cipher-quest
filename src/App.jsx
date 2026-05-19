@@ -108,9 +108,6 @@ function App() {
         if (shownInviteIds.current.has(invite.id)) return;
         shownInviteIds.current.add(invite.id);
 
-        // Don't show toast if already on /multiplayer — the SocialOverlay handles it there
-        if (location.pathname === '/multiplayer') return;
-
         addToast(invite.id, {
           title: `${invite.senderUsername} challenges you!`,
           body: 'Accept the cipher duel?',

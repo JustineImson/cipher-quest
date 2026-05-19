@@ -150,14 +150,15 @@ export const listenToFriendsList = (currentUid, callback) => {
     
     const populated = combined.map((f) => {
       const friendUid = f.senderId === currentUid ? f.receiverId : f.senderId;
-      const data = friendDataCache[friendUid] || { username: 'Unknown', friendCode: 'XXXXXX', isOnline: false };
+      const data = friendDataCache[friendUid] || { username: 'Unknown', friendCode: 'XXXXXX', isOnline: false, lastActiveAt: 0 };
       return {
         id: f.id,
         friendUid,
         username: data.username,
         friendCode: data.friendCode,
         status: f.status,
-        isOnline: data.isOnline || false
+        isOnline: data.isOnline || false,
+        lastActiveAt: data.lastActiveAt || 0
       };
     });
 
@@ -219,15 +220,21 @@ export const listenToFriendsList = (currentUid, callback) => {
 export const sendGameInvite = async (senderUid, receiverUid, roomCode) => {
   const invitesRef = collection(db, 'gameInvites');
   
-  // Check if there is already a pending invite for this room
+  // Check if there is already a pending invite for this receiver
   const check = query(invitesRef, 
     where('senderId', '==', senderUid), 
     where('receiverId', '==', receiverUid),
     where('status', '==', 'pending')
   );
   const snap = await getDocs(check);
+  
+  // If there are pending invites, cancel them so the new one can replace it
   if (!snap.empty) {
-    throw new Error('An invite is already pending for this contact.');
+    const batch = writeBatch(db);
+    snap.docs.forEach(d => {
+      batch.update(d.ref, { status: 'canceled', resolvedAt: new Date().toISOString() });
+    });
+    await batch.commit();
   }
 
   await addDoc(invitesRef, {

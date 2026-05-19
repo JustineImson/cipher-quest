@@ -80,6 +80,8 @@ export default function PhaserGame({ difficulty, startScene }) {
       if (game) {
         // Stop all running scenes and restart to IntroScene
         game.scene.getScenes(true).forEach((s) => game.scene.stop(s.scene.key));
+        // Clear the game registry so per-playthrough flags (visited_, etc.) are reset
+        game.registry.destroy();
         game.scene.start('IntroScene');
       }
     };

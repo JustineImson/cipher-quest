@@ -29,25 +29,7 @@ messaging.onBackgroundMessage((payload) => {
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Handle generic push events
-self.addEventListener('push', (event) => {
-  let data = { title: 'Cipher Quest', body: 'New message received.' };
 
-  try {
-    data = event.data ? event.data.json() : data;
-  } catch {
-    data.body = event.data ? event.data.text() : data.body;
-  }
-
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/pwaIcon.png',
-      badge: '/pwaIcon.png',
-      data: data.data || {}
-    })
-  );
-});
 
 // Route user to the correct page when tapping a notification
 self.addEventListener('notificationclick', (event) => {

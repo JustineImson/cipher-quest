@@ -117,7 +117,7 @@ export default function LoginModal({ onClose }) {
         )}
 
         {/* Form */}
-        <form className="relative z-10 flex flex-col gap-5 transition-all duration-300">
+        <form onSubmit={isRegisterMode ? handleRegister : handleLogin} className="relative z-10 flex flex-col gap-5 transition-all duration-300">
           <div key={isRegisterMode ? 'reg' : 'log'} className="flex flex-col gap-5 animate-[fadeIn_0.4s_ease-out]">
           {isRegisterMode && (
             <div className="flex flex-col gap-2">
@@ -191,8 +191,7 @@ export default function LoginModal({ onClose }) {
                   Back to Login
                 </button>
                 <button 
-                  type="button"
-                  onClick={handleRegister}
+                  type="submit"
                   disabled={isLoading}
                   className="flex-1 py-3 bg-[#1a1208]/60 border border-[#c9a84c]/60 text-[#c9a84c] font-['Special_Elite'] text-xs md:text-sm tracking-[0.2em] uppercase hover:bg-[#32230c] hover:border-[#c9a84c] hover:text-[#e8c96a] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -202,8 +201,7 @@ export default function LoginModal({ onClose }) {
             ) : (
               <>
                 <button 
-                  type="button"
-                  onClick={handleLogin}
+                  type="submit"
                   disabled={isLoading}
                   className="flex-1 py-3 bg-[#1a1208]/60 border border-[#c9a84c]/60 text-[#c9a84c] font-['Special_Elite'] text-xs md:text-sm tracking-[0.2em] uppercase hover:bg-[#32230c] hover:border-[#c9a84c] hover:text-[#e8c96a] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >

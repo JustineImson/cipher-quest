@@ -14,7 +14,7 @@ function getFallbackPool(difficulty) {
   return pool.length > 0 ? pool : all;
 }
 
-export function useMultiplayer(serverUrl = 'http://localhost:3001') {
+export function useMultiplayer(serverUrl = import.meta.env.VITE_SERVER_URL || `http://${window.location.hostname}:3001`) {
   const socketRef = useRef(null);
 
   const [multiplayerState, setMultiplayerState] = useState('lobby'); // lobby, waiting, playing, finished
@@ -145,14 +145,14 @@ export function useMultiplayer(serverUrl = 'http://localhost:3001') {
     };
   }, [serverUrl]);
 
-  // Actions
   const createRoom = (difficulty) => {
     roomDifficultyRef.current = difficulty || 'easy';
     if (!socketRef.current || !socketRef.current.connected) {
       alert('Not connected to multiplayer server');
-      return;
+      return false;
     }
     socketRef.current.emit('create_room', { difficulty });
+    return true;
   };
 
   const joinRoom = (code) => {

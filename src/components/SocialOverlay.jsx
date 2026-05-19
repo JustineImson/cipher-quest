@@ -16,6 +16,12 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
   const [pendingRequests, setPendingRequests] = useState([]);
   const [friends, setFriends] = useState([]);
   const [incomingGameInvites, setIncomingGameInvites] = useState([]);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -263,7 +269,7 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
                     </button>
                   )}
                   {/* Status indicator */}
-                  <div className={`w-2 h-2 rounded-full transition-colors ${friend.isOnline ? 'bg-[#5a9e6f] shadow-[0_0_5px_#5a9e6f]' : 'bg-[#7a6030]/50'}`}></div>
+                  <div className={`w-2 h-2 rounded-full transition-colors ${(friend.lastActiveAt && (now - friend.lastActiveAt < 25000)) ? 'bg-green-400 shadow-[0_0_5px_#4ade80]' : 'bg-gray-500'}`}></div>
                 </div>
               </div>
             ))

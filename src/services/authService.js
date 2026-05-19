@@ -35,6 +35,18 @@ export const registerUser = async (email, password, username) => {
         caesar:       { attempts: 0, solved: 0 }
       }
     });
+
+    // Update store immediately so Social Intel shows the correct 8-char code
+    // before the next onAuthStateChanged doc fetch can potentially race it.
+    useGameStore.setState((state) => ({
+      currentUser: {
+        ...(state.currentUser || {}),
+        uid: uid,
+        username: username,
+        friendCode: friendCode,
+        email: email
+      }
+    }));
   }
   return userCredential;
 };
@@ -65,6 +77,17 @@ export const loginAnonymously = async () => {
           caesar:       { attempts: 0, solved: 0 }
         }
       });
+
+      // Update store immediately so Social Intel shows the correct 8-char code
+      useGameStore.setState((state) => ({
+        currentUser: {
+          ...(state.currentUser || {}),
+          uid: uid,
+          username: guestName,
+          friendCode: friendCode,
+          email: 'Guest Account'
+        }
+      }));
     }
   }
   return userCredential;

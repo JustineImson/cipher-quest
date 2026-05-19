@@ -30,7 +30,7 @@ export default function MultiplayerMode() {
     multiplayerState, roomCode, isHost, playersCount, opponentScore,
     currentWord, encryptedWord, cipherName, cipherKey, currentClue, isFallback, matchResult,
     createRoom, joinRoom, startGame, submitScore, nextRound, emitTimeout, resetLobby, forfeitMatch
-  } = useMultiplayer('http://localhost:3001');
+  } = useMultiplayer(import.meta.env.VITE_SERVER_URL || `http://${window.location.hostname}:3001`);
 
   // Shared Game State
   const [score, setScore] = useState(0);
@@ -52,18 +52,30 @@ export default function MultiplayerMode() {
   const processedJoinCodes = useRef(new Set());
 
   // Timer: 60s cap for the match
-  const { timeLeft, start, pause, resume } = useTimer(60);
+  const { timeLeft, start, pause, resume, reset } = useTimer(60);
+
+  // ─── Reset local state when returning to lobby/waiting ────────────
+  useEffect(() => {
+    if (multiplayerState === 'lobby' || multiplayerState === 'waiting') {
+      reset(60);
+      hasSubmittedRef.current = false;
+    }
+  }, [multiplayerState, reset]);
 
   // ─── EDGE-1: Reactive location.state watcher for auto-join ────────
   useEffect(() => {
     const code = location.state?.joinRoomCode;
-    if (code && multiplayerState === 'lobby' && !processedJoinCodes.current.has(code)) {
+    if (code && !processedJoinCodes.current.has(code)) {
       processedJoinCodes.current.add(code);
+      
+      if (multiplayerState === 'playing') forfeitMatch();
+      if (multiplayerState !== 'lobby') resetLobby();
+      
       joinRoom(code);
       // Clear consumed state to prevent re-trigger on refresh
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state, multiplayerState]);
+  }, [location.state, multiplayerState, forfeitMatch, resetLobby, joinRoom, navigate]);
 
   // ─── Guest Authentication: Auto-login if entering logged out ──────
   useEffect(() => {
@@ -110,7 +122,10 @@ export default function MultiplayerMode() {
   const handleDirectChallenge = (friendUid) => {
     playClick();
     setPendingDirectInviteUid(friendUid);
-    createRoom(settings.difficulty);
+    const success = createRoom(settings.difficulty);
+    if (success === false) {
+      setPendingDirectInviteUid(null);
+    }
   };
 
   // Monitor Timer for Match Over
@@ -466,18 +481,28 @@ export default function MultiplayerMode() {
   );
 
   const renderPlaying = () => (
-    <div className="flex flex-col w-full max-w-5xl mx-auto relative z-10 transition-all p-4 animate-fade-in">
-      <button
-        onClick={() => {
-          if (window.confirm("Are you sure you want to forfeit? You will lose this match.")) {
-            playClick();
-            forfeitMatch();
-          }
-        }}
-        className="absolute top-2 right-2 z-50 text-[10px] bg-[rgba(139,26,26,0.15)] text-[var(--red)] border border-[rgba(139,26,26,0.5)] px-4 py-2 hover:bg-[var(--red)] hover:text-[#0e0a04] transition-all uppercase tracking-[0.2em] flex items-center gap-2"
-      >
-        <span className="w-1.5 h-1.5 rounded-full bg-[var(--red)] animate-pulse"></span> Forfeit
-      </button>
+    <>
+      {/* Top Right Controls (Timer & Forfeit) - Anchored to screen edge */}
+      <div className="absolute top-4 right-4 md:top-6 md:right-8 flex items-center gap-6 z-[100]">
+        <div className={`text-4xl font-serif flex flex-col items-center transition-colors ${timeLeft <= 10 ? 'text-[var(--red)] animate-pulse drop-shadow-[0_0_8px_rgba(139,26,26,0.8)]' : 'text-[var(--gold-light)] drop-shadow-[0_0_5px_rgba(232,201,106,0.4)]'}`}>
+          <span className="text-sm font-mono tracking-widest text-[var(--gold-dim)] uppercase">Time</span>
+          {timeLeft}
+        </div>
+        
+        <button
+          onClick={() => {
+            if (window.confirm("Are you sure you want to forfeit? You will lose this match.")) {
+              playClick();
+              forfeitMatch();
+            }
+          }}
+          className="text-[10px] bg-[rgba(139,26,26,0.15)] text-[var(--red)] border border-[rgba(139,26,26,0.5)] px-4 py-2 hover:bg-[var(--red)] hover:text-[#0e0a04] transition-all uppercase tracking-[0.2em] flex items-center gap-2 h-fit"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--red)] animate-pulse"></span> Forfeit
+        </button>
+      </div>
+
+      <div className="flex flex-col w-full max-w-5xl mx-auto relative z-10 transition-all p-4 animate-fade-in mt-12 md:mt-0">
 
       {/* Center Box */}
       <div className="flex flex-col items-center relative w-full mb-8 pt-16 mt-2">
@@ -487,12 +512,7 @@ export default function MultiplayerMode() {
           <span className="text-[var(--cream)] drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]">{score}</span>
         </div>
 
-        <div className={`absolute top-0 left-1/2 -translate-x-1/2 text-4xl font-serif flex flex-col items-center z-20 transition-colors ${timeLeft <= 10 ? 'text-[var(--red)] animate-pulse drop-shadow-[0_0_8px_rgba(139,26,26,0.8)]' : 'text-[var(--gold-light)] drop-shadow-[0_0_5px_rgba(232,201,106,0.4)]'}`}>
-          <span className="text-sm font-mono tracking-widest text-[var(--gold-dim)] uppercase">Time</span>
-          {timeLeft}
-        </div>
-
-        <div className="absolute top-0 right-0 md:right-4 text-2xl font-serif flex flex-col items-end z-20">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 text-2xl font-serif flex flex-col items-center z-20">
           <span className="text-sm uppercase tracking-widest text-[var(--red)]/70 font-mono">Opponent</span>
           <span className="text-[#a09070] opacity-90">{opponentScore}</span>
         </div>
@@ -606,6 +626,7 @@ export default function MultiplayerMode() {
         )}
       </div>
     </div>
+    </>
   );
 
   return (
