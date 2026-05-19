@@ -24,6 +24,8 @@ export const useGameStore = create(
 
       // Auth State
       currentUser: null,
+      isAdmin: false,
+      authLoading: true,
 
       // Game Lifecycle State: 'idle', 'playing', 'paused', 'game_over'
       gameState: 'idle',
@@ -65,6 +67,17 @@ export const useGameStore = create(
               return; // onAuthStateChanged will fire again with null
             }
 
+            // Check for admin claim in the ID token (force refresh to get latest claims)
+            let isAdmin = false;
+            try {
+              await user.getIdToken(true); // Force refresh token
+              const idTokenResult = await user.getIdTokenResult();
+              isAdmin = idTokenResult.claims.admin === true;
+              console.log('Admin claim check:', { isAdmin, claims: idTokenResult.claims });
+            } catch (err) {
+              console.warn('Failed to get ID token result:', err);
+            }
+
             // Set initial optimistic state
             const fallbackUserData = {
               uid: user.uid,
@@ -75,7 +88,9 @@ export const useGameStore = create(
 
             // We use the existing state if available to prevent flashing
             set((state) => ({
-              currentUser: state.currentUser?.uid === user.uid ? state.currentUser : fallbackUserData
+              currentUser: state.currentUser?.uid === user.uid ? state.currentUser : fallbackUserData,
+              isAdmin,
+              authLoading: false
             }));
 
             // Load cloud save and real user data
@@ -173,6 +188,8 @@ export const useGameStore = create(
 
             set({
               currentUser: null,
+              isAdmin: false,
+              authLoading: false,
               savedStoryProgress: null,
               collectedEvidence: [],
             });
@@ -352,6 +369,7 @@ export const useGameStore = create(
         playerProfile: state.playerProfile,
         savedStoryProgress: state.savedStoryProgress,
         collectedEvidence: state.collectedEvidence
+        // Note: isAdmin is NOT persisted - always re-read from token on login
       }), // Persist settings and story progress
     }
   )

@@ -10,6 +10,15 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    // Admin can read everything
+    match /{document=**} {
+      allow read: if isAdmin();
+    }
+
     // ------------------------------------------------------------------
     // users
     // Owner has full read/write control. Authenticated users can read
@@ -22,9 +31,9 @@ service cloud.firestore {
     // ------------------------------------------------------------------
     match /users/{userId} {
       allow read:   if true;
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     // ------------------------------------------------------------------
@@ -32,7 +41,7 @@ service cloud.firestore {
     // ------------------------------------------------------------------
     match /storyProgress/{userId} {
       allow read: if true;
-      allow write: if isOwner(userId);
+      allow write: if isOwner(userId) || isAdmin();
     }
 
     // ------------------------------------------------------------------
@@ -71,8 +80,39 @@ service cloud.firestore {
     // ------------------------------------------------------------------
     match /leaderboards/{category}/entries/{userId} {
       allow read: if true;
-      allow create, update: if isOwner(userId);
-      allow delete: if false;
+      allow create, update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // system — admin-only read/write
+    // ------------------------------------------------------------------
+    match /system/{doc} {
+      allow read, write: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // ai_logs — admin read-only
+    // ------------------------------------------------------------------
+    match /ai_logs/{doc} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ------------------------------------------------------------------
+    // story_ciphers — admin write for content management
+    // ------------------------------------------------------------------
+    match /story_ciphers/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // fallback_puzzles — admin write for content management
+    // ------------------------------------------------------------------
+    match /fallback_puzzles/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // ------------------------------------------------------------------

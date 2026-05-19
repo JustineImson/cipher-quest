@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import MainMenu from './pages/MainMenu';
 import DefaultPage from './pages/DefaultPage';
@@ -11,6 +11,7 @@ import MultiplayerMode from './pages/MultiplayerMode';
 import StoryMode from './pages/StoryMode';
 import Profile from './pages/Profile';
 import AuthAction from './pages/AuthAction';
+import AdminDashboard from './pages/AdminDashboard';
 import { bgmController } from './engine/BGMController';
 import { useGameStore } from './store/useGameStore';
 import NoirToast from './components/NoirToast';
@@ -20,6 +21,29 @@ import { listenToIncomingGameInvites, resolveGameInvite } from './services/socia
 import { requestFullscreenAndLock } from './utils/orientation';
 import RotatePrompt from './components/RotatePrompt';
 import GameScaleWrapper from './components/GameScaleWrapper';
+
+// Admin Route Guard Component
+function AdminRoute({ children }) {
+  const currentUser = useGameStore((state) => state.currentUser);
+  const isAdmin = useGameStore((state) => state.isAdmin);
+  const authLoading = useGameStore((state) => state.authLoading);
+
+  console.log('AdminRoute check:', { currentUser: currentUser?.uid, isAdmin, authLoading });
+
+  // Wait for auth to initialize before deciding
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <div className="text-[#c9a84c] font-mono text-sm">Verifying credentials...</div>
+      </div>
+    );
+  }
+
+  if (!currentUser) return <Navigate to="/" replace />;
+  if (!isAdmin) return <Navigate to="/" replace />;
+
+  return children;
+}
 
 function App() {
   const location = useLocation();
@@ -180,6 +204,24 @@ function App() {
 
   // Convert Map to array for rendering
   const toastEntries = Array.from(activeToasts.entries());
+
+  // Admin route — outside GameScaleWrapper
+  if (location.pathname.startsWith('/admin')) {
+    return (
+      <div className="h-screen w-screen bg-black text-gray-200 relative overflow-hidden">
+        <Routes>
+          <Route
+            path="/admin/*"
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            }
+          />
+        </Routes>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-screen bg-black text-gray-200 relative overflow-hidden">

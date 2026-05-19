@@ -20,12 +20,14 @@ const io = new Server(httpServer, {
 });
 
 // Initialize Firebase Admin SDK from base64-encoded service account JSON
+let db = null;
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     try {
         const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT, 'base64').toString());
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
         });
+        db = admin.firestore();
 
         // Socket.IO middleware to verify Firebase ID tokens
         io.use(async (socket, next) => {
@@ -47,6 +49,63 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     console.warn('FIREBASE_SERVICE_ACCOUNT not set — socket authentication disabled');
     // Attach null uid for unauthenticated sockets (legacy/dev)
     io.use((socket, next) => { socket.uid = null; next(); });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Admin Middleware & Helpers
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Middleware to verify admin custom claim from Firebase ID token
+ */
+async function verifyAdminMiddleware(req, res, next) {
+    if (!admin.apps?.length) {
+        return res.status(503).json({ error: 'Admin service unavailable' });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Missing or invalid authorization header' });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(token);
+        if (!decodedToken.admin) {
+            return res.status(403).json({ error: 'Forbidden: Admin access required' });
+        }
+        req.adminUid = decodedToken.uid;
+        next();
+    } catch (err) {
+        console.error('Admin token verification failed:', err.message);
+        return res.status(401).json({ error: 'Invalid token' });
+    }
+}
+
+/**
+ * Check if bootstrap has already been used
+ */
+async function isBootstrapUsed() {
+    if (!db) return true;
+    try {
+        const doc = await db.collection('system').doc('adminBootstrap').get();
+        return doc.exists && doc.data().used === true;
+    } catch (err) {
+        console.error('Error checking bootstrap status:', err);
+        return true;
+    }
+}
+
+/**
+ * Mark bootstrap as used
+ */
+async function markBootstrapUsed() {
+    if (!db) return;
+    try {
+        await db.collection('system').doc('adminBootstrap').set({ used: true, usedAt: new Date().toISOString() });
+    } catch (err) {
+        console.error('Error marking bootstrap used:', err);
+    }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -185,6 +244,244 @@ app.post('/notify', async (req, res) => {
     console.error('POST /notify error:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Admin Routes (Protected by verifyAdminMiddleware)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /admin/bootstrap — Create the first admin (one-time use)
+ * Body: { uid, secret }
+ * Checks secret against ADMIN_BOOTSTRAP_SECRET env var
+ */
+app.post('/admin/bootstrap', async (req, res) => {
+    const { uid, secret } = req.body;
+
+    if (!uid || !secret) {
+        return res.status(400).json({ error: 'Missing uid or secret' });
+    }
+
+    const expectedSecret = process.env.ADMIN_BOOTSTRAP_SECRET;
+    if (!expectedSecret) {
+        return res.status(503).json({ error: 'Bootstrap not configured' });
+    }
+
+    if (secret !== expectedSecret) {
+        return res.status(403).json({ error: 'Invalid bootstrap secret' });
+    }
+
+    if (await isBootstrapUsed()) {
+        return res.status(403).json({ error: 'Bootstrap already used' });
+    }
+
+    try {
+        await admin.auth().setCustomUserClaims(uid, { admin: true });
+        await markBootstrapUsed();
+        res.status(200).json({ success: true, message: 'Admin role granted' });
+    } catch (err) {
+        console.error('Bootstrap error:', err);
+        res.status(500).json({ error: 'Failed to set admin claim' });
+    }
+});
+
+/**
+ * POST /admin/ban-user — Disable a user account
+ */
+app.post('/admin/ban-user', verifyAdminMiddleware, async (req, res) => {
+    const { uid } = req.body;
+    if (!uid) return res.status(400).json({ error: 'Missing uid' });
+
+    try {
+        await admin.auth().updateUser(uid, { disabled: true });
+        res.status(200).json({ success: true, message: 'User banned' });
+    } catch (err) {
+        console.error('Ban user error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /admin/unban-user — Re-enable a user account
+ */
+app.post('/admin/unban-user', verifyAdminMiddleware, async (req, res) => {
+    const { uid } = req.body;
+    if (!uid) return res.status(400).json({ error: 'Missing uid' });
+
+    try {
+        await admin.auth().updateUser(uid, { disabled: false });
+        res.status(200).json({ success: true, message: 'User unbanned' });
+    } catch (err) {
+        console.error('Unban user error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /admin/force-logout — Revoke all refresh tokens for a user
+ */
+app.post('/admin/force-logout', verifyAdminMiddleware, async (req, res) => {
+    const { uid } = req.body;
+    if (!uid) return res.status(400).json({ error: 'Missing uid' });
+
+    try {
+        await admin.auth().revokeRefreshTokens(uid);
+        res.status(200).json({ success: true, message: 'Tokens revoked' });
+    } catch (err) {
+        console.error('Force logout error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /admin/reset-password — Generate password reset link or directly set password
+ */
+app.post('/admin/reset-password', verifyAdminMiddleware, async (req, res) => {
+    const { uid, email, newPassword, sendEmail } = req.body;
+    if (!uid && !email) return res.status(400).json({ error: 'Missing uid or email' });
+
+    try {
+        if (sendEmail && email) {
+            const link = await admin.auth().generatePasswordResetLink(email);
+            res.status(200).json({ success: true, resetLink: link, message: 'Password reset email generated' });
+        } else if (newPassword && uid) {
+            await admin.auth().updateUser(uid, { password: newPassword });
+            res.status(200).json({ success: true, message: 'Password updated' });
+        } else {
+            return res.status(400).json({ error: 'Specify sendEmail:true with email, or newPassword with uid' });
+        }
+    } catch (err) {
+        console.error('Reset password error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /admin/delete-user — Delete user with cascading data cleanup
+ */
+app.post('/admin/delete-user', verifyAdminMiddleware, async (req, res) => {
+    const { uid } = req.body;
+    if (!uid) return res.status(400).json({ error: 'Missing uid' });
+
+    try {
+        const batch = admin.firestore().batch();
+
+        // Delete user documents
+        batch.delete(admin.firestore().collection('users').doc(uid));
+        batch.delete(admin.firestore().collection('storyProgress').doc(uid));
+        batch.delete(admin.firestore().collection('leaderboards').doc('timeAttack').collection('entries').doc(uid));
+        batch.delete(admin.firestore().collection('leaderboards').doc('multiplayer').collection('entries').doc(uid));
+
+        // Delete friendships (both directions)
+        const sentFriendships = await admin.firestore().collection('friendships')
+            .where('senderId', '==', uid).get();
+        const receivedFriendships = await admin.firestore().collection('friendships')
+            .where('receiverId', '==', uid).get();
+        [...sentFriendships.docs, ...receivedFriendships.docs]
+            .forEach(doc => batch.delete(doc.ref));
+
+        // Delete game invites
+        const sentInvites = await admin.firestore().collection('gameInvites')
+            .where('senderId', '==', uid).get();
+        const receivedInvites = await admin.firestore().collection('gameInvites')
+            .where('receiverId', '==', uid).get();
+        [...sentInvites.docs, ...receivedInvites.docs]
+            .forEach(doc => batch.delete(doc.ref));
+
+        await batch.commit();
+        await admin.auth().deleteUser(uid);
+
+        res.status(200).json({ success: true, message: 'User and data deleted' });
+    } catch (err) {
+        console.error('Delete user error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /admin/rooms — Get all active multiplayer rooms
+ */
+app.get('/admin/rooms', verifyAdminMiddleware, (req, res) => {
+    const roomList = Object.entries(rooms).map(([code, room]) => ({
+        roomCode: code,
+        hostUid: room.hostUid,
+        difficulty: room.difficulty,
+        status: room.status,
+        playerCount: room.players.length,
+        players: room.players.map(p => ({ uid: p.uid, score: p.score }))
+    }));
+    res.status(200).json({ rooms: roomList });
+});
+
+/**
+ * POST /admin/close-room — Force close a multiplayer room
+ */
+app.post('/admin/close-room', verifyAdminMiddleware, (req, res) => {
+    const { roomCode } = req.body;
+    if (!roomCode) return res.status(400).json({ error: 'Missing roomCode' });
+
+    const room = rooms[roomCode];
+    if (!room) return res.status(404).json({ error: 'Room not found' });
+
+    io.to(roomCode).emit('room_closed_by_admin', { message: 'Room closed by administrator' });
+
+    // Disconnect all sockets in the room
+    const sockets = io.sockets.adapter.rooms.get(roomCode);
+    if (sockets) {
+        sockets.forEach(socketId => {
+            const socket = io.sockets.sockets.get(socketId);
+            if (socket) socket.leave(roomCode);
+        });
+    }
+
+    delete rooms[roomCode];
+    res.status(200).json({ success: true, message: 'Room closed' });
+});
+
+/**
+ * POST /admin/broadcast — Send global push notification to all users
+ */
+app.post('/admin/broadcast', verifyAdminMiddleware, async (req, res) => {
+    const { title, body, link = '/' } = req.body;
+    if (!title || !body) return res.status(400).json({ error: 'Missing title or body' });
+
+    try {
+        const allUsers = await admin.firestore().collection('users')
+            .where('fcmToken', '!=', null).get();
+        const tokens = allUsers.docs
+            .map(d => d.data().fcmToken)
+            .filter(Boolean);
+
+        if (tokens.length === 0) {
+            return res.status(200).json({ success: true, sent: 0, message: 'No tokens found' });
+        }
+
+        // Send in batches of 500 (FCM limit)
+        const batchSize = 500;
+        let successCount = 0;
+        let failureCount = 0;
+
+        for (let i = 0; i < tokens.length; i += batchSize) {
+            const batch = tokens.slice(i, i + batchSize);
+            const response = await admin.messaging().sendEachForMulticast({
+                tokens: batch,
+                notification: { title, body },
+                webpush: { fcmOptions: { link } }
+            });
+            successCount += response.successCount;
+            failureCount += response.failureCount;
+        }
+
+        res.status(200).json({
+            success: true,
+            sent: successCount,
+            failed: failureCount,
+            total: tokens.length
+        });
+    } catch (err) {
+        console.error('Broadcast error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id}`);
