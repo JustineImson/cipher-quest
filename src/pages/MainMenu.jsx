@@ -149,7 +149,7 @@ export default function MainMenu() {
           flex-direction: column;
           align-items: center;
           justify-content: flex-end;
-          padding-bottom: 143px;
+          padding-bottom: 123px;
         }
 
         /* ── Title ── */
@@ -325,11 +325,12 @@ export default function MainMenu() {
         .cq-lore {
           font-family: 'IM Fell English', serif;
           font-style: italic;
-          font-size: 13px;
+          font-size: 20px;
           color: var(--gold-dim);
           line-height: 1.6;
           max-width: 220px;
           opacity: 0.85;
+          
         }
 
         .cq-settings-btn {

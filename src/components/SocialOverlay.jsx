@@ -4,7 +4,7 @@ import { sendFriendRequest, listenToPendingRequests, acceptFriendRequest, listen
 import { useSfx } from '../hooks/useSfx';
 import { Check, Users, Mail, UserPlus, AlertCircle, Swords, X, Loader2 } from 'lucide-react';
 
-export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvite = () => { }, onDirectChallenge = () => { }, challengingUid = null }) {
+export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvite = () => { }, onDirectChallenge = () => { }, challengingUid = null, isConnected = false, isConnecting = false }) {
   const { currentUser } = useGameStore();
   const { playClick, playKeyTap } = useSfx();
 
@@ -258,11 +258,16 @@ export default function SocialOverlay({ activeRoomCode = null, onAcceptGameInvit
                   {!activeRoomCode && (
                     <button
                       onClick={() => handleDirectChallenge(friend.friendUid)}
-                      disabled={challengingUid === friend.friendUid}
+                      disabled={challengingUid === friend.friendUid || (!isConnected && !isConnecting)}
+                      title={isConnecting ? 'Connecting to server...' : !isConnected ? 'Connection failed - retrying...' : ''}
                       className="text-[9px] bg-[#8b1a1a]/10 text-[#ff6b6b] border border-[#8b1a1a]/40 px-2 py-1 hover:bg-[#8b1a1a] hover:text-[#e8dcc0] transition-all uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                     >
                       {challengingUid === friend.friendUid ? (
                         <><Loader2 size={10} className="animate-spin" /> Sending...</>
+                      ) : isConnecting ? (
+                        <><Loader2 size={10} className="animate-spin" /> Connecting...</>
+                      ) : !isConnected ? (
+                        <><AlertCircle size={10} /> Retry</>
                       ) : (
                         <><Swords size={10} /> Challenge</>
                       )}

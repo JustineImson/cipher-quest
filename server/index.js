@@ -369,6 +369,6 @@ io.on('connection', (socket) => {
     });
 });
 
-httpServer.listen(PORT, () => {
-  console.log(`Aegis AI Multiplayer Server running on port ${PORT}`);
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`Aegis AI Multiplayer Server running on port ${PORT} (0.0.0.0)`);
 });

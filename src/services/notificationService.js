@@ -10,12 +10,19 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || `http://${window.location.
  */
 export async function notifyUser(targetUid, { title, body, type, link }) {
   try {
-    await fetch(`${SERVER_URL}/notify`, {
+    console.log('[Notification] Sending to:', targetUid, { title, type });
+    const response = await fetch(`${SERVER_URL}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetUid, title, body, type, link }),
     });
-  } catch {
+    if (!response.ok) {
+      console.warn('[Notification] Failed to send:', response.status, response.statusText);
+    } else {
+      console.log('[Notification] Sent successfully to:', targetUid);
+    }
+  } catch (err) {
+    console.warn('[Notification] Error sending notification:', err.message);
     // Silent fail — notification is non-critical
   }
 }

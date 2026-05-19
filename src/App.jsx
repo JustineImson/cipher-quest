@@ -10,6 +10,7 @@ import TimeAttackMode from './pages/TimeAttackMode';
 import MultiplayerMode from './pages/MultiplayerMode';
 import StoryMode from './pages/StoryMode';
 import Profile from './pages/Profile';
+import AuthAction from './pages/AuthAction';
 import { bgmController } from './engine/BGMController';
 import { useGameStore } from './store/useGameStore';
 import NoirToast from './components/NoirToast';
@@ -243,6 +244,7 @@ function App() {
             <Route path="/difficulty" element={<Difficulty />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/profile/:uid" element={<Profile />} />
+            <Route path="/auth/action" element={<AuthAction />} />
           </Routes>
           
           {isSettingsOpen && (

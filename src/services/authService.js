@@ -2,6 +2,8 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   sendPasswordResetEmail, 
+  verifyPasswordResetCode,
+  confirmPasswordReset,
   signOut,
   updateProfile,
   signInAnonymously
@@ -153,7 +155,28 @@ async function generateUniqueFriendCode(db) {
 }
 
 export const resetPassword = async (email) => {
-  return sendPasswordResetEmail(auth, email);
+  // actionCodeSettings tells Firebase where the reset link should redirect to.
+  // This points to the in-app /auth/action route which handles the code.
+  const actionCodeSettings = {
+    url: `${window.location.origin}/auth/action`,
+    handleCodeInApp: true,
+  };
+  return sendPasswordResetEmail(auth, email, actionCodeSettings);
+};
+
+/**
+ * Verify the password reset code (oobCode) from the email link.
+ * Returns the email associated with the code if valid.
+ */
+export const verifyResetCode = async (oobCode) => {
+  return verifyPasswordResetCode(auth, oobCode);
+};
+
+/**
+ * Confirm the password reset with the oobCode and the user's new password.
+ */
+export const confirmNewPassword = async (oobCode, newPassword) => {
+  return confirmPasswordReset(auth, oobCode, newPassword);
 };
 
 export const logoutUser = async () => {

@@ -37,6 +37,11 @@ export default class OfficeScene extends Phaser.Scene {
     }
 
     create() {
+        // Reset dialogue state on every create() so restarts replay properly
+        // (the constructor only runs once; Phaser reuses the scene instance).
+        this.currentLineIndex = 0;
+        this.dialogueActive = true;
+
         localStorage.setItem('currentScene', this.scene.key);
         localStorage.setItem('hasFinishedIntro', 'true');
         

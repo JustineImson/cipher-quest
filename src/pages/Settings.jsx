@@ -9,32 +9,55 @@ export default function Settings({ isOverlay, onClose }) {
   const { settings, updateSettings } = useGameStore();
   const { playClick } = useSfx();
   const [visible, setVisible] = useState(false);
+  // Helper to check fullscreen across vendor prefixes
+  const getFullscreenElement = () =>
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement ||
+    null;
+
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 80);
 
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      setIsFullscreen(!!getFullscreenElement());
     };
 
+    // Listen for all vendor-prefixed fullscreenchange events
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
 
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    setIsFullscreen(!!getFullscreenElement());
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
   }, []);
 
   const requestFullscreen = () => {
     playClick();
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => console.warn(err));
+    if (getFullscreenElement()) return; // already fullscreen
+    const el = document.documentElement;
+    const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (rfs) {
+      rfs.call(el).catch(err => console.warn('Fullscreen request failed:', err));
     }
   };
 
   const exitFullscreen = () => {
     playClick();
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
+    if (!getFullscreenElement()) return; // not in fullscreen
+    const efs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+    if (efs) {
+      efs.call(document);
     }
   };
 

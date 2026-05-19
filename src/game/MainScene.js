@@ -22,6 +22,7 @@ export default class MainScene extends Phaser.Scene {
     init(data) {
         this.fromLocation = data && data.fromLocation ? data.fromLocation : null;
         this.spawnPoints = {};
+        this._initCalledThisCycle = true;
     }
 
     preload() {
@@ -77,6 +78,15 @@ export default class MainScene extends Phaser.Scene {
     }
 
     create() {
+        // Re-apply fromLocation from init data; if init() was not called on a
+        // scene restart (Phaser reuses the instance), fall back to null so the
+        // player spawns at the default map centre instead of a stale access point.
+        if (!this._initCalledThisCycle) {
+            this.fromLocation = null;
+            this.spawnPoints = {};
+        }
+        this._initCalledThisCycle = false;
+
         localStorage.setItem('currentScene', this.scene.key);
         localStorage.setItem('hasFinishedIntro', 'true');
         

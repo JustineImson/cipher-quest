@@ -29,8 +29,12 @@ export default function MultiplayerMode() {
   const {
     multiplayerState, roomCode, isHost, playersCount, opponentScore,
     currentWord, encryptedWord, cipherName, cipherKey, currentClue, isFallback, matchResult,
+    isConnected, isConnecting,
     createRoom, joinRoom, startGame, submitScore, nextRound, emitTimeout, resetLobby, forfeitMatch
   } = useMultiplayer(import.meta.env.VITE_SERVER_URL || `http://${window.location.hostname}:3001`);
+
+  // Auth readiness tracking
+  const [authReady, setAuthReady] = useState(false);
 
   // Shared Game State
   const [score, setScore] = useState(0);
@@ -96,42 +100,107 @@ export default function MultiplayerMode() {
           await loginAnonymously();
         } catch (err) {
           console.warn('Failed to login as guest:', err);
+          // Anonymous auth may be disabled in Firebase Console —
+          // user will need to register/login via Agent Profile.
         }
       }
+      setAuthReady(true);
     };
     initGuest();
   }, []);
 
   // ─── Direct Challenge: Auto-send invite once room is created ──────
   useEffect(() => {
+    console.log('[Invite Effect] Checking:', { multiplayerState, hasRoomCode: !!roomCode, hasPendingUid: !!pendingDirectInviteUid, hasCurrentUser: !!currentUser?.uid });
     if (multiplayerState === 'waiting' && roomCode && pendingDirectInviteUid && currentUser?.uid) {
+      console.log('[Invite Effect] Sending invite to:', pendingDirectInviteUid, 'room:', roomCode);
       sendGameInvite(currentUser.uid, pendingDirectInviteUid, roomCode)
         .then(() => console.log('Direct challenge invite sent to', pendingDirectInviteUid))
-        .catch((err) => console.warn('Failed to send direct invite:', err))
-        .finally(() => setPendingDirectInviteUid(null));
+        .catch((err) => {
+          console.warn('Failed to send direct invite:', err);
+          alert('Failed to send invite: ' + (err.message || 'Unknown error'));
+        })
+        .finally(() => {
+          if (inviteTimeoutRef.current) clearTimeout(inviteTimeoutRef.current);
+          setPendingDirectInviteUid(null);
+        });
     }
   }, [multiplayerState, roomCode, pendingDirectInviteUid, currentUser?.uid]);
 
   // ─── EDGE-2: Ghost room cleanup — cancel Firestore invites on unmount/reset ─
   const roomCodeRef = useRef(roomCode);
   const isHostRef = useRef(isHost);
+  const pendingInviteRef = useRef(pendingDirectInviteUid);
   useEffect(() => { roomCodeRef.current = roomCode; }, [roomCode]);
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
+  useEffect(() => { pendingInviteRef.current = pendingDirectInviteUid; }, [pendingDirectInviteUid]);
 
   useEffect(() => {
     return () => {
       if (roomCodeRef.current && isHostRef.current && currentUser?.uid) {
         cancelPendingInvitesForRoom(currentUser.uid, roomCodeRef.current);
       }
+      // Clear any pending invite state on unmount
+      if (pendingInviteRef.current) {
+        setPendingDirectInviteUid(null);
+      }
     };
   }, [currentUser?.uid]);
 
+  // Clear pending invite when entering playing or finished state (invite should already be sent by then)
+  useEffect(() => {
+    if ((multiplayerState === 'playing' || multiplayerState === 'finished') && pendingDirectInviteUid) {
+      console.log('[Invite Cleanup] Clearing pending invite on state change to:', multiplayerState);
+      setPendingDirectInviteUid(null);
+      if (inviteTimeoutRef.current) clearTimeout(inviteTimeoutRef.current);
+    }
+  }, [multiplayerState, pendingDirectInviteUid]);
+
   // ─── Direct Challenge handler (passed to SocialOverlay) ───────────
-  const handleDirectChallenge = (friendUid) => {
+  const inviteTimeoutRef = useRef(null);
+
+  const handleDirectChallenge = async (friendUid) => {
     playClick();
+    console.log('[Direct Challenge] Starting challenge to:', friendUid, 'current state:', multiplayerState, 'isConnected:', isConnected);
+
+    // Ensure socket is connected before attempting challenge
+    if (!isConnected) {
+      console.warn('[Direct Challenge] Socket not connected, aborting');
+      alert('Still connecting to multiplayer server. Please wait a moment and try again.');
+      return;
+    }
+
+    // Reset lobby if coming from finished or waiting state to ensure clean slate
+    if (multiplayerState === 'finished' || multiplayerState === 'waiting') {
+      console.log('[Direct Challenge] Resetting lobby before creating new room');
+      resetLobby();
+      // Small delay to ensure state is reset
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    // Clear any previous pending invite
+    if (pendingDirectInviteUid) {
+      console.log('[Direct Challenge] Clearing previous pending invite:', pendingDirectInviteUid);
+    }
     setPendingDirectInviteUid(friendUid);
-    const success = createRoom(settings.difficulty);
+
+    // Safety timeout: if the server never responds with room_created, don't hang UI forever
+    if (inviteTimeoutRef.current) clearTimeout(inviteTimeoutRef.current);
+    inviteTimeoutRef.current = setTimeout(() => {
+      setPendingDirectInviteUid((prev) => {
+        if (prev === friendUid) {
+          alert("Server didn't respond in time. Please try challenging again.");
+          return null;
+        }
+        return prev;
+      });
+    }, 5000);
+
+    console.log('[Direct Challenge] Calling createRoom with difficulty:', settings.difficulty);
+    const success = await createRoom(settings.difficulty);
+    console.log('[Direct Challenge] createRoom result:', success);
     if (success === false) {
+      clearTimeout(inviteTimeoutRef.current);
       setPendingDirectInviteUid(null);
     }
   };
@@ -365,6 +434,9 @@ export default function MultiplayerMode() {
     }
   };
 
+  // Derived: is the user authenticated and ready to play?
+  const isAuthenticated = authReady && !!currentUser?.uid;
+
   // State renderers
   const renderLobby = () => (
     <div className="flex flex-col items-center w-full max-w-3xl mx-auto mt-10 animate-fade-in">
@@ -375,44 +447,67 @@ export default function MultiplayerMode() {
         </h1>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6 w-full">
-        {/* Host Node */}
-        <div className="flex-1 bg-[rgba(18,12,4,0.75)] border border-[rgba(201,168,76,0.2)] border-l-[3px] border-l-[var(--red)] p-8 flex flex-col items-center text-center shadow-2xl relative overflow-hidden group hover:bg-[rgba(22,15,5,0.9)] hover:border-[rgba(201,168,76,0.4)] transition-all">
-          <ShieldAlert size={28} className="text-[var(--gold-dim)] mb-4 group-hover:text-[var(--gold-light)] transition-colors" />
-          <h2 className="font-serif text-xl text-[var(--cream)] uppercase tracking-[0.1em] mb-2">Host Node</h2>
-          <p className="font-mono text-xs text-[#a09070] mb-8 leading-relaxed opacity-80">Establish a secured line. You will dictate the global cipher difficulty.</p>
-          <div className="mt-auto w-full">
-            <button onClick={() => { playClick(); createRoom(settings.difficulty); }} className="w-full py-3 bg-[rgba(201,168,76,0.1)] border border-[var(--gold-dim)] text-[var(--gold-light)] font-mono text-xs tracking-[0.2em] uppercase hover:bg-[var(--gold-dim)] hover:text-[#0e0a04] transition-colors">
-              Initialize Session
-            </button>
-          </div>
+      {/* Auth gate: show login prompt when not authenticated */}
+      {!authReady ? (
+        <div className="flex flex-col items-center py-16 animate-pulse">
+          <span className="text-[var(--gold-dim)] font-mono text-sm tracking-widest uppercase">Establishing Secure Connection...</span>
         </div>
-
-        {/* Join Node */}
-        <div className="flex-1 bg-[rgba(18,12,4,0.75)] border border-[rgba(201,168,76,0.2)] border-l-[3px] border-l-[var(--gold)] p-8 flex flex-col items-center text-center shadow-2xl relative overflow-hidden group hover:bg-[rgba(22,15,5,0.9)] hover:border-[rgba(201,168,76,0.4)] transition-all">
-          <Key size={28} className="text-[var(--gold-dim)] mb-4 group-hover:text-[var(--gold-light)] transition-colors" />
-          <h2 className="font-serif text-xl text-[var(--cream)] uppercase tracking-[0.1em] mb-2">Intercept Line</h2>
-          <p className="font-mono text-xs text-[#a09070] mb-6 leading-relaxed opacity-80">Input a 4-letter frequency code to intercept a matching duel.</p>
-
-          <div className="w-full flex flex-col gap-3 mt-auto">
-            <input
-              type="text"
-              value={joinCodeInput}
-              onChange={e => setJoinCodeInput(e.target.value.toUpperCase())}
-              maxLength={4}
-              placeholder="CODE"
-              className="w-full bg-[rgba(8,5,2,0.6)] border border-[var(--gold-dim)] text-[var(--gold-light)] text-center text-xl tracking-[0.5em] p-3 outline-none focus:border-[var(--gold)] placeholder:text-[rgba(201,168,76,0.3)] uppercase font-mono"
-            />
+      ) : !isAuthenticated ? (
+        <div className="flex flex-col items-center w-full max-w-md mx-auto py-10">
+          <div className="bg-[rgba(18,12,4,0.85)] border border-[var(--red)] p-8 text-center shadow-[0_0_30px_rgba(139,26,26,0.3)] w-full">
+            <ShieldAlert size={36} className="text-[var(--red)] mx-auto mb-4" />
+            <h2 className="font-serif text-xl text-[var(--cream)] uppercase tracking-[0.1em] mb-3">Authorization Required</h2>
+            <p className="font-mono text-xs text-[#a09070] mb-6 leading-relaxed">
+              Multiplayer requires a verified identity. Register or login via Agent Profile to establish a secure connection.
+            </p>
             <button
-              onClick={() => { playClick(); joinCodeInput.length === 4 && joinRoom(joinCodeInput); }}
-              disabled={joinCodeInput.length !== 4}
-              className="w-full py-3 bg-[rgba(201,168,76,0.1)] border border-[var(--gold-dim)] text-[var(--gold-light)] font-mono text-xs tracking-[0.2em] uppercase hover:bg-[var(--gold-dim)] hover:text-[#0e0a04] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => { playClick(); navigate('/'); }}
+              className="w-full py-3 bg-[rgba(201,168,76,0.15)] border border-[var(--gold)] text-[var(--gold-light)] font-mono text-xs tracking-[0.2em] uppercase hover:bg-[var(--gold-light)] hover:text-[#0e0a04] transition-colors"
             >
-              Connect
+              Return to Menu & Verify Identity
             </button>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col md:flex-row gap-6 w-full">
+          {/* Host Node */}
+          <div className="flex-1 bg-[rgba(18,12,4,0.75)] border border-[rgba(201,168,76,0.2)] border-l-[3px] border-l-[var(--red)] p-8 flex flex-col items-center text-center shadow-2xl relative overflow-hidden group hover:bg-[rgba(22,15,5,0.9)] hover:border-[rgba(201,168,76,0.4)] transition-all">
+            <ShieldAlert size={28} className="text-[var(--gold-dim)] mb-4 group-hover:text-[var(--gold-light)] transition-colors" />
+            <h2 className="font-serif text-xl text-[var(--cream)] uppercase tracking-[0.1em] mb-2">Host Node</h2>
+            <p className="font-mono text-xs text-[#a09070] mb-8 leading-relaxed opacity-80">Establish a secured line. You will dictate the global cipher difficulty.</p>
+            <div className="mt-auto w-full">
+              <button onClick={() => { playClick(); createRoom(settings.difficulty); }} className="w-full py-3 bg-[rgba(201,168,76,0.1)] border border-[var(--gold-dim)] text-[var(--gold-light)] font-mono text-xs tracking-[0.2em] uppercase hover:bg-[var(--gold-dim)] hover:text-[#0e0a04] transition-colors">
+                Initialize Session
+              </button>
+            </div>
+          </div>
+
+          {/* Join Node */}
+          <div className="flex-1 bg-[rgba(18,12,4,0.75)] border border-[rgba(201,168,76,0.2)] border-l-[3px] border-l-[var(--gold)] p-8 flex flex-col items-center text-center shadow-2xl relative overflow-hidden group hover:bg-[rgba(22,15,5,0.9)] hover:border-[rgba(201,168,76,0.4)] transition-all">
+            <Key size={28} className="text-[var(--gold-dim)] mb-4 group-hover:text-[var(--gold-light)] transition-colors" />
+            <h2 className="font-serif text-xl text-[var(--cream)] uppercase tracking-[0.1em] mb-2">Intercept Line</h2>
+            <p className="font-mono text-xs text-[#a09070] mb-6 leading-relaxed opacity-80">Input a 4-letter frequency code to intercept a matching duel.</p>
+
+            <div className="w-full flex flex-col gap-3 mt-auto">
+              <input
+                type="text"
+                value={joinCodeInput}
+                onChange={e => setJoinCodeInput(e.target.value.toUpperCase())}
+                maxLength={4}
+                placeholder="CODE"
+                className="w-full bg-[rgba(8,5,2,0.6)] border border-[var(--gold-dim)] text-[var(--gold-light)] text-center text-xl tracking-[0.5em] p-3 outline-none focus:border-[var(--gold)] placeholder:text-[rgba(201,168,76,0.3)] uppercase font-mono"
+              />
+              <button
+                onClick={() => { playClick(); joinCodeInput.length === 4 && joinRoom(joinCodeInput); }}
+                disabled={joinCodeInput.length !== 4}
+                className="w-full py-3 bg-[rgba(201,168,76,0.1)] border border-[var(--gold-dim)] text-[var(--gold-light)] font-mono text-xs tracking-[0.2em] uppercase hover:bg-[var(--gold-dim)] hover:text-[#0e0a04] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Connect
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Button onClick={() => { playClick(); navigate('/'); }} className="mt-12 !text-[11px] !py-2 !px-4">
         <ArrowLeft size={14} /> Disconnect & Return
@@ -520,7 +615,7 @@ export default function MultiplayerMode() {
           <span className="text-[var(--cream)] drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]">{score}</span>
         </div>
 
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 text-2xl font-serif flex flex-col items-center z-20">
+        <div className="absolute top-0 right-0 md:right-4 text-2xl font-serif flex flex-col items-end z-20">
           <span className="text-sm uppercase tracking-widest text-[var(--red)]/70 font-mono">Opponent</span>
           <span className="text-[#a09070] opacity-90">{opponentScore}</span>
         </div>
@@ -724,6 +819,8 @@ export default function MultiplayerMode() {
               onAcceptGameInvite={(code) => joinRoom(code)}
               onDirectChallenge={handleDirectChallenge}
               challengingUid={pendingDirectInviteUid}
+              isConnected={isConnected}
+              isConnecting={isConnecting}
             />
           </div>
         )}
