@@ -21,6 +21,10 @@ export default function MainMenu() {
     if (isLoggedIn) {
       navigate('/profile');
     } else {
+      if (!navigator.onLine) {
+        alert("You need to connect to internet to login or register.");
+        return;
+      }
       setShowLoginModal(true);
     }
   };
@@ -44,6 +48,10 @@ export default function MainMenu() {
 
   const handleMenuClick = (item) => {
     playClick();
+    if (item.path === '/multiplayer' && !navigator.onLine) {
+      alert("You need to connect to internet to access Multiplayer.");
+      return;
+    }
     if (item.action === 'newGame') {
       resetProgress();
       navigate('/difficulty', { state: { startScene: 'IntroScene' } });

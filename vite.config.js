@@ -32,7 +32,8 @@ export default defineConfig({
         ]
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 4000000, // 4MB to accommodate Phaser bundle
+        maximumFileSizeToCacheInBytes: 10000000, // 10MB to accommodate Phaser bundle, audio, etc.
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff,woff2,mp3,wav}'],
         importScripts: ['/firebase-messaging-sw.js']
       },
       devOptions: {

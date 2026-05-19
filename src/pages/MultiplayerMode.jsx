@@ -62,6 +62,14 @@ export default function MultiplayerMode() {
     }
   }, [multiplayerState, reset]);
 
+  // ─── Offline Guard ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!navigator.onLine) {
+      alert("You need to connect to internet to access Multiplayer.");
+      navigate('/');
+    }
+  }, [navigate]);
+
   // ─── EDGE-1: Reactive location.state watcher for auto-join ────────
   useEffect(() => {
     const code = location.state?.joinRoomCode;

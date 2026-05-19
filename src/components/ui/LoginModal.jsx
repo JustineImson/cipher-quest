@@ -18,6 +18,10 @@ export default function LoginModal({ onClose }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     playClick();
+    if (!navigator.onLine) {
+      setError('You need to connect to internet to login.');
+      return;
+    }
     setError('');
     setResetMessage('');
     setIsLoading(true);
@@ -35,6 +39,10 @@ export default function LoginModal({ onClose }) {
   const handleRegister = async (e) => {
     e.preventDefault();
     playClick();
+    if (!navigator.onLine) {
+      setError('You need to connect to internet to register.');
+      return;
+    }
     setError('');
     setResetMessage('');
     setIsLoading(true);
@@ -51,6 +59,10 @@ export default function LoginModal({ onClose }) {
 
   const handleReset = async () => {
     playClick();
+    if (!navigator.onLine) {
+      setError('You need to connect to internet to reset password.');
+      return;
+    }
     if (!email) {
       setError('Please enter your Email Dossier first.');
       return;
