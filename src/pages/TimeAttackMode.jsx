@@ -13,6 +13,13 @@ import RailFenceInteractive from '../components/RailFenceInteractive';
 import VigenereInteractive from '../components/VigenereInteractive';
 import SubstitutionInteractive from '../components/SubstitutionInteractive';
 import { selectCipherMethod, validateAnswer } from '../engine/gameLogic';
+import {
+  caesarCipher,
+  substitutionCipher,
+  vigenereCipher,
+  railFenceCipher,
+  columnarTranspositionCipher
+} from '../engine/cipherAlgorithms';
 import { bgmController } from '../engine/BGMController';
 import { useSfx } from '../hooks/useSfx';
 import { Pause } from 'lucide-react';
@@ -20,6 +27,34 @@ import DifficultySplash from '../components/ui/DifficultySplash';
 import { generatePuzzleDetails } from '../services/aiGenerator';
 import { submitTimeAttackScore, trackCipherAttempt } from '../services/leaderboardService';
 import ErrorBoundary from '../components/ErrorBoundary';
+
+const TA_SESSION_KEY = 'cq_ta_session';
+
+/** Reconstruct the live applyCipher function from the serialised name+key */
+function rebuildCipherMethod(name, key, isEncryptionMode) {
+  if (!name || !key) return null;
+  if (name.startsWith('Caesar')) {
+    const shift = parseInt(key.replace(/^Shift:\s*/i, ''), 10) || 3;
+    return { name, key, applyCipher: (t) => caesarCipher(t, shift), isEncryptionMode: false };
+  }
+  if (name.startsWith('Substitution')) {
+    const kw = key.replace(/^Keyword:\s*/i, '').trim();
+    return { name, key, applyCipher: (t) => substitutionCipher(t, kw), isEncryptionMode: !!isEncryptionMode };
+  }
+  if (name.startsWith('Rail Fence')) {
+    const rails = parseInt(key.replace(/^Rails:\s*/i, ''), 10) || 3;
+    return { name, key, applyCipher: (t) => railFenceCipher(t, rails), isEncryptionMode: !!isEncryptionMode };
+  }
+  if (name.startsWith('Vigenere')) {
+    const kw = key.replace(/^Keyword:\s*/i, '').trim();
+    return { name, key, applyCipher: (t) => vigenereCipher(t, kw), isEncryptionMode: !!isEncryptionMode };
+  }
+  if (name.startsWith('Columnar')) {
+    const kw = key.replace(/^Keyword:\s*/i, '').trim();
+    return { name, key, applyCipher: (t) => columnarTranspositionCipher(t, kw), isEncryptionMode: !!isEncryptionMode };
+  }
+  return null;
+}
 
 // Word-length rules per difficulty (pure function — keep outside component)
 const isWordLengthValid = (word, difficulty) => {
@@ -61,6 +96,7 @@ function TimeAttackMode() {
   const inputRef = useRef(null);
   const hasSubmittedRef = useRef(false);
   const puzzleStartTimeRef = useRef(null);
+  const isFirstPuzzleRef = useRef(false);
   const { playClick } = useSfx();
 
   // Game Loop: Fetch Word
@@ -104,7 +140,12 @@ function TimeAttackMode() {
 
       setIsLoading(false);
       setIsGlitching(true);
-      resume(); // Resume timer once loaded
+      if (isFirstPuzzleRef.current) {
+        isFirstPuzzleRef.current = false;
+        start(60); // Start the timer only when the first puzzle is ready
+      } else {
+        resume();
+      }
       puzzleStartTimeRef.current = Date.now();
       setTimeout(() => setIsGlitching(false), 500);
       setTimeout(() => {
@@ -130,18 +171,54 @@ function TimeAttackMode() {
       }
       setIsLoading(false);
       setIsGlitching(true);
-      resume(); // Resume timer once loaded
+      if (isFirstPuzzleRef.current) {
+        isFirstPuzzleRef.current = false;
+        start(60);
+      } else {
+        resume();
+      }
       puzzleStartTimeRef.current = Date.now();
       setTimeout(() => setIsGlitching(false), 500);
       setTimeout(() => {
         if (inputRef.current) inputRef.current.focus();
       }, 0);
     }
-  }, [pause, resume]);
+  }, [pause, resume, start]);
 
-  // Start initialization — run ML seeding only on first mount
+  // Start initialization — restore saved session or run ML seeding
   useEffect(() => {
     bgmController.play('bgm1');
+
+    // Try to restore a saved in-progress session
+    try {
+      const raw = localStorage.getItem(TA_SESSION_KEY);
+      if (raw) {
+        const s = JSON.parse(raw);
+        // Only restore if there is meaningful time left
+        if (s && s.timeLeft > 0 && s.currentWord && s.cipherName) {
+          const restoredCipher = rebuildCipherMethod(s.cipherName, s.cipherKey, s.isEncryptionMode);
+          if (restoredCipher) {
+            setScore(s.score || 0);
+            setCiphersCracked(s.ciphersCracked || 0);
+            setCurrentWord(s.currentWord);
+            setEncryptedWord(s.encryptedWord);
+            setCipherMethod(restoredCipher);
+            setCurrentClue(s.currentClue || '');
+            setGameState('playing');
+            if (s.difficulty) setDifficulty(s.difficulty);
+            hasSubmittedRef.current = false;
+            isFirstPuzzleRef.current = false;
+            // Start the timer from the saved time remaining
+            start(s.timeLeft);
+            puzzleStartTimeRef.current = Date.now();
+            return; // Skip ML seeding + startGame
+          }
+        }
+      }
+    } catch (_) {
+      localStorage.removeItem(TA_SESSION_KEY);
+    }
+
     (async () => {
       let startDifficulty = 'Easy';
       if (currentUser?.uid) {
@@ -186,14 +263,34 @@ function TimeAttackMode() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
 
+  // Persist active session to localStorage so a refresh can resume
+  useEffect(() => {
+    if (gameState !== 'playing' || !currentWord || !cipherMethod.name) return;
+    try {
+      localStorage.setItem(TA_SESSION_KEY, JSON.stringify({
+        score,
+        ciphersCracked,
+        timeLeft,
+        currentWord,
+        encryptedWord,
+        cipherName: cipherMethod.name,
+        cipherKey: cipherMethod.key,
+        isEncryptionMode: cipherMethod.isEncryptionMode || false,
+        currentClue,
+        difficulty: currentDifficulty,
+      }));
+    } catch (_) {}
+  }, [gameState, score, ciphersCracked, timeLeft, currentWord, encryptedWord, cipherMethod, currentClue, currentDifficulty]);
+
   const startGame = (seedDifficulty = 'Easy') => {
+    localStorage.removeItem(TA_SESSION_KEY); // Clear any previous session
     hasSubmittedRef.current = false;
+    isFirstPuzzleRef.current = true; // Signal fetchNewWord to call start() instead of resume()
     setScore(0);
     setCiphersCracked(0);
     setGameState('playing');
     resetProgression(seedDifficulty);
-    start(60);
-    fetchNewWord();
+    fetchNewWord(); // Timer starts inside fetchNewWord once the first puzzle is ready
   };
 
   // Monitor Timer for Game Over
@@ -205,15 +302,18 @@ function TimeAttackMode() {
 
   // Submit score to leaderboard on game over
   useEffect(() => {
-    if (gameState === 'game_over' && !hasSubmittedRef.current && currentUser?.uid) {
-      hasSubmittedRef.current = true;
-      submitTimeAttackScore(
-        currentUser.uid,
-        currentUser.username || currentUser.email || 'Anonymous',
-        score,
-        currentDifficulty,
-        ciphersCracked
-      );
+    if (gameState === 'game_over') {
+      localStorage.removeItem(TA_SESSION_KEY); // Session is done
+      if (!hasSubmittedRef.current && currentUser?.uid) {
+        hasSubmittedRef.current = true;
+        submitTimeAttackScore(
+          currentUser.uid,
+          currentUser.username || currentUser.email || 'Anonymous',
+          score,
+          currentDifficulty,
+          ciphersCracked
+        );
+      }
     }
   }, [gameState, currentUser, score, currentDifficulty, ciphersCracked]);
 
@@ -500,9 +600,6 @@ function TimeAttackMode() {
                   <div className="mt-8 text-mystery-gold/90 italic font-serif text-lg bg-black/60 px-6 py-3 border border-mystery-gold/30 rounded inline-block max-w-[90%] relative">
                     <span className="font-mono text-xs text-mystery-gold/50 block mb-1 uppercase tracking-widest text-center">
                       Intercepted Clue
-                      <span className={`ml-2 text-[10px] px-2 py-0.5 rounded border ${isFallback ? 'border-red-500/50 text-red-400' : 'border-green-500/50 text-green-400'}`}>
-                        {isFallback ? 'SOURCE: FALLBACK' : 'SOURCE: AI'}
-                      </span>
                     </span>
                     "{currentClue}"
                   </div>

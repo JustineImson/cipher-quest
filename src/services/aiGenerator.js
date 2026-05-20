@@ -109,8 +109,6 @@ Formatting rules:
     };
   } catch (error) {
     console.warn('AI generation failed, using fallback puzzle:', error);
-    const fallback = getRandomFallback(difficulty);
-    fallback.clue = `[DEBUG ERROR: ${error.message}] ` + fallback.clue;
-    return fallback;
+    return getRandomFallback(difficulty);
   }
 }

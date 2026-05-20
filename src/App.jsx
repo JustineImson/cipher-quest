@@ -21,6 +21,7 @@ import { listenToIncomingGameInvites, resolveGameInvite } from './services/socia
 import { requestFullscreenAndLock } from './utils/orientation';
 import RotatePrompt from './components/RotatePrompt';
 import GameScaleWrapper from './components/GameScaleWrapper';
+import OfflineGate from './components/OfflineGate';
 
 // Admin Route Guard Component
 function AdminRoute({ children }) {
@@ -213,9 +214,11 @@ function App() {
           <Route
             path="/admin/*"
             element={
-              <AdminRoute>
-                <AdminDashboard />
-              </AdminRoute>
+              <OfflineGate>
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              </OfflineGate>
             }
           />
         </Routes>
@@ -280,12 +283,12 @@ function App() {
             <Route path="/tutorial" element={<Tutorial />} />
             <Route path="/story" element={<StoryMode />} />
             <Route path="/timeAttack" element={<TimeAttackMode />} />
-            <Route path="/multiplayer" element={<MultiplayerMode />} />
-            <Route path="/leaderboards" element={<Leaderboards />} />
+            <Route path="/multiplayer" element={<OfflineGate><MultiplayerMode /></OfflineGate>} />
+            <Route path="/leaderboards" element={<OfflineGate><Leaderboards /></OfflineGate>} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/difficulty" element={<Difficulty />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/:uid" element={<Profile />} />
+            <Route path="/profile" element={<OfflineGate><Profile /></OfflineGate>} />
+            <Route path="/profile/:uid" element={<OfflineGate><Profile /></OfflineGate>} />
             <Route path="/auth/action" element={<AuthAction />} />
           </Routes>
 

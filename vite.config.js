@@ -56,7 +56,23 @@ export default defineConfig({
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 10000000, // 10MB to accommodate Phaser bundle, audio, etc.
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff,woff2,mp3,wav}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff,woff2,mp3,wav}'],
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/socket\.io/, /^\/ml/, /^\/notify/, /^\/admin/],
+        runtimeCaching: [
+          {
+            urlPattern: /\/(socket\.io|ml|notify|admin)(\?.*)?$/,
+            handler: 'NetworkOnly'
+          },
+          {
+            urlPattern: /^https:\/\/.*\.googleapis\.com\//,
+            handler: 'NetworkOnly'
+          },
+          {
+            urlPattern: /^https:\/\/.*\.firebaseio\.com\//,
+            handler: 'NetworkOnly'
+          }
+        ]
       },
       devOptions: {
         enabled: true

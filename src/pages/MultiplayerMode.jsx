@@ -674,9 +674,6 @@ export default function MultiplayerMode() {
               <div className="mt-8 text-[var(--gold-light)] italic font-serif text-lg bg-[rgba(18,12,4,0.6)] px-6 py-3 border border-[var(--gold-dim)] rounded inline-block max-w-[90%] relative">
                 <span className="font-mono text-xs text-[#a09070] block mb-1 uppercase tracking-[0.2em] text-center">
                   Intercepted Clue
-                  <span className={`ml-2 text-[10px] px-2 py-0.5 rounded border ${isFallback ? 'border-[var(--red)] text-[var(--red)]' : 'border-[#5a9e6f] text-[#5a9e6f]'}`}>
-                    {isFallback ? 'SOURCE: FALLBACK' : 'SOURCE: SERVER'}
-                  </span>
                 </span>
                 "{currentClue}"
               </div>
