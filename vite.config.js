@@ -5,6 +5,29 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    host: true, // expose to LAN so phone can reach it
+    port: 5173,
+    proxy: {
+      '/socket.io': {
+        target: 'http://localhost:3001',
+        ws: true,
+        changeOrigin: true
+      },
+      '/ml': {
+        target: 'http://localhost:3001',
+        changeOrigin: true
+      },
+      '/notify': {
+        target: 'http://localhost:3001',
+        changeOrigin: true
+      },
+      '/admin': {
+        target: 'http://localhost:3001',
+        changeOrigin: true
+      }
+    }
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -33,8 +56,7 @@ export default defineConfig({
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 10000000, // 10MB to accommodate Phaser bundle, audio, etc.
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff,woff2,mp3,wav}'],
-        importScripts: ['/firebase-messaging-sw.js']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff,woff2,mp3,wav}']
       },
       devOptions: {
         enabled: true

@@ -1,4 +1,5 @@
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || `http://${window.location.hostname}:3001`;
+const SERVER_URL = import.meta.env.VITE_SERVER_URL ||
+  `${window.location.protocol === 'https:' ? 'https' : 'http'}://${window.location.hostname}:5173`;
 
 /**
  * Sends a push notification to a target user via the Node.js server.

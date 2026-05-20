@@ -12,9 +12,19 @@ export const requestNotificationPermission = async () => {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       const messaging = getMessaging(getApp());
-      
+
+      // Explicitly register the FCM service worker so getToken can find it.
+      // VitePWA registers its own SW; without this, FCM fails silently on mobile.
+      let swRegistration;
+      if ('serviceWorker' in navigator) {
+        swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+          scope: '/firebase-cloud-messaging-push-scope'
+        });
+      }
+
       const token = await getToken(messaging, {
-        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+        ...(swRegistration ? { serviceWorkerRegistration: swRegistration } : {})
       });
       
       if (token) {

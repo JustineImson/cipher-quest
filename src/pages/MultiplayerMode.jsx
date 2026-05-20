@@ -29,9 +29,9 @@ export default function MultiplayerMode() {
   const {
     multiplayerState, roomCode, isHost, playersCount, opponentScore,
     currentWord, encryptedWord, cipherName, cipherKey, currentClue, isFallback, matchResult,
-    isConnected, isConnecting,
+    isConnected, isConnecting, retryConnection,
     createRoom, joinRoom, startGame, submitScore, nextRound, emitTimeout, resetLobby, forfeitMatch
-  } = useMultiplayer(import.meta.env.VITE_SERVER_URL || `http://${window.location.hostname}:3001`);
+  } = useMultiplayer(import.meta.env.VITE_SERVER_URL || `${window.location.protocol === 'https:' ? 'https' : 'http'}://${window.location.hostname}:5173`);
 
   // Auth readiness tracking
   const [authReady, setAuthReady] = useState(false);
@@ -324,7 +324,7 @@ export default function MultiplayerMode() {
       const currentDiff = useGameStore.getState().currentDifficulty || 'Easy';
       recordCipherAttempt(true, timeTaken, currentDiff);
 
-      // Points based on difficulty: Easy=100, Normal=250, Hard=600
+      // Points based on difficulty: Easy=100, Normal=250, Hard=600 (same as TimeAttack)
       const currentDiffLower = currentDiff.toLowerCase();
       const pointsEarned = currentDiffLower === 'easy' ? 100 : currentDiffLower === 'normal' ? 250 : 600;
       const newScore = score + pointsEarned;
@@ -411,7 +411,7 @@ export default function MultiplayerMode() {
       const currentDiff = useGameStore.getState().currentDifficulty || 'Easy';
       recordCipherAttempt(true, timeTaken, currentDiff);
 
-      // Points based on difficulty: Easy=100, Normal=250, Hard=600
+      // Points based on difficulty: Easy=100, Normal=250, Hard=600 (same as TimeAttack)
       const currentDiffLower = currentDiff.toLowerCase();
       const pointsEarned = currentDiffLower === 'easy' ? 100 : currentDiffLower === 'normal' ? 250 : 600;
       const newScore = score + pointsEarned;
@@ -835,6 +835,7 @@ export default function MultiplayerMode() {
               activeRoomCode={isHost && multiplayerState === 'waiting' ? roomCode : null}
               onAcceptGameInvite={(code) => joinRoom(code)}
               onDirectChallenge={handleDirectChallenge}
+              onRetryConnection={retryConnection}
               challengingUid={pendingDirectInviteUid}
               isConnected={isConnected}
               isConnecting={isConnecting}

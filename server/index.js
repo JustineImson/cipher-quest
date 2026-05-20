@@ -794,6 +794,36 @@ io.on('connection', (socket) => {
     });
 });
 
+// ─────────────────────────────────────────────────────────────
+// ML API Proxy — forwards /ml/* to the local Flask service
+// so mobile clients (PWA) can reach it through this server
+// ─────────────────────────────────────────────────────────────
+const ML_API_URL = process.env.ML_API_URL || 'http://127.0.0.1:5000';
+
+app.get('/ml/health', async (_req, res) => {
+  try {
+    const response = await fetch(`${ML_API_URL}/health`);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(503).json({ status: 'unavailable', error: err.message });
+  }
+});
+
+app.post('/ml/predict', async (req, res) => {
+  try {
+    const response = await fetch(`${ML_API_URL}/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (err) {
+    res.status(503).json({ error: err.message });
+  }
+});
+
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Aegis AI Multiplayer Server running on port ${PORT} (0.0.0.0)`);
 });

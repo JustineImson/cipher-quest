@@ -18,58 +18,60 @@ const devLocations = [
  * and rendering on a dedicated UI camera.
  */
 export function addDevPanel(scene) {
-    if (!useGameStore.getState().isAdmin) return;
-
-    const panelX = 10;
-    const panelY = 10;
-    const panelW = 160;
-    const panelH = 30 + devLocations.length * 30;
-
-    // Collect all panel objects so we can assign them to a UI camera
+    const isAdmin = useGameStore.getState().isAdmin;
     const panelObjects = [];
 
-    // Panel background
-    const bg = scene.add.rectangle(panelX + panelW / 2, panelY + panelH / 2, panelW, panelH, 0x000000, 0.7)
-        .setStrokeStyle(1, 0xff0000)
-        .setScrollFactor(0)
-        .setDepth(99999);
-    panelObjects.push(bg);
+    // Only create dev panel UI for admins
+    if (isAdmin) {
+        const panelX = 10;
+        const panelY = 10;
+        const panelW = 160;
+        const panelH = 30 + devLocations.length * 30;
 
-    // Panel title
-    const title = scene.add.text(panelX + panelW / 2, panelY + 14, '⚡ DEV TELEPORT', {
-        fontSize: '13px', fill: '#ff4444', fontFamily: 'monospace', fontStyle: 'bold'
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(100000);
-    panelObjects.push(title);
+        // Panel background
+        const bg = scene.add.rectangle(panelX + panelW / 2, panelY + panelH / 2, panelW, panelH, 0x000000, 0.7)
+            .setStrokeStyle(1, 0xff0000)
+            .setScrollFactor(0)
+            .setDepth(99999);
+        panelObjects.push(bg);
 
-    devLocations.forEach((loc, i) => {
-        const ty = panelY + 36 + i * 30;
-        const label = scene.add.text(panelX + panelW / 2, ty, loc.name, {
-            fontSize: '15px', fill: '#00ff88', fontFamily: 'monospace'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(100000)
-          .setInteractive({ useHandCursor: true })
-          .on('pointerover', () => label.setStyle({ fill: '#ffffff' }))
-          .on('pointerout', () => label.setStyle({ fill: '#00ff88' }))
-          .on('pointerdown', () => {
-              if (gameManager.currentPhase === GamePhases.BRIEFING) {
-                  gameManager.setPhase(GamePhases.INVESTIGATING);
-              }
+        // Panel title
+        const title = scene.add.text(panelX + panelW / 2, panelY + 14, '⚡ DEV TELEPORT', {
+            fontSize: '13px', fill: '#ff4444', fontFamily: 'monospace', fontStyle: 'bold'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(100000);
+        panelObjects.push(title);
 
-              if (loc.key === '__office__') {
-                  scene.scene.start('OfficeScene');
-              } else if (loc.key === '__map__') {
-                  scene.scene.start('MainScene');
-              } else if (loc.key === '__deduction__') {
-                  gameManager.setPhase('DEDUCTION');
-                  scene.scene.start('DeductionBoardScene');
-              } else {
-                  scene.scene.start('LocationScene', { locationKey: loc.key });
-              }
-          });
-        panelObjects.push(label);
-    });
+        devLocations.forEach((loc, i) => {
+            const ty = panelY + 36 + i * 30;
+            const label = scene.add.text(panelX + panelW / 2, ty, loc.name, {
+                fontSize: '15px', fill: '#00ff88', fontFamily: 'monospace'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(100000)
+              .setInteractive({ useHandCursor: true })
+              .on('pointerover', () => label.setStyle({ fill: '#ffffff' }))
+              .on('pointerout', () => label.setStyle({ fill: '#00ff88' }))
+              .on('pointerdown', () => {
+                  if (gameManager.currentPhase === GamePhases.BRIEFING) {
+                      gameManager.setPhase(GamePhases.INVESTIGATING);
+                  }
+
+                  if (loc.key === '__office__') {
+                      scene.scene.start('OfficeScene');
+                  } else if (loc.key === '__map__') {
+                      scene.scene.start('MainScene');
+                  } else if (loc.key === '__deduction__') {
+                      gameManager.setPhase('DEDUCTION');
+                      scene.scene.start('DeductionBoardScene');
+                  } else {
+                      scene.scene.start('LocationScene', { locationKey: loc.key });
+                  }
+              });
+            panelObjects.push(label);
+        });
+    }
 
     // If the main camera is zoomed, create a separate UI camera at zoom 1
-    // so the dev panel always renders at normal size.
+    // so UI elements (case file, pause button, dev panel) render correctly.
+    // This MUST run for all users (not just admins) to ensure UI visibility.
     const mainCam = scene.cameras.main;
     if (mainCam.zoom !== 1) {
         const uiCam = scene.cameras.add(0, 0, scene.scale.width, scene.scale.height);

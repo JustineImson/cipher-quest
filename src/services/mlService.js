@@ -5,7 +5,9 @@
  * skill-tier insights.  Never throws — returns null on failure.
  */
 
-const ML_BASE_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:5000';
+const _serverBase = import.meta.env.VITE_SERVER_URL ||
+  `${window.location.protocol === 'https:' ? 'https' : 'http'}://${window.location.hostname}:5173`;
+const ML_BASE_URL = import.meta.env.VITE_ML_API_URL || `${_serverBase}/ml`;
 
 /**
  * POST player stats to the Flask /predict endpoint.

@@ -10,25 +10,34 @@ export default class UIScene extends Phaser.Scene {
         this.isMobileOrTablet = window.innerWidth < 1024;
 
         // --- VIRTUAL JOYSTICK ---
+        // Use this.scale which has the actual game dimensions, not camera which may not be ready
+        const joyX = 220;
+        const joyY = this.scale.height - 220;
+
         this.joystick = new VirtualJoystick(this, {
-            x: 200,
-            y: this.cameras.main.height - 200,
-            radius: 100,
-            base: this.add.circle(0, 0, 100, 0x888888, 0.5),
-            thumb: this.add.circle(0, 0, 50, 0xcccccc, 0.8),
+            x: joyX,
+            y: joyY,
+            radius: 80,
+            base: this.add.circle(0, 0, 80, 0x888888, 0.5),
+            thumb: this.add.circle(0, 0, 40, 0xcccccc, 0.8),
         });
 
-        // Ensure joystick base and thumb are drawn on top
-        this.joystick.base.setDepth(100);
-        this.joystick.thumb.setDepth(101);
+        // Ensure joystick stays fixed on screen and is interactive
+        this.joystick.base.setScrollFactor(0).setDepth(1000);
+        this.joystick.thumb.setScrollFactor(0).setDepth(1001);
+        
+        // Make sure joystick captures pointer events
+        this.joystick.base.setInteractive({ useHandCursor: false, draggable: false });
         
         this.updateJoystickVisibility();
 
         // --- ACTION BUTTON ---
-        const btnX = this.cameras.main.width - 200;
-        const btnY = this.cameras.main.height - 200;
+        // Position relative to screen edges for better mobile accessibility
+        const btnX = this.scale.width - 220;
+        const btnY = this.scale.height - 220;
 
         this.actionButtonContainer = this.add.container(btnX, btnY);
+        this.actionButtonContainer.setScrollFactor(0);
 
         const btnGraphics = this.add.circle(0, 0, 40, 0xff0000, 0.6);
         btnGraphics.setStrokeStyle(3, 0xffffff);
@@ -71,13 +80,13 @@ export default class UIScene extends Phaser.Scene {
                 this.actionButtonContainer.setVisible(false);
             }
 
-            // Reposition controls dynamically
+            // Reposition controls dynamically - keep them in from edges on mobile
             if (this.actionButtonContainer) {
-                this.actionButtonContainer.setPosition(gameSize.width - 200, gameSize.height - 200);
+                this.actionButtonContainer.setPosition(gameSize.width - 120, gameSize.height - 120);
             }
             if (this.joystick) {
-                this.joystick.x = 200;
-                this.joystick.y = gameSize.height - 200;
+                this.joystick.x = 120;
+                this.joystick.y = gameSize.height - 120;
             }
         });
     }

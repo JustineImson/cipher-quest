@@ -14,7 +14,7 @@ function getFallbackPool(difficulty) {
   return pool.length > 0 ? pool : all;
 }
 
-export function useMultiplayer(serverUrl = import.meta.env.VITE_SERVER_URL || `http://${window.location.hostname}:3001`) {
+export function useMultiplayer(serverUrl = import.meta.env.VITE_SERVER_URL || `${window.location.protocol === 'https:' ? 'https' : 'http'}://${window.location.hostname}:5173`) {
   const socketRef = useRef(null);
 
   const [multiplayerState, setMultiplayerState] = useState('lobby'); // lobby, waiting, playing, finished
@@ -77,6 +77,15 @@ export function useMultiplayer(serverUrl = import.meta.env.VITE_SERVER_URL || `h
       creatingSocketRef.current = true;
       setIsConnecting(true);
 
+      // Hard timeout: if socket hasn't connected within 12s, mark as failed so Retry button appears
+      const connectingTimeoutId = setTimeout(() => {
+        if (mounted && !socketRef.current?.connected) {
+          console.warn('[Multiplayer] Connection timed out — enabling Retry');
+          setIsConnecting(false);
+          setConnectionError('Connection timed out');
+        }
+      }, 12000);
+
       try {
         const token = await user.getIdToken(true); // Force fresh token
         clientUidRef.current = user.uid;
@@ -95,6 +104,7 @@ export function useMultiplayer(serverUrl = import.meta.env.VITE_SERVER_URL || `h
 
         socket.on('connect', () => {
           console.log('[Multiplayer] Socket connected:', socket.id);
+          clearTimeout(connectingTimeoutId);
           reconnectAttempts = 0;
           setIsConnected(true);
           setIsConnecting(false);
@@ -123,6 +133,7 @@ export function useMultiplayer(serverUrl = import.meta.env.VITE_SERVER_URL || `h
 
         socket.on('connect_error', (err) => {
           console.warn('[Multiplayer] Socket connection error:', err.message);
+          clearTimeout(connectingTimeoutId);
           setConnectionError(err.message);
           setIsConnected(false);
           setIsConnecting(false);
@@ -359,6 +370,14 @@ export function useMultiplayer(serverUrl = import.meta.env.VITE_SERVER_URL || `h
     }
   }, [roomCode]);
 
+  const retryConnection = useCallback(() => {
+    if (socketRef.current) {
+      setIsConnecting(true);
+      setConnectionError(null);
+      socketRef.current.connect();
+    }
+  }, []);
+
   const resetLobby = useCallback(() => {
     setMultiplayerState('lobby');
     setRoomCode('');
@@ -387,6 +406,7 @@ export function useMultiplayer(serverUrl = import.meta.env.VITE_SERVER_URL || `h
     isConnected,
     isConnecting,
     connectionError,
+    retryConnection,
     createRoom,
     joinRoom,
     startGame,
