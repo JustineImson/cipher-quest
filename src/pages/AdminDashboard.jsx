@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { auth } from '../services/firebase';
 import {
-  collection, getDocs, doc, getDoc, updateDoc, deleteDoc, setDoc,
+  collection, getDocs, doc, getDoc, updateDoc, deleteDoc, setDoc, addDoc,
   query, orderBy, limit, where
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -20,6 +20,9 @@ function PlayerManagement() {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [msgSubject, setMsgSubject] = useState('');
+  const [msgBody, setMsgBody] = useState('');
+  const [msgSending, setMsgSending] = useState(false);
 
   const fetchPlayers = useCallback(async () => {
     try {
@@ -65,7 +68,9 @@ function PlayerManagement() {
       });
       const data = await res.json();
       if (data.success) {
+        await updateDoc(doc(db, 'users', uid), { isBanned: ban });
         setMessage(`User ${ban ? 'banned' : 'unbanned'} successfully`);
+        setSelectedPlayer(prev => prev ? { ...prev, isBanned: ban } : prev);
         fetchPlayers();
       } else {
         setMessage(data.error || 'Action failed');
@@ -148,6 +153,30 @@ function PlayerManagement() {
       setMessage(err.message);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleSendMessage = async (uid) => {
+    if (!msgSubject.trim() || !msgBody.trim()) {
+      setMessage('Subject and body are required');
+      return;
+    }
+    setMsgSending(true);
+    try {
+      await addDoc(collection(db, 'inbox', uid, 'messages'), {
+        subject: msgSubject.trim(),
+        body: msgBody.trim(),
+        sentAt: Date.now(),
+        sentBy: auth.currentUser?.uid,
+        read: false,
+      });
+      setMessage('Message sent to player');
+      setMsgSubject('');
+      setMsgBody('');
+    } catch (err) {
+      setMessage(err.message);
+    } finally {
+      setMsgSending(false);
     }
   };
 
@@ -237,20 +266,23 @@ function PlayerManagement() {
               <div className="border-t border-[#7a6030]/30 pt-4 space-y-2">
                 <div className="text-[#c9a84c] text-xs uppercase tracking-wider mb-2">Account Actions</div>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleBan(selectedPlayer.id, true)}
-                    disabled={actionLoading}
-                    className="px-3 py-1.5 bg-[#1a0f0f] border border-[#8b1a1a]/50 text-[#8b1a1a] text-xs uppercase hover:bg-[#8b1a1a] hover:text-[#0a0a0f] transition-all disabled:opacity-50"
-                  >
-                    Ban User
-                  </button>
-                  <button
-                    onClick={() => handleBan(selectedPlayer.id, false)}
-                    disabled={actionLoading}
-                    className="px-3 py-1.5 bg-[#0f1a0f] border border-[#5a9e6f]/50 text-[#5a9e6f] text-xs uppercase hover:bg-[#5a9e6f] hover:text-[#0a0a0f] transition-all disabled:opacity-50"
-                  >
-                    Unban User
-                  </button>
+                  {selectedPlayer.isBanned ? (
+                    <button
+                      onClick={() => handleBan(selectedPlayer.id, false)}
+                      disabled={actionLoading}
+                      className="px-3 py-1.5 bg-[#0f1a0f] border border-[#5a9e6f]/50 text-[#5a9e6f] text-xs uppercase hover:bg-[#5a9e6f] hover:text-[#0a0a0f] transition-all disabled:opacity-50"
+                    >
+                      Unban User
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleBan(selectedPlayer.id, true)}
+                      disabled={actionLoading}
+                      className="px-3 py-1.5 bg-[#1a0f0f] border border-[#8b1a1a]/50 text-[#8b1a1a] text-xs uppercase hover:bg-[#8b1a1a] hover:text-[#0a0a0f] transition-all disabled:opacity-50"
+                    >
+                      Ban User
+                    </button>
+                  )}
                   <button
                     onClick={() => handleForceLogout(selectedPlayer.id)}
                     disabled={actionLoading}
@@ -271,6 +303,33 @@ function PlayerManagement() {
                     className="px-3 py-1.5 bg-[#3a1515] border border-[#c96a6a]/50 text-[#c96a6a] text-xs uppercase hover:bg-[#c96a6a] hover:text-[#0a0a0f] transition-all disabled:opacity-50"
                   >
                     Delete Account
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-t border-[#7a6030]/30 pt-4 space-y-2">
+                <div className="text-[#c9a84c] text-xs uppercase tracking-wider mb-2">Send Message</div>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Subject..."
+                    value={msgSubject}
+                    onChange={(e) => setMsgSubject(e.target.value)}
+                    className="w-full bg-[#0a0a0f] border border-[#7a6030]/50 text-[#e8dcc0] px-3 py-1.5 text-xs focus:outline-none focus:border-[#c9a84c]"
+                  />
+                  <textarea
+                    placeholder="Message body..."
+                    value={msgBody}
+                    onChange={(e) => setMsgBody(e.target.value)}
+                    rows={3}
+                    className="w-full bg-[#0a0a0f] border border-[#7a6030]/50 text-[#e8dcc0] px-3 py-1.5 text-xs focus:outline-none focus:border-[#c9a84c] resize-none"
+                  />
+                  <button
+                    onClick={() => handleSendMessage(selectedPlayer.id)}
+                    disabled={msgSending}
+                    className="px-3 py-1.5 bg-[#0f1a0f] border border-[#5a9e6f]/50 text-[#5a9e6f] text-xs uppercase hover:bg-[#5a9e6f] hover:text-[#0a0a0f] transition-all disabled:opacity-50"
+                  >
+                    {msgSending ? 'Sending...' : 'Send Message'}
                   </button>
                 </div>
               </div>
@@ -376,13 +435,26 @@ function LeaderboardManagement() {
   };
 
   const handleSetAnnouncement = async () => {
+    if (!announcement.trim()) {
+      setMessage('Announcement text is required');
+      return;
+    }
     try {
-      await setDoc(doc(db, 'system', 'announcements'), {
-        text: announcement,
-        updatedAt: Date.now(),
-        updatedBy: auth.currentUser?.uid
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE_URL}/admin/set-announcement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ text: announcement.trim(), title: '📢 System Announcement', body: announcement.trim(), link: '/' })
       });
-      setMessage('Announcement set');
+      const data = await res.json();
+      if (data.success) {
+        setMessage(`Announcement set · Push sent to ${data.sent ?? 0} agent(s)`);
+        setAnnouncement('');
+      } else {
+        setMessage(data.error || 'Failed to set announcement');
+      }
     } catch (err) {
       setMessage(err.message);
     }
@@ -491,7 +563,7 @@ function LeaderboardManagement() {
             Set Notice
           </button>
         </div>
-        <p className="text-[#7a6030] text-xs mt-2">This message will be displayed on the player-facing leaderboard page.</p>
+        <p className="text-[#7a6030] text-xs mt-2">Persists to Firestore and sends a push notification to all agents.</p>
       </div>
     </div>
   );
@@ -1066,14 +1138,14 @@ function MultiplayerOversight() {
       if (!user) throw new Error('Not authenticated');
       const token = await user.getIdToken();
 
-      const res = await fetch(`${API_BASE_URL}/admin/broadcast`, {
+      const res = await fetch(`${API_BASE_URL}/admin/set-announcement`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ title: broadcastTitle, body: broadcastBody })
+        body: JSON.stringify({ text: broadcastBody, title: broadcastTitle, body: broadcastBody, link: '/multiplayer' })
       });
       const data = await res.json();
       if (data.success) {
-        setMessage(`Broadcast sent to ${data.sent} users`);
+        setMessage(`Broadcast sent to ${data.sent ?? 0} agent(s) · Announcement saved`);
         setBroadcastTitle('');
         setBroadcastBody('');
       } else {

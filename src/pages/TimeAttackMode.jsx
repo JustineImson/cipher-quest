@@ -33,7 +33,7 @@ const isWordLengthValid = (word, difficulty) => {
 
 function TimeAttackMode() {
   const navigate = useNavigate();
-  const { settings, resetProgression, currentDifficulty, setDifficulty, currentUser, rollingAttempts, recordCipherAttempt } = useGameStore();
+  const { settings, resetProgression, currentDifficulty, setDifficulty, currentUser, rollingAttempts, recordCipherAttempt, isAdmin } = useGameStore();
 
   // Timer: Grand timer starts at 60
   const { timeLeft, start, addTime, pause, resume } = useTimer(60);
@@ -139,60 +139,59 @@ function TimeAttackMode() {
     }
   }, [pause, resume]);
 
-  // Start initialization
+  // Start initialization — run ML seeding only on first mount
   useEffect(() => {
     bgmController.play('bgm1');
-    startGame();
+    (async () => {
+      let startDifficulty = 'Easy';
+      if (currentUser?.uid) {
+        try {
+          const userRef = doc(db, 'users', currentUser.uid);
+          const userSnap = await getDoc(userRef);
+          const userData = userSnap.exists() ? userSnap.data() : {};
+
+          const taRef = doc(db, 'leaderboards', 'timeAttack', 'entries', currentUser.uid);
+          const taSnap = await getDoc(taRef);
+          const best_ta_score = taSnap.exists() ? taSnap.data().score : 0;
+
+          const cStats = userData.cipherStats || {};
+          const getAcc = (c) => cStats[c] && cStats[c].attempts > 0 ? cStats[c].solved / cStats[c].attempts : 0;
+
+          const playerStats = {
+            puzzles_solved: Object.values(cStats).reduce((sum, c) => sum + (c.solved || 0), 0),
+            best_ta_score,
+            win_rate: 0,
+            difficulty_encoded: 1,
+            story_completed: 0,
+            vigenere_accuracy: getAcc('vigenere'),
+            railfence_accuracy: getAcc('railfence'),
+            columnar_accuracy: getAcc('columnar'),
+            substitution_accuracy: getAcc('substitution'),
+            caesar_accuracy: getAcc('caesar')
+          };
+
+          const mlResult = await Promise.race([
+            getPlayerInsights(playerStats),
+            new Promise(resolve => setTimeout(() => resolve(null), 3000))
+          ]);
+
+          const seedMap = { beginner: 'Easy', intermediate: 'Normal', advanced: 'Hard' };
+          startDifficulty = seedMap[mlResult?.skill_tier] ?? 'Easy';
+        } catch (err) {
+          console.warn('ML Seeding failed', err);
+        }
+      }
+      startGame(startDifficulty);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
 
-  const startGame = async () => {
+  const startGame = (seedDifficulty = 'Easy') => {
     hasSubmittedRef.current = false;
     setScore(0);
     setCiphersCracked(0);
-    setIsLoading(true);
-
-    let startDifficulty = 'Easy';
-    if (currentUser?.uid) {
-      try {
-        const userRef = doc(db, 'users', currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        const userData = userSnap.exists() ? userSnap.data() : {};
-
-        const taRef = doc(db, 'leaderboards', 'timeAttack', 'entries', currentUser.uid);
-        const taSnap = await getDoc(taRef);
-        const best_ta_score = taSnap.exists() ? taSnap.data().score : 0;
-
-        const cStats = userData.cipherStats || {};
-        const getAcc = (c) => cStats[c] && cStats[c].attempts > 0 ? cStats[c].solved / cStats[c].attempts : 0;
-
-        const playerStats = {
-          puzzles_solved: Object.values(cStats).reduce((sum, c) => sum + (c.solved || 0), 0),
-          best_ta_score,
-          win_rate: 0,
-          difficulty_encoded: 1,
-          story_completed: 0,
-          vigenere_accuracy: getAcc('vigenere'),
-          railfence_accuracy: getAcc('railfence'),
-          columnar_accuracy: getAcc('columnar'),
-          substitution_accuracy: getAcc('substitution'),
-          caesar_accuracy: getAcc('caesar')
-        };
-
-        const mlResult = await Promise.race([
-          getPlayerInsights(playerStats),
-          new Promise(resolve => setTimeout(() => resolve(null), 3000))
-        ]);
-
-        const seedMap = { beginner: 'Easy', intermediate: 'Normal', advanced: 'Hard' };
-        startDifficulty = seedMap[mlResult?.skill_tier] ?? 'Easy';
-      } catch (err) {
-        console.warn("ML Seeding failed", err);
-      }
-    }
-
-    resetProgression(startDifficulty);
     setGameState('playing');
+    resetProgression(seedDifficulty);
     start(60);
     fetchNewWord();
   };
@@ -249,8 +248,8 @@ function TimeAttackMode() {
       setScore(prev => prev + pointsEarned);
       setCiphersCracked(prev => prev + 1);
 
-      // Time increment: Easy=15s, Normal=30s, Hard=1min
-      const timeBonus = currentDiffLower === 'easy' ? 15 : currentDiffLower === 'normal' ? 30 : 60;
+      // Time increment: Easy=+60s, Normal=+80s, Hard=+100s
+      const timeBonus = currentDiffLower === 'easy' ? 60 : currentDiffLower === 'normal' ? 80 : 100;
       addTime(timeBonus);
 
       setFeedback('correct');
@@ -358,8 +357,8 @@ function TimeAttackMode() {
       setScore(prev => prev + pointsEarned);
       setCiphersCracked(prev => prev + 1);
 
-      // Time increment: Easy=15s, Normal=30s, Hard=1min
-      const timeBonus = currentDiffLower === 'easy' ? 15 : currentDiffLower === 'normal' ? 30 : 60;
+      // Time increment: Easy=+60s, Normal=+80s, Hard=+100s
+      const timeBonus = currentDiffLower === 'easy' ? 60 : currentDiffLower === 'normal' ? 80 : 100;
       addTime(timeBonus);
 
       setFeedback('correct');
@@ -391,7 +390,7 @@ function TimeAttackMode() {
           <p className="text-lg mb-8 text-gray-400 font-serif">Ciphers Cracked: <span className="text-white font-semibold">{ciphersCracked}</span></p>
 
           <div className="flex flex-col gap-4">
-            <Button onClick={startGame} className="w-full">Play Again</Button>
+            <Button onClick={() => startGame('Easy')} className="w-full">Play Again</Button>
             <Button onClick={() => navigate('/')} variant="ghost" className="w-full">Main Menu</Button>
           </div>
         </div>
@@ -606,8 +605,8 @@ function TimeAttackMode() {
             )}
           </div>
 
-          {/* DevMode Panel */}
-          <div className="fixed bottom-4 right-4 flex flex-col items-end z-50">
+          {/* DevMode Panel — admin only */}
+          {isAdmin && <div className="fixed bottom-4 right-4 flex flex-col items-end z-50">
             <button
               onClick={() => { playClick(); setDevModeVisible(!devModeVisible); }}
               className="text-xs text-mystery-gold/30 hover:text-mystery-gold/80 transition-colors mb-2 font-mono bg-black/40 px-2 py-1 rounded"
@@ -687,7 +686,7 @@ function TimeAttackMode() {
                 </div>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
     </>

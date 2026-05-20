@@ -1,8 +1,17 @@
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+dotenv.config({ path: resolve(__dirname, '../.env') });
+
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import admin from 'firebase-admin';
+import nodemailer from 'nodemailer';
 import { selectCipherMethod } from '../src/engine/gameLogic.js';
 
 const app = express();
@@ -49,6 +58,42 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     console.warn('FIREBASE_SERVICE_ACCOUNT not set — socket authentication disabled');
     // Attach null uid for unauthenticated sockets (legacy/dev)
     io.use((socket, next) => { socket.uid = null; next(); });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Email Helper
+// ─────────────────────────────────────────────────────────────
+
+let _transporter = null;
+function getTransporter() {
+    if (_transporter) return _transporter;
+    const user = process.env.EMAIL_USER;
+    const pass = process.env.EMAIL_PASS;
+    if (!user || !pass) {
+        console.warn('EMAIL_USER / EMAIL_PASS not set — email sending disabled');
+        return null;
+    }
+    _transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user, pass }
+    });
+    return _transporter;
+}
+
+async function sendEmail({ to, subject, html }) {
+    const transporter = getTransporter();
+    if (!transporter) return;
+    try {
+        await transporter.sendMail({
+            from: `"Cipher Quest" <${process.env.EMAIL_USER}>`,
+            to,
+            subject,
+            html
+        });
+        console.log(`Email sent to ${to}: ${subject}`);
+    } catch (err) {
+        console.error(`Email failed to ${to}:`, err.message);
+    }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -293,7 +338,25 @@ app.post('/admin/ban-user', verifyAdminMiddleware, async (req, res) => {
     if (!uid) return res.status(400).json({ error: 'Missing uid' });
 
     try {
+        const userRecord = await admin.auth().getUser(uid);
         await admin.auth().updateUser(uid, { disabled: true });
+
+        if (userRecord.email) {
+            sendEmail({
+                to: userRecord.email,
+                subject: 'Your Cipher Quest account has been suspended',
+                html: `
+                    <div style="font-family:monospace;background:#0a0a0f;color:#e8dcc0;padding:32px;max-width:520px;margin:auto;border:1px solid #7a6030">
+                        <h2 style="color:#c9a84c;letter-spacing:0.2em;text-transform:uppercase">Account Suspended</h2>
+                        <p>Your <strong>Cipher Quest</strong> account (<code>${userRecord.email}</code>) has been <strong style="color:#c96a6a">suspended</strong> by an administrator.</p>
+                        <p style="color:#7a6030">If you believe this is a mistake, please contact support.</p>
+                        <hr style="border-color:#7a6030;margin:24px 0">
+                        <p style="font-size:11px;color:#7a6030">This is an automated notice. Do not reply to this email.</p>
+                    </div>
+                `
+            });
+        }
+
         res.status(200).json({ success: true, message: 'User banned' });
     } catch (err) {
         console.error('Ban user error:', err);
@@ -309,7 +372,25 @@ app.post('/admin/unban-user', verifyAdminMiddleware, async (req, res) => {
     if (!uid) return res.status(400).json({ error: 'Missing uid' });
 
     try {
+        const userRecord = await admin.auth().getUser(uid);
         await admin.auth().updateUser(uid, { disabled: false });
+
+        if (userRecord.email) {
+            sendEmail({
+                to: userRecord.email,
+                subject: 'Your Cipher Quest account has been reinstated',
+                html: `
+                    <div style="font-family:monospace;background:#0a0a0f;color:#e8dcc0;padding:32px;max-width:520px;margin:auto;border:1px solid #7a6030">
+                        <h2 style="color:#c9a84c;letter-spacing:0.2em;text-transform:uppercase">Account Reinstated</h2>
+                        <p>Your <strong>Cipher Quest</strong> account (<code>${userRecord.email}</code>) has been <strong style="color:#5a9e6f">reinstated</strong>. You may now log in again.</p>
+                        <p style="color:#7a6030">Welcome back, detective.</p>
+                        <hr style="border-color:#7a6030;margin:24px 0">
+                        <p style="font-size:11px;color:#7a6030">This is an automated notice. Do not reply to this email.</p>
+                    </div>
+                `
+            });
+        }
+
         res.status(200).json({ success: true, message: 'User unbanned' });
     } catch (err) {
         console.error('Unban user error:', err);
@@ -436,6 +517,53 @@ app.post('/admin/close-room', verifyAdminMiddleware, (req, res) => {
 
     delete rooms[roomCode];
     res.status(200).json({ success: true, message: 'Room closed' });
+});
+
+/**
+ * POST /admin/set-announcement — Persist announcement to Firestore AND broadcast push
+ */
+app.post('/admin/set-announcement', verifyAdminMiddleware, async (req, res) => {
+    const { text, title, body, link = '/' } = req.body;
+    if (!text) return res.status(400).json({ error: 'Missing announcement text' });
+
+    try {
+        // 1. Persist to Firestore using Admin SDK (bypasses client security rules)
+        await admin.firestore().collection('system').doc('announcements').collection('items').add({
+            text,
+            createdAt: Date.now(),
+            createdBy: req.adminUid
+        });
+
+        // 2. Broadcast push notification to all users with FCM tokens
+        const pushTitle = title || '📢 New Announcement';
+        const pushBody = body || text;
+
+        const allUsers = await admin.firestore().collection('users')
+            .where('fcmToken', '!=', null).get();
+        const tokens = allUsers.docs.map(d => d.data().fcmToken).filter(Boolean);
+
+        let sent = 0;
+        let failed = 0;
+
+        if (tokens.length > 0) {
+            const batchSize = 500;
+            for (let i = 0; i < tokens.length; i += batchSize) {
+                const batch = tokens.slice(i, i + batchSize);
+                const response = await admin.messaging().sendEachForMulticast({
+                    tokens: batch,
+                    notification: { title: pushTitle, body: pushBody },
+                    webpush: { fcmOptions: { link } }
+                });
+                sent += response.successCount;
+                failed += response.failureCount;
+            }
+        }
+
+        res.status(200).json({ success: true, sent, failed, total: tokens.length });
+    } catch (err) {
+        console.error('Set-announcement error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 /**

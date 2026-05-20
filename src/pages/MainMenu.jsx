@@ -1,9 +1,17 @@
 import { useNavigate } from 'react-router-dom';
-import { Settings, Trophy, BookOpen, Clock, Users, GraduationCap, User } from 'lucide-react';
+import { Settings, Trophy, BookOpen, Clock, Users, GraduationCap, User, Inbox } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import LoginModal from '../components/ui/LoginModal';
+import InboxModal from '../components/ui/InboxModal';
 import { useGameStore } from '../store/useGameStore';
 import { useSfx } from '../hooks/useSfx';
+import { db } from '../services/firebase';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+
+function getSeenAnnIds(uid) {
+  try { return new Set(JSON.parse(localStorage.getItem(`cq_seen_ann_${uid}`) || '[]')); }
+  catch { return new Set(); }
+}
 
 export default function MainMenu() {
   const navigate = useNavigate();
@@ -12,6 +20,9 @@ export default function MainMenu() {
   const [visible, setVisible] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showInbox, setShowInbox] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [seenVersion, setSeenVersion] = useState(0);
   const currentUser = useGameStore((state) => state.currentUser);
 
   const isLoggedIn = !!currentUser;
@@ -66,6 +77,38 @@ export default function MainMenu() {
     const t = setTimeout(() => setVisible(true), 80);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    const uid = currentUser?.uid;
+    if (!uid) { setUnreadCount(0); return; }
+
+    let gameCount = 0;
+    let friendCount = 0;
+    let annCount = 0;
+    const update = () => setUnreadCount(gameCount + friendCount + annCount);
+
+    const unsubGame = onSnapshot(
+      query(collection(db, 'gameInvites'), where('receiverId', '==', uid), where('status', '==', 'pending')),
+      (snap) => { gameCount = snap.size; update(); },
+      () => {}
+    );
+    const unsubFriend = onSnapshot(
+      query(collection(db, 'friendships'), where('receiverId', '==', uid), where('status', '==', 'pending')),
+      (snap) => { friendCount = snap.size; update(); },
+      () => {}
+    );
+    const unsubAnn = onSnapshot(
+      query(collection(db, 'system', 'announcements', 'items'), orderBy('createdAt', 'desc')),
+      (snap) => {
+        const seen = getSeenAnnIds(uid);
+        annCount = snap.docs.filter(d => !seen.has(d.id)).length;
+        update();
+      },
+      () => {}
+    );
+
+    return () => { unsubGame(); unsubFriend(); unsubAnn(); };
+  }, [currentUser?.uid, seenVersion]);
 
   return (
     <>
@@ -364,10 +407,13 @@ export default function MainMenu() {
           flex-shrink: 0;
         }
 
-        /* ── Profile Button ── */
+        /* ── Top-right cluster ── */
         .cq-profile-wrap {
           opacity: 0;
           transition: opacity 1s ease;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
         .cq-profile-wrap.show { opacity: 1; }
         
@@ -418,6 +464,57 @@ export default function MainMenu() {
         .cq-profile-btn:hover .cq-profile-label {
           color: var(--gold-light);
         }
+
+        /* ── Inbox Button ── */
+        .cq-inbox-btn {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 12px 6px 10px;
+          background: rgba(26, 18, 8, 0.7);
+          border: 1px solid rgba(200, 160, 50, 0.6);
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s;
+          backdrop-filter: blur(3px);
+        }
+        .cq-inbox-btn:hover {
+          background: rgba(40, 28, 10, 0.9);
+          border-color: var(--gold-light);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .cq-inbox-label {
+          font-family: 'Special Elite', monospace;
+          font-size: 11px;
+          letter-spacing: 0.15em;
+          color: var(--gold);
+          transition: color 0.2s;
+        }
+        .cq-inbox-btn:hover .cq-inbox-label { color: var(--gold-light); }
+        .cq-inbox-badge {
+          position: absolute;
+          top: -5px;
+          right: -5px;
+          min-width: 16px;
+          height: 16px;
+          background: #8b1a1a;
+          border-radius: 8px;
+          font-size: 9px;
+          color: #e8dcc0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 4px;
+          font-family: 'Special Elite', monospace;
+          box-shadow: 0 0 6px rgba(180,30,30,0.7);
+          animation: pulse-badge 2s infinite;
+        }
+        @keyframes pulse-badge {
+          0%, 100% { box-shadow: 0 0 6px rgba(180,30,30,0.7); }
+          50% { box-shadow: 0 0 12px rgba(180,30,30,0.9); }
+        }
       `}</style>
 
       <div className="cq-root">
@@ -430,8 +527,18 @@ export default function MainMenu() {
         {/* Content */}
         <div className="cq-layout">
 
-          {/* Top Right Profile Button */}
+          {/* Top Right: Inbox + Profile Buttons */}
           <div className={`absolute top-6 right-8 z-50 ${visible ? 'show' : ''} cq-profile-wrap`}>
+            <button
+              className="cq-inbox-btn"
+              onClick={() => { playClick(); setShowInbox(true); }}
+            >
+              <Inbox size={14} style={{ color: 'var(--gold-dim)', transition: 'color 0.2s' }} />
+              <span className="cq-inbox-label">INBOX</span>
+              {unreadCount > 0 && (
+                <span className="cq-inbox-badge">{unreadCount}</span>
+              )}
+            </button>
             <button
               className="cq-profile-btn"
               onClick={handleProfileClick}
@@ -490,6 +597,12 @@ export default function MainMenu() {
 
       {showLoginModal && (
         <LoginModal onClose={() => setShowLoginModal(false)} />
+      )}
+      {showInbox && (
+        <InboxModal
+          onClose={() => { setShowInbox(false); setSeenVersion(v => v + 1); }}
+          currentUser={currentUser}
+        />
       )}
     </>
   );

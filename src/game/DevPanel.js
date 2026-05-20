@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { gameManager, GamePhases } from './GameManager';
+import { useGameStore } from '../store/useGameStore';
 
 const devLocations = [
     { name: 'Office', key: '__office__' },
@@ -17,6 +18,8 @@ const devLocations = [
  * and rendering on a dedicated UI camera.
  */
 export function addDevPanel(scene) {
+    if (!useGameStore.getState().isAdmin) return;
+
     const panelX = 10;
     const panelY = 10;
     const panelW = 160;

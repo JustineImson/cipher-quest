@@ -15,10 +15,8 @@ export function useTimer(initialSeconds = 60) {
   }, []);
 
   const resume = useCallback(() => {
-    if (timeLeft > 0) {
-      setIsActive(true);
-    }
-  }, [timeLeft]);
+    setIsActive(true);
+  }, []);
 
   const reset = useCallback((time = initialSeconds) => {
     setTimeLeft(time);

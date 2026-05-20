@@ -85,10 +85,24 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------------------
-    // system — admin-only read/write
+    // system — admin write; announcement items readable by all auth users
     // ------------------------------------------------------------------
-    match /system/{doc} {
-      allow read, write: if isAdmin();
+    match /system/{docId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    match /system/announcements/items/{itemId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // inbox — players can read/update their own messages; admin can write
+    // ------------------------------------------------------------------
+    match /inbox/{userId}/messages/{messageId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create, delete: if isAdmin();
     }
 
     // ------------------------------------------------------------------
