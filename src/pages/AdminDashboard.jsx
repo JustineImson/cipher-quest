@@ -10,7 +10,7 @@ import { StoryCiphers } from '../game/CipherData.js';
 import { suspectEvidence } from '../data/StoryEvidence.js';
 import fallbackPuzzles from '../data/fallbackPuzzles.js';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 // Tab components
 function PlayerManagement() {

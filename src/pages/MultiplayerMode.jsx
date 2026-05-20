@@ -31,7 +31,7 @@ export default function MultiplayerMode() {
     currentWord, encryptedWord, cipherName, cipherKey, currentClue, isFallback, matchResult,
     isConnected, isConnecting, retryConnection,
     createRoom, joinRoom, startGame, submitScore, nextRound, emitTimeout, resetLobby, forfeitMatch
-  } = useMultiplayer(import.meta.env.VITE_SERVER_URL || `${window.location.protocol === 'https:' ? 'https' : 'http'}://${window.location.hostname}:5173`);
+  } = useMultiplayer(import.meta.env.VITE_SERVER_URL || window.location.origin);
 
   // Auth readiness tracking
   const [authReady, setAuthReady] = useState(false);

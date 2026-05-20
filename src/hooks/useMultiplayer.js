@@ -14,7 +14,7 @@ function getFallbackPool(difficulty) {
   return pool.length > 0 ? pool : all;
 }
 
-export function useMultiplayer(serverUrl = import.meta.env.VITE_SERVER_URL || `${window.location.protocol === 'https:' ? 'https' : 'http'}://${window.location.hostname}:5173`) {
+export function useMultiplayer(serverUrl = import.meta.env.VITE_SERVER_URL || window.location.origin) {
   const socketRef = useRef(null);
 
   const [multiplayerState, setMultiplayerState] = useState('lobby'); // lobby, waiting, playing, finished

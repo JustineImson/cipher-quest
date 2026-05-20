@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
+import { dirname, resolve, join } from 'path';
 import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -16,17 +16,22 @@ import { selectCipherMethod } from '../src/engine/gameLogic.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || '*';
 
-app.use(cors());
+app.use(cors({ origin: CLIENT_ORIGIN }));
 app.use(express.json());
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "*",
+    origin: CLIENT_ORIGIN,
     methods: ["GET", "POST"]
   }
 });
+
+// Serve the built React frontend (populated by `npm run build`)
+const distPath = resolve(__dirname, '../dist');
+app.use(express.static(distPath));
 
 // Initialize Firebase Admin SDK from base64-encoded service account JSON
 let db = null;
@@ -822,6 +827,11 @@ app.post('/ml/predict', async (req, res) => {
   } catch (err) {
     res.status(503).json({ error: err.message });
   }
+});
+
+// SPA fallback — any non-API route returns index.html so React Router works
+app.get('*', (_req, res) => {
+  res.sendFile(join(distPath, 'index.html'));
 });
 
 httpServer.listen(PORT, '0.0.0.0', () => {

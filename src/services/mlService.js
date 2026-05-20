@@ -5,8 +5,7 @@
  * skill-tier insights.  Never throws — returns null on failure.
  */
 
-const _serverBase = import.meta.env.VITE_SERVER_URL ||
-  `${window.location.protocol === 'https:' ? 'https' : 'http'}://${window.location.hostname}:5173`;
+const _serverBase = import.meta.env.VITE_SERVER_URL || window.location.origin;
 const ML_BASE_URL = import.meta.env.VITE_ML_API_URL || `${_serverBase}/ml`;
 
 /**
