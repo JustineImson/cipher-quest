@@ -102,6 +102,87 @@ async function sendEmail({ to, subject, html }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// MFA — OTP via Email
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /auth/send-otp
+ * Body: { uid, email }
+ * Generates a 6-digit OTP, stores it in Firestore with a 10-min expiry,
+ * and emails it to the user.
+ */
+app.post('/auth/send-otp', async (req, res) => {
+    const { uid, email } = req.body;
+    if (!uid || !email) return res.status(400).json({ error: 'Missing uid or email' });
+
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    try {
+        const otp = String(Math.floor(100000 + Math.random() * 900000));
+        const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+        await db.collection('mfaOtps').doc(uid).set({ otp, expiresAt, email });
+
+        await sendEmail({
+            to: email,
+            subject: 'Cipher Quest — Verification Code',
+            html: `
+                <div style="font-family:monospace;background:#0a0a0f;color:#e8dcc0;padding:32px;max-width:520px;margin:auto;border:1px solid #7a6030">
+                    <h2 style="color:#c9a84c;letter-spacing:0.2em;text-transform:uppercase">Identity Verification</h2>
+                    <p>A login attempt was made to your <strong>Cipher Quest</strong> account.</p>
+                    <p>Enter the following code to confirm your identity:</p>
+                    <div style="font-size:36px;font-weight:bold;letter-spacing:0.4em;color:#e8c96a;text-align:center;padding:20px 0;border:1px solid #7a6030;margin:20px 0;background:#1a1208">
+                        ${otp}
+                    </div>
+                    <p style="color:#7a6030;font-size:12px">This code expires in <strong>10 minutes</strong>. If you did not attempt to log in, ignore this email and secure your account.</p>
+                    <hr style="border-color:#7a6030;margin:24px 0">
+                    <p style="font-size:11px;color:#7a6030">Do not share this code with anyone.</p>
+                </div>
+            `
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('OTP send error:', err);
+        res.status(500).json({ error: 'Failed to send OTP' });
+    }
+});
+
+/**
+ * POST /auth/verify-otp
+ * Body: { uid, otp }
+ * Returns 200 on match, 400 on wrong/expired code.
+ */
+app.post('/auth/verify-otp', async (req, res) => {
+    const { uid, otp } = req.body;
+    if (!uid || !otp) return res.status(400).json({ error: 'Missing uid or otp' });
+
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    try {
+        const snap = await db.collection('mfaOtps').doc(uid).get();
+        if (!snap.exists) return res.status(400).json({ error: 'No OTP found. Please request a new code.' });
+
+        const { otp: stored, expiresAt } = snap.data();
+
+        if (Date.now() > expiresAt) {
+            await db.collection('mfaOtps').doc(uid).delete();
+            return res.status(400).json({ error: 'Code expired. Please request a new one.' });
+        }
+
+        if (otp.trim() !== stored) {
+            return res.status(400).json({ error: 'Incorrect code. Please try again.' });
+        }
+
+        await db.collection('mfaOtps').doc(uid).delete();
+        res.json({ success: true });
+    } catch (err) {
+        console.error('OTP verify error:', err);
+        res.status(500).json({ error: 'Verification failed' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────
 // Admin Middleware & Helpers
 // ─────────────────────────────────────────────────────────────
 
@@ -163,10 +244,13 @@ async function markBootstrapUsed() {
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Sends a push notification to a user by their UID.
+ * Sends a themed push notification to a user by their UID.
  * Silently no-ops if admin isn't initialized or user has no token.
+ * @param {string} uid
+ * @param {string} type  - notification type key (used by SW TYPE_CONFIG)
+ * @param {object} extra - extra data forwarded to the service worker (senderName, roomCode, body, link…)
  */
-async function sendPushToUser(uid, title, body, link = '/') {
+async function sendPushToUser(uid, type, extra = {}) {
   if (!uid || !admin.apps?.length) return;
   try {
     const snap = await admin.firestore().collection('users').doc(uid).get();
@@ -174,9 +258,16 @@ async function sendPushToUser(uid, title, body, link = '/') {
     const token = snap.data().fcmToken;
     if (!token) return;
 
+    const link = extra.link || '/';
+    // All data values must be strings for FCM
+    const dataPayload = { type };
+    for (const [k, v] of Object.entries(extra)) {
+      dataPayload[k] = String(v);
+    }
+
     await admin.messaging().send({
       token,
-      notification: { title, body },
+      data: dataPayload,
       webpush: { fcmOptions: { link } },
     });
   } catch (err) {
@@ -193,16 +284,8 @@ async function sendPushToUser(uid, title, body, link = '/') {
  */
 async function sendMatchResultNotifications(winnerUid, loserUid) {
   await Promise.all([
-    sendPushToUser(winnerUid,
-      '🏆 Victory!',
-      'You cracked the cipher faster than your opponent. Well done, detective!',
-      '/leaderboards'
-    ),
-    sendPushToUser(loserUid,
-      'Match Over',
-      'Your opponent was faster this time. Study your weak ciphers and challenge again!',
-      '/profile'
-    ),
+    sendPushToUser(winnerUid, 'match_win',  { link: '/leaderboards' }),
+    sendPushToUser(loserUid,  'match_loss', { link: '/leaderboards' }),
   ]);
 }
 
@@ -252,7 +335,8 @@ app.post('/notify', async (req, res) => {
     return res.status(503).json({ error: 'Notification service unavailable' });
   }
 
-  const { targetUid, title, body, type, link } = req.body;
+  // Destructure all fields; extra fields (senderName, roomCode, body…) are forwarded to SW
+  const { targetUid, title, body, type, link, ...extra } = req.body;
 
   // Validate — only accept known notification types
   const allowedTypes = [
@@ -264,7 +348,7 @@ app.post('/notify', async (req, res) => {
   if (!allowedTypes.includes(type)) {
     return res.status(400).json({ error: 'Invalid notification type' });
   }
-  if (!targetUid || !title) {
+  if (!targetUid) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
@@ -276,10 +360,16 @@ app.post('/notify', async (req, res) => {
     const { fcmToken } = userSnap.data();
     if (!fcmToken) return res.status(200).json({ skipped: 'No token' });
 
+    // All data values must be strings for FCM data messages
+    const dataPayload = { type, link: link || '/' };
+    if (body) dataPayload.body = String(body);
+    for (const [k, v] of Object.entries(extra)) {
+      if (v !== undefined && v !== null) dataPayload[k] = String(v);
+    }
+
     await admin.messaging().send({
       token: fcmToken,
-      notification: { title, body },
-      data: { type, link: link || '/' },
+      data: dataPayload,
       webpush: { fcmOptions: { link: link || '/' } },
     });
 

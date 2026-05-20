@@ -8,13 +8,12 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || window.location.origin;
  * @param {string} targetUid - Target user's Firebase UID
  * @param {object} options - { title, body, type, link }
  */
-export async function notifyUser(targetUid, { title, body, type, link }) {
+export async function notifyUser(targetUid, { title, body, type, link, ...extra }) {
   try {
-    console.log('[Notification] Sending to:', targetUid, { title, type });
     const response = await fetch(`${SERVER_URL}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetUid, title, body, type, link }),
+      body: JSON.stringify({ targetUid, title, body, type, link, ...extra }),
     });
     if (!response.ok) {
       console.warn('[Notification] Failed to send:', response.status, response.statusText);

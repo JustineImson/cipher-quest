@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { X, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useSfx } from '../../hooks/useSfx';
-import { loginUser, registerUser, resetPassword } from '../../services/authService';
+import { loginUser, registerUser, resetPassword, sendOtp, verifyOtp } from '../../services/authService';
+import { auth } from '../../services/firebase';
+import { signOut } from 'firebase/auth';
 
 export default function LoginModal({ onClose }) {
   const navigate = useNavigate();
@@ -15,6 +17,23 @@ export default function LoginModal({ onClose }) {
   const [isLoading, setIsLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
 
+  // MFA state
+  const [mfaStep, setMfaStep] = useState(false);
+  const [otpValue, setOtpValue] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const pendingUserRef = useRef(null); // holds { uid, email } between login and OTP verify
+  const cooldownRef = useRef(null);
+
+  const startResendCooldown = () => {
+    setResendCooldown(60);
+    cooldownRef.current = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) { clearInterval(cooldownRef.current); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     playClick();
@@ -26,9 +45,25 @@ export default function LoginModal({ onClose }) {
     setResetMessage('');
     setIsLoading(true);
     try {
-      await loginUser(email, password);
-      onClose();
-      navigate('/profile');
+      const credential = await loginUser(email, password);
+      const user = credential.user;
+
+      // Admins bypass MFA — check the custom claim before signing out
+      const tokenResult = await user.getIdTokenResult();
+      if (tokenResult.claims.admin === true) {
+        // Admin: grant access immediately, no OTP needed
+        onClose();
+        navigate('/profile');
+        return;
+      }
+
+      // Non-admin: sign out immediately, require OTP before granting access
+      await signOut(auth);
+
+      pendingUserRef.current = { uid: user.uid, email: user.email };
+      await sendOtp(user.uid, user.email);
+      startResendCooldown();
+      setMfaStep(true);
     } catch (err) {
       setError(err.message || 'Login failed.');
     } finally {
@@ -80,6 +115,41 @@ export default function LoginModal({ onClose }) {
     }
   };
 
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    playClick();
+    if (!otpValue.trim()) { setError('Please enter the verification code.'); return; }
+    setError('');
+    setIsLoading(true);
+    try {
+      await verifyOtp(pendingUserRef.current.uid, otpValue.trim());
+      // OTP verified — sign back in
+      await loginUser(email, password);
+      onClose();
+      navigate('/profile');
+    } catch (err) {
+      setError(err.message || 'Verification failed.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || !pendingUserRef.current) return;
+    playClick();
+    setError('');
+    setIsLoading(true);
+    try {
+      await sendOtp(pendingUserRef.current.uid, pendingUserRef.current.email);
+      startResendCooldown();
+      setResetMessage('A new code has been sent to your email.');
+    } catch (err) {
+      setError(err.message || 'Failed to resend code.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Dimmed backdrop */}
@@ -90,6 +160,66 @@ export default function LoginModal({ onClose }) {
       
       {/* Modal Container */}
       <div className="relative w-full max-w-md bg-[#1a1208] border border-[#c9a84c]/40 p-6 md:p-8 shadow-[0_0_40px_rgba(0,0,0,0.8)]">
+
+        {/* ── OTP Verification Screen ── */}
+        {mfaStep && (
+          <div className="relative z-10">
+            <button onClick={() => { playClick(); onClose(); }} className="absolute top-0 right-0 text-[#7a6030] hover:text-[#c9a84c] transition-colors"><X size={20} /></button>
+            <div className="text-center mb-8">
+              <ShieldCheck size={36} className="mx-auto mb-3 text-[#c9a84c] drop-shadow-[0_0_8px_rgba(201,168,76,0.4)]" />
+              <p className="font-['Special_Elite'] text-[10px] tracking-[0.2em] text-[#7a6030] uppercase mb-2">— Two-Factor Authentication —</p>
+              <h2 className="font-['Playfair_Display'] text-2xl font-bold tracking-widest text-[#e8c96a] uppercase">Verify Identity</h2>
+              <p className="text-[#a09070] font-['Special_Elite'] text-xs mt-3 leading-relaxed">
+                A 6-digit code was sent to<br />
+                <span className="text-[#c9a84c]">{pendingUserRef.current?.email}</span>
+              </p>
+            </div>
+
+            {error && (
+              <div className="mb-4 p-3 border border-[#8b1a1a]/50 bg-[#2a0808]/80 text-[#ff6b6b] font-['Special_Elite'] text-xs text-center tracking-widest uppercase">{error}</div>
+            )}
+            {resetMessage && (
+              <div className="mb-4 p-3 border border-green-700/50 bg-green-900/20 text-green-400 font-['Special_Elite'] text-xs text-center tracking-widest uppercase">{resetMessage}</div>
+            )}
+
+            <form onSubmit={handleVerifyOtp} className="flex flex-col gap-5">
+              <div className="flex flex-col gap-2">
+                <label className="font-['Special_Elite'] text-xs tracking-widest text-[#c9a84c] uppercase">Verification Code</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otpValue}
+                  onChange={(e) => { setOtpValue(e.target.value.replace(/\D/g, '')); if (e.nativeEvent.inputType !== 'deleteContentBackward') playKeyTap(); }}
+                  className="bg-[#2a1e0e]/80 border border-[#7a6030]/50 text-[#e8dcc0] font-['Special_Elite'] px-4 py-3 text-center text-2xl tracking-[0.6em] focus:outline-none focus:border-[#c9a84c] transition-colors"
+                  placeholder="------"
+                  disabled={isLoading}
+                  autoFocus
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading || otpValue.length < 6}
+                className="w-full py-3 bg-[#1a1208]/60 border border-[#c9a84c]/60 text-[#c9a84c] font-['Special_Elite'] text-sm tracking-[0.2em] uppercase hover:bg-[#32230c] hover:border-[#c9a84c] hover:text-[#e8c96a] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Verifying...' : 'Confirm Identity'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={resendCooldown > 0 || isLoading}
+                className="flex items-center justify-center gap-2 text-[10px] text-[#7a6030] hover:text-[#c9a84c] font-['Special_Elite'] tracking-widest uppercase transition-colors disabled:opacity-40 disabled:cursor-not-allowed mx-auto"
+              >
+                <RefreshCw size={10} />
+                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
+              </button>
+            </form>
+          </div>
+        )}
+        {!mfaStep && (
+        <>
         {/* Background textures */}
         <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 256 256%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22 opacity=%221%22/%3E%3C/svg%3E')] opacity-5 pointer-events-none mix-blend-screen" />
         
@@ -231,14 +361,15 @@ export default function LoginModal({ onClose }) {
             )}
           </div>
         </form>
+        <style>{`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
+        </>
+        )}
       </div>
-
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }

@@ -154,6 +154,38 @@ async function generateUniqueFriendCode(db) {
   throw new Error('Failed to generate unique friend code after multiple attempts');
 }
 
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || window.location.origin;
+
+/**
+ * Request a 6-digit OTP to be emailed to the user.
+ * Called right after a successful Firebase login.
+ */
+export const sendOtp = async (uid, email) => {
+  const res = await fetch(`${SERVER_URL}/auth/send-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uid, email }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to send verification code.');
+  return data;
+};
+
+/**
+ * Verify the OTP the user entered.
+ * Resolves on success, throws with a user-facing message on failure.
+ */
+export const verifyOtp = async (uid, otp) => {
+  const res = await fetch(`${SERVER_URL}/auth/verify-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uid, otp }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Verification failed.');
+  return data;
+};
+
 export const resetPassword = async (email) => {
   // actionCodeSettings tells Firebase where the reset link should redirect to.
   // This points to the in-app /auth/action route which handles the code.

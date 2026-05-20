@@ -78,6 +78,7 @@ export const sendFriendRequest = async (currentUid, targetFriendCode) => {
     body: `${senderData.username} wants to add you as a friend.`,
     type: 'friend_request',
     link: '/profile',
+    senderName: senderData.username,
   });
 };
 
@@ -130,6 +131,7 @@ export const acceptFriendRequest = async (friendshipDocId, currentUid) => {
       body: `${acceptorData.username} accepted your friend request!`,
       type: 'friend_accepted',
       link: '/profile',
+      senderName: acceptorData.username,
     });
   }
 };
@@ -252,6 +254,8 @@ export const sendGameInvite = async (senderUid, receiverUid, roomCode) => {
     body: `${senderData.username} is challenging you to a cipher duel!`,
     type: 'direct_challenge',
     link: '/multiplayer',
+    senderName: senderData.username,
+    roomCode: roomCode || '',
   });
 };
 
@@ -318,6 +322,7 @@ export const resolveGameInvite = async (inviteId, newStatus, currentUid) => {
       body: `${resolverData.username} accepted your duel invite. Get ready!`,
       type: 'invite_accepted',
       link: '/multiplayer',
+      senderName: resolverData.username,
     });
   } else if (newStatus === 'declined') {
     notifyUser(senderId, {
@@ -325,6 +330,7 @@ export const resolveGameInvite = async (inviteId, newStatus, currentUid) => {
       body: `${resolverData.username} can't make it this time.`,
       type: 'invite_declined',
       link: '/profile',
+      senderName: resolverData.username,
     });
   }
 };
