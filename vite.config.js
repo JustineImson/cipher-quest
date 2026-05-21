@@ -40,6 +40,7 @@ export default defineConfig({
       manifest: {
         name: 'Cipher Quest',
         short_name: 'Cipher',
+        gcm_sender_id: '1039547441517',
         theme_color: '#0d131f',
         background_color: '#0d131f',
         orientation: "landscape",
