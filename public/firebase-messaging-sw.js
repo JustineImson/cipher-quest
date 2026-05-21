@@ -14,115 +14,115 @@ firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
 // ─── Theme constants ───────────────────────────────────────────────────────
-const ICON   = '/pwaIcon.png';
-const BADGE  = '/pwaIcon.png';
+const ICON = '/pwaIcon.png';
+const BADGE = '/pwaIcon.png';
 // Gold pulse: short-long-short (Victorian morse feel)
 const VIBRATE = [80, 60, 80, 60, 200];
 
 // ─── Per-type notification config ─────────────────────────────────────────
 const TYPE_CONFIG = {
   friend_request: {
-    title:   '— New Intelligence Contact —',
-    body:    (d) => `${d.senderName || 'An operative'} wishes to join your network.`,
+    title: '— New Intelligence Contact —',
+    body: (d) => `${d.senderName || 'An operative'} wishes to join your network.`,
     actions: [
-      { action: 'view',    title: '✦ View Dossier' },
+      { action: 'view', title: '✦ View Dossier' },
     ],
-    route:   '/profile',
-    tag:     'friend-request',
+    route: '/profile',
+    tag: 'friend-request',
   },
   friend_accepted: {
-    title:   '— Alliance Confirmed —',
-    body:    (d) => `${d.senderName || 'An operative'} accepted your contact request.`,
+    title: '— Alliance Confirmed —',
+    body: (d) => `${d.senderName || 'An operative'} accepted your contact request.`,
     actions: [
-      { action: 'view',    title: '✦ View Profile' },
+      { action: 'view', title: '✦ View Profile' },
     ],
-    route:   '/profile',
-    tag:     'friend-accepted',
+    route: '/profile',
+    tag: 'friend-accepted',
   },
   game_invite: {
-    title:   '— Cipher Duel Incoming —',
-    body:    (d) => `${d.senderName || 'An agent'} challenges you to a cipher battle.`,
+    title: '— Cipher Duel Incoming —',
+    body: (d) => `${d.senderName || 'An agent'} challenges you to a cipher battle.`,
     actions: [
-      { action: 'accept',  title: '⚔ Accept Duel' },
-      { action: 'decline', title: '✕ Decline'     },
+      { action: 'accept', title: '⚔ Accept Duel' },
+      { action: 'decline', title: '✕ Decline' },
     ],
-    route:   '/multiplayer',
-    tag:     'game-invite',
+    route: '/multiplayer',
+    tag: 'game-invite',
   },
   direct_challenge: {
-    title:   '— Cipher Duel Incoming —',
-    body:    (d) => `${d.senderName || 'An agent'} challenges you to a cipher battle.`,
+    title: '— Cipher Duel Incoming —',
+    body: (d) => `${d.senderName || 'An agent'} challenges you to a cipher battle.`,
     actions: [
-      { action: 'accept',  title: '⚔ Accept Duel' },
-      { action: 'decline', title: '✕ Decline'     },
+      { action: 'accept', title: '⚔ Accept Duel' },
+      { action: 'decline', title: '✕ Decline' },
     ],
-    route:   '/multiplayer',
-    tag:     'game-invite',
+    route: '/multiplayer',
+    tag: 'game-invite',
   },
   invite_accepted: {
-    title:   '— Duel Accepted —',
-    body:    (d) => `${d.senderName || 'Your opponent'} is ready. Proceed to the arena.`,
+    title: '— Duel Accepted —',
+    body: (d) => `${d.senderName || 'Your opponent'} is ready. Proceed to the arena.`,
     actions: [
       { action: 'view', title: '⚔ Enter Arena' },
     ],
-    route:   '/multiplayer',
-    tag:     'invite-accepted',
+    route: '/multiplayer',
+    tag: 'invite-accepted',
   },
   invite_declined: {
-    title:   '— Challenge Refused —',
-    body:    (d) => `${d.senderName || 'The operative'} declined your cipher duel.`,
+    title: '— Challenge Refused —',
+    body: (d) => `${d.senderName || 'The operative'} declined your cipher duel.`,
     actions: [],
-    route:   '/profile',
-    tag:     'invite-declined',
+    route: '/profile',
+    tag: 'invite-declined',
   },
   personal_best: {
-    title:   '— New Record Logged —',
-    body:    (d) => d.body || 'You have set a new personal best score. Well done, detective.',
+    title: '— New Record Logged —',
+    body: (d) => d.body || 'You have set a new personal best score. Well done, detective.',
     actions: [
       { action: 'view', title: '✦ View Records' },
     ],
-    route:   '/leaderboards',
-    tag:     'personal-best',
+    route: '/leaderboards',
+    tag: 'personal-best',
   },
   leaderboard_displaced: {
-    title:   '— Rank Under Threat —',
-    body:    (d) => d.body || 'A rival agent has surpassed your position on the board.',
+    title: '— Rank Under Threat —',
+    body: (d) => d.body || 'A rival agent has surpassed your position on the board.',
     actions: [
       { action: 'view', title: '✦ Inspect Board' },
     ],
-    route:   '/leaderboards',
-    tag:     'leaderboard',
+    route: '/leaderboards',
+    tag: 'leaderboard',
   },
   friend_beats_score: {
-    title:   '— Rival Scores Higher —',
-    body:    (d) => d.body || 'A contact in your network has beaten your score.',
+    title: '— Rival Scores Higher —',
+    body: (d) => d.body || 'A contact in your network has beaten your score.',
     actions: [
       { action: 'view', title: '✦ Inspect Board' },
     ],
-    route:   '/leaderboards',
-    tag:     'leaderboard',
+    route: '/leaderboards',
+    tag: 'leaderboard',
   },
   match_win: {
-    title:   '— Victory Recorded —',
-    body:    (d) => d.body || 'You have prevailed in the cipher arena. Outstanding work.',
+    title: '— Victory Recorded —',
+    body: (d) => d.body || 'You have prevailed in the cipher arena. Outstanding work.',
     actions: [],
-    route:   '/leaderboards',
-    tag:     'match-result',
+    route: '/leaderboards',
+    tag: 'match-result',
   },
   match_loss: {
-    title:   '— Defeat Noted —',
-    body:    (d) => d.body || 'You were bested this round. Study the ciphers and return.',
+    title: '— Defeat Noted —',
+    body: (d) => d.body || 'You were bested this round. Study the ciphers and return.',
     actions: [],
-    route:   '/leaderboards',
-    tag:     'match-result',
+    route: '/leaderboards',
+    tag: 'match-result',
   },
 };
 
 /** Build the full showNotification options for a given FCM payload */
 function buildNotificationOptions(payload) {
-  const data   = payload.data   || {};
-  const notif  = payload.notification || {};
-  const type   = data.type || '';
+  const data = payload.data || {};
+  const notif = payload.notification || {};
+  const type = data.type || '';
   const config = TYPE_CONFIG[type];
 
   const title = config
@@ -134,15 +134,15 @@ function buildNotificationOptions(payload) {
     : (notif.body || data.body || 'A new transmission has arrived.');
 
   const actions = config?.actions || [];
-  const tag     = config?.tag     || 'cq-general';
-  const route   = config?.route   || data.link || '/';
+  const tag = config?.tag || 'cq-general';
+  const route = config?.route || data.link || '/';
 
   return {
     title,
     options: {
       body,
-      icon:    ICON,
-      badge:   BADGE,
+      icon: ICON,
+      badge: BADGE,
       vibrate: VIBRATE,
       tag,
       renotify: true,
@@ -165,9 +165,9 @@ messaging.onBackgroundMessage((payload) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const data    = event.notification.data || {};
-  const action  = event.action;
-  const route   = data.route || '/';
+  const data = event.notification.data || {};
+  const action = event.action;
+  const route = data.route || '/';
 
   // Action-specific overrides
   let targetUrl = route;
@@ -191,3 +191,8 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+// ─── Vite PWA Asset Caching Hook ──────────────────────────────────────────
+// Workbox will inject the assets array here during 'npm run build'
+if (typeof self.__WB_MANIFEST !== 'undefined') {
+  // This keeps the Vite PWA build engine happy by giving it an injection point
+}

@@ -36,6 +36,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      strategies: 'injectManifest',            // <-- ADD THIS
+      srcDir: 'public',                       // <-- ADD THIS
+      filename: 'firebase-messaging-sw.js',
       registerType: 'autoUpdate',
       manifest: {
         name: 'Cipher Quest',
