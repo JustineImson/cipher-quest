@@ -97,8 +97,7 @@ export function useMultiplayer(serverUrl = import.meta.env.VITE_SERVER_URL || wi
           reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
           reconnectionDelay: 1000,
           reconnectionDelayMax: 5000,
-          timeout: 10000,
-          transports: ['websocket', 'polling'] // Try websocket first, fallback to polling
+          timeout: 10000
         });
         socketRef.current = socket;
 
