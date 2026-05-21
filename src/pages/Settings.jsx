@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../store/useGameStore';
-import { ArrowLeft, Volume2, Music, Settings as SettingsIcon, Play, Maximize } from 'lucide-react';
+import { ArrowLeft, Volume2, Music, Settings as SettingsIcon, Play, Maximize, Bell } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useSfx } from '../hooks/useSfx';
+import { requestNotificationPermission } from '../utils/notifications';
 
 export default function Settings({ isOverlay, onClose }) {
   const navigate = useNavigate();
@@ -10,6 +11,30 @@ export default function Settings({ isOverlay, onClose }) {
   const { playClick } = useSfx();
   const [visible, setVisible] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(
+    'Notification' in window ? Notification.permission === 'granted' : false
+  );
+
+  const handleEnableNotifications = async () => {
+    playClick();
+    if (!('Notification' in window)) return;
+    
+    if (Notification.permission !== 'granted') {
+      const token = await requestNotificationPermission();
+      if (token || Notification.permission === 'granted') {
+        setNotificationsEnabled(true);
+      }
+    } else {
+      setNotificationsEnabled(true);
+    }
+  };
+
+  const handleDisableNotifications = () => {
+    playClick();
+    if (notificationsEnabled) {
+      alert("To disable push notifications completely, please update your browser's site settings.");
+    }
+  };
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 80);
@@ -400,6 +425,24 @@ export default function Settings({ isOverlay, onClose }) {
                 <button
                   className={`st-toggle ${!isFullscreen ? 'active' : 'inactive'}`}
                   onClick={exitFullscreen}
+                >OFF</button>
+              </div>
+            </div>
+
+            {/* Notifications */}
+            <div className="st-row">
+              <div className="st-label">
+                <Bell size={18} className="st-icon" /> Notifications
+              </div>
+              <div className="st-controls">
+                <button
+                  className={`st-toggle ${notificationsEnabled ? 'active' : 'inactive'}`}
+                  onClick={handleEnableNotifications}
+                >ON</button>
+                <span className="st-sep">/</span>
+                <button
+                  className={`st-toggle ${!notificationsEnabled ? 'active' : 'inactive'}`}
+                  onClick={handleDisableNotifications}
                 >OFF</button>
               </div>
             </div>

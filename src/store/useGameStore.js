@@ -162,10 +162,13 @@ export const useGameStore = create(
               window._authUnloadListener = null;
             }
 
-            // Request notification permission & register FCM token
-            requestNotificationPermission().catch((err) =>
-              console.warn('FCM token registration skipped:', err)
-            );
+            // Request notification permission & register FCM token ONLY if already granted.
+            // Otherwise, wait for user gesture via the Settings menu.
+            if ('Notification' in window && Notification.permission === 'granted') {
+              requestNotificationPermission().catch((err) =>
+                console.warn('FCM token registration skipped:', err)
+              );
+            }
           } else {
             // User logged out or account was deleted — clear ALL local state
             const state = useGameStore.getState();

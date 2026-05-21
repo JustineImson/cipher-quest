@@ -9,21 +9,25 @@ import { getApp } from "firebase/app";
  */
 export const requestNotificationPermission = async () => {
   try {
+    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+    if (!vapidKey) {
+      console.error("VITE_FIREBASE_VAPID_KEY is missing from environment variables. Push notifications will fail in deployment.");
+      return null;
+    }
+
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       const messaging = getMessaging(getApp());
 
-      // Explicitly register the FCM service worker so getToken can find it.
-      // VitePWA registers its own SW; without this, FCM fails silently on mobile.
+      // Use the existing Service Worker registered by VitePWA.
+      // This prevents scope conflicts on mobile/desktop and ensures FCM hooks into the main PWA SW.
       let swRegistration;
       if ('serviceWorker' in navigator) {
-        swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-          scope: '/firebase-cloud-messaging-push-scope'
-        });
+        swRegistration = await navigator.serviceWorker.ready;
       }
 
       const token = await getToken(messaging, {
-        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+        vapidKey,
         ...(swRegistration ? { serviceWorkerRegistration: swRegistration } : {})
       });
       
