@@ -36,10 +36,17 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      strategies: 'injectManifest',            // <-- ADD THIS
-      srcDir: 'public',                       // <-- ADD THIS
+      strategies: 'injectManifest',
+      srcDir: 'public',
       filename: 'firebase-messaging-sw.js',
       registerType: 'autoUpdate',
+      injectRegister: 'inline',
+
+      // ─── Bumps individual asset limit to 10MB to handle large JS bundles ───
+      injectManifest: {
+        maximumFileSizeToCacheInBytes: 10000000,
+      },
+
       manifest: {
         name: 'Cipher Quest',
         short_name: 'Cipher',
