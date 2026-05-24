@@ -6,6 +6,7 @@ import {
   query, orderBy, limit, where
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { logAdmin } from '../services/logService';
 import { StoryCiphers } from '../game/CipherData.js';
 import { suspectEvidence } from '../data/StoryEvidence.js';
 import fallbackPuzzles from '../data/fallbackPuzzles.js';
@@ -69,6 +70,7 @@ function PlayerManagement() {
       const data = await res.json();
       if (data.success) {
         await updateDoc(doc(db, 'users', uid), { isBanned: ban });
+        logAdmin[ban ? 'banUser' : 'unbanUser'](auth.currentUser?.uid, uid);
         setMessage(`User ${ban ? 'banned' : 'unbanned'} successfully`);
         setSelectedPlayer(prev => prev ? { ...prev, isBanned: ban } : prev);
         fetchPlayers();
@@ -92,7 +94,12 @@ function PlayerManagement() {
         body: JSON.stringify({ uid })
       });
       const data = await res.json();
-      setMessage(data.success ? 'User logged out successfully' : (data.error || 'Action failed'));
+      if (data.success) {
+        logAdmin.forceLogout(auth.currentUser?.uid, uid);
+        setMessage('User logged out successfully');
+      } else {
+        setMessage(data.error || 'Action failed');
+      }
     } catch (err) {
       setMessage(err.message);
     } finally {
@@ -110,7 +117,12 @@ function PlayerManagement() {
         body: JSON.stringify({ uid, email, sendEmail: true })
       });
       const data = await res.json();
-      setMessage(data.success ? 'Password reset email sent' : (data.error || 'Action failed'));
+      if (data.success) {
+        logAdmin.resetPass(auth.currentUser?.uid, uid);
+        setMessage('Password reset email sent');
+      } else {
+        setMessage(data.error || 'Action failed');
+      }
     } catch (err) {
       setMessage(err.message);
     } finally {
@@ -130,6 +142,7 @@ function PlayerManagement() {
       });
       const data = await res.json();
       if (data.success) {
+        logAdmin.deleteUser(auth.currentUser?.uid, uid);
         setMessage('User deleted successfully');
         setSelectedPlayer(null);
         fetchPlayers();
@@ -450,6 +463,7 @@ function LeaderboardManagement() {
       });
       const data = await res.json();
       if (data.success) {
+        logAdmin.announcement(auth.currentUser?.uid, announcement.trim());
         setMessage(`Announcement set · Push sent to ${data.sent ?? 0} agent(s)`);
         setAnnouncement('');
       } else {
@@ -1118,6 +1132,7 @@ function MultiplayerOversight() {
       });
       const data = await res.json();
       if (data.success) {
+        logAdmin.roomClosed(auth.currentUser?.uid, roomCode);
         setMessage(`Room ${roomCode} closed`);
         fetchRooms();
       } else {
@@ -1145,6 +1160,7 @@ function MultiplayerOversight() {
       });
       const data = await res.json();
       if (data.success) {
+        logAdmin.announcement(auth.currentUser?.uid, broadcastBody);
         setMessage(`Broadcast sent to ${data.sent ?? 0} agent(s) · Announcement saved`);
         setBroadcastTitle('');
         setBroadcastBody('');
@@ -1245,6 +1261,138 @@ function MultiplayerOversight() {
   );
 }
 
+function SystemLogs() {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [filterLevel, setFilterLevel] = useState('ALL');
+
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    setMessage('');
+    try {
+      let q;
+      if (filterLevel === 'ALL') {
+        q = query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(100));
+      } else {
+        q = query(
+          collection(db, 'audit_logs'),
+          where('level', '==', filterLevel),
+          orderBy('timestamp', 'desc'),
+          limit(100)
+        );
+      }
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setLogs(data);
+      if (data.length === 0) {
+        setMessage('No logs found for this filter.');
+      }
+    } catch (err) {
+      console.error('Error fetching logs:', err);
+      setMessage(`Error loading logs: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [filterLevel]);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
+
+  const getLevelColor = (level) => {
+    switch(level) {
+      case 'SECURITY': return 'text-[#c96a6a] font-bold';
+      case 'ERROR': return 'text-[#8b1a1a] font-bold';
+      case 'WARN': return 'text-[#c9a84c]';
+      case 'INFO': return 'text-[#5a9e6f]';
+      default: return 'text-[#e8dcc0]';
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {message && (
+        <div className={`p-3 rounded text-sm ${message.includes('Error') ? 'bg-[#3a1515] text-[#c96a6a] border border-[#8b1a1a]' : 'bg-[#0f1a0f] text-[#5a9e6f] border border-[#5a9e6f]'}`}>
+          {message}
+        </div>
+      )}
+
+      <div className="flex gap-2 mb-4 flex-wrap items-center">
+        <span className="text-[#7a6030] text-xs uppercase mr-2">Filter Level:</span>
+        {['ALL', 'INFO', 'WARN', 'ERROR', 'SECURITY'].map(level => (
+          <button
+            key={level}
+            onClick={() => setFilterLevel(level)}
+            className={`px-3 py-1.5 text-xs uppercase tracking-wider border transition-all ${
+              filterLevel === level
+                ? 'bg-[#c9a84c] text-[#0a0a0f] border-[#c9a84c]'
+                : 'bg-transparent text-[#c9a84c] border-[#7a6030]/50 hover:border-[#c9a84c]'
+            }`}
+          >
+            {level}
+          </button>
+        ))}
+        <div className="flex-1"></div>
+        <button
+          onClick={fetchLogs}
+          disabled={loading}
+          className="px-3 py-1.5 bg-[#0f1510] border border-[#5a9e6f]/50 text-[#5a9e6f] text-xs uppercase hover:bg-[#5a9e6f] hover:text-[#0a0a0f] transition-all disabled:opacity-50"
+        >
+          Refresh Logs
+        </button>
+      </div>
+
+      <div className="bg-[#0f0f14] border border-[#7a6030]/30">
+        <div className="bg-[#1a1208] px-4 py-3 border-b border-[#7a6030]/30 flex justify-between items-center">
+          <h3 className="text-[#c9a84c] text-sm uppercase tracking-wider">Audit Logs (Latest 100)</h3>
+        </div>
+        <div className="max-h-[600px] overflow-y-auto">
+          {loading ? (
+            <div className="p-4 text-[#7a6030]">Loading logs...</div>
+          ) : logs.length === 0 ? (
+            <div className="p-4 text-[#7a6030]">No entries found</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-[#15151a]">
+                <tr>
+                  <th className="text-left px-4 py-2 text-[#7a6030] font-normal w-40">Timestamp</th>
+                  <th className="text-left px-4 py-2 text-[#7a6030] font-normal w-24">Level</th>
+                  <th className="text-left px-4 py-2 text-[#7a6030] font-normal w-48">Event</th>
+                  <th className="text-left px-4 py-2 text-[#7a6030] font-normal w-32">User ID</th>
+                  <th className="text-left px-4 py-2 text-[#7a6030] font-normal">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#7a6030]/20">
+                {logs.map((log) => (
+                  <tr key={log.id} className="hover:bg-[#15151a] transition-colors">
+                    <td className="px-4 py-3 text-[#7a6030] text-xs font-mono align-top">
+                      {log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString() : 'Pending'}
+                    </td>
+                    <td className={`px-4 py-3 text-xs align-top ${getLevelColor(log.level)}`}>
+                      {log.level}
+                    </td>
+                    <td className="px-4 py-3 text-[#e8dcc0] text-xs font-bold align-top">
+                      {log.event}
+                    </td>
+                    <td className="px-4 py-3 text-[#c9a84c] text-xs font-mono align-top break-all">
+                      {log.uid || 'N/A'}
+                    </td>
+                    <td className="px-4 py-3 text-[#7a6030] text-xs font-mono align-top">
+                      {log.details ? JSON.stringify(log.details) : ''}
+                      {log.userAgent && <div className="mt-1 opacity-50 truncate" title={log.userAgent}>{log.userAgent}</div>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Main Admin Dashboard Component
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('players');
@@ -1255,6 +1403,7 @@ export default function AdminDashboard() {
     { id: 'leaderboards', label: 'Leaderboards', component: LeaderboardManagement },
     { id: 'content', label: 'Content', component: ContentManagement },
     { id: 'multiplayer', label: 'Multiplayer', component: MultiplayerOversight },
+    { id: 'logs', label: 'System Logs', component: SystemLogs },
   ];
 
   const ActiveComponent = tabs.find(t => t.id === activeTab)?.component || PlayerManagement;

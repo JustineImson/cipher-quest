@@ -290,6 +290,7 @@ function App() {
             <Route path="/profile" element={<OfflineGate><Profile /></OfflineGate>} />
             <Route path="/profile/:uid" element={<OfflineGate><Profile /></OfflineGate>} />
             <Route path="/auth/action" element={<AuthAction />} />
+            <Route path="/__/auth/action" element={<AuthAction />} />
           </Routes>
 
           {isSettingsOpen && (

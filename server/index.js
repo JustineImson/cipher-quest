@@ -13,6 +13,7 @@ import { Server } from 'socket.io';
 import admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
 import { selectCipherMethod } from '../src/engine/gameLogic.js';
+import { runAutomatedBackup, startBackupScheduler } from './backupService.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -56,6 +57,9 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
                 next(new Error('Invalid token'));
             }
         });
+
+        // Start automated backup scheduler
+        startBackupScheduler(db);
     } catch (err) {
         console.error('Failed to initialize Firebase Admin:', err);
     }
@@ -706,6 +710,35 @@ app.post('/admin/broadcast', verifyAdminMiddleware, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+/**
+ * POST /admin/backup — Manually trigger a full database backup
+ */
+app.post('/admin/backup', verifyAdminMiddleware, async (req, res) => {
+    try {
+        const result = await runAutomatedBackup(db);
+        if (result.success) {
+            // Write audit log entry (Phase 2 compliance)
+            try {
+                await admin.firestore().collection('audit_logs').add({
+                    level: 'INFO',
+                    event: 'ADMIN_BACKUP_RUN',
+                    uid: req.adminUid,
+                    details: { totalDocs: result.totalDocs },
+                    timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (err) {}
+            
+            res.status(200).json({ success: true, message: 'Backup completed successfully', folder: result.folder });
+        } else {
+            res.status(500).json({ error: result.error });
+        }
+    } catch (err) {
+        console.error('Manual backup error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id}`);
 
@@ -917,6 +950,34 @@ app.post('/ml/predict', async (req, res) => {
   } catch (err) {
     res.status(503).json({ error: err.message });
   }
+});
+
+// Global Error Handler for Express
+app.use(async (err, req, res, next) => {
+  console.error('Unhandled server error:', err);
+  
+  // Attempt to write an error log if Firebase is initialized
+  try {
+    if (admin.apps.length > 0) {
+      await admin.firestore().collection('audit_logs').add({
+        level: 'ERROR',
+        event: 'SERVER_EXCEPTION',
+        uid: req.user?.uid || null,
+        details: { 
+          message: err.message, 
+          stack: err.stack?.slice(0, 500),
+          route: req.originalUrl,
+          method: req.method
+        },
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        userAgent: 'Express.js Backend'
+      });
+    }
+  } catch (logErr) {
+    console.error('Failed to write error to audit_logs:', logErr);
+  }
+
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
 // SPA fallback — any non-API route returns index.html so React Router works

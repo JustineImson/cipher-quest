@@ -1,0 +1,44 @@
+{
+  "6xlqL5qTWhHMVO87fNFP": {
+    "senderId": "hiuibiN37YREbZTPrl5UGu2F3Mg1",
+    "receiverId": "ogPTn8iqf1gZWqPIaA8VvuFdsoi2",
+    "createdAt": "2026-05-20T16:10:06.299Z",
+    "acceptedAt": "2026-05-20T16:10:26.415Z",
+    "status": "accepted"
+  },
+  "9RYDWwyDmOZWlQBCwRoy": {
+    "senderId": "CvYrtK5oGjT07ZRKRrGl35mPV5G3",
+    "receiverId": "qjL6a6V7YEaOlb33FH8IUgcB9Pl1",
+    "createdAt": "2026-05-19T06:17:52.446Z",
+    "acceptedAt": "2026-05-19T06:18:02.265Z",
+    "status": "accepted"
+  },
+  "VxhF8QdMgVVoZgeqUJ7P": {
+    "senderId": "cmTBamb3QVeyggxBq9Y5svqN0WS2",
+    "receiverId": "ogPTn8iqf1gZWqPIaA8VvuFdsoi2",
+    "createdAt": "2026-05-20T16:14:54.973Z",
+    "acceptedAt": "2026-05-20T16:15:04.547Z",
+    "status": "accepted"
+  },
+  "XA0RQGvRk2dvulzK3e0w": {
+    "senderId": "ogPTn8iqf1gZWqPIaA8VvuFdsoi2",
+    "receiverId": "CvYrtK5oGjT07ZRKRrGl35mPV5G3",
+    "createdAt": "2026-05-16T15:31:54.423Z",
+    "acceptedAt": "2026-05-16T15:32:12.898Z",
+    "status": "accepted"
+  },
+  "j7OKpLMrQNZ1bm5iq2Mt": {
+    "senderId": "hiuibiN37YREbZTPrl5UGu2F3Mg1",
+    "receiverId": "cmTBamb3QVeyggxBq9Y5svqN0WS2",
+    "createdAt": "2026-05-19T12:00:17.692Z",
+    "acceptedAt": "2026-05-19T12:00:20.857Z",
+    "status": "accepted"
+  },
+  "slhjusoK9uQkqp9NYrz2": {
+    "senderId": "cmTBamb3QVeyggxBq9Y5svqN0WS2",
+    "receiverId": "XJb3kJEVRbSp0EK8AYeW0wVuph53",
+    "createdAt": "2026-05-18T16:20:59.074Z",
+    "acceptedAt": "2026-05-18T16:21:01.050Z",
+    "status": "accepted"
+  }
+}

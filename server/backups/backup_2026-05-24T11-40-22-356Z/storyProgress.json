@@ -1,0 +1,67 @@
+{
+  "CvYrtK5oGjT07ZRKRrGl35mPV5G3": {
+    "collectedEvidence": [],
+    "savedStoryProgress": {
+      "difficulty": "Easy",
+      "phase": "BRIEFING",
+      "cluesList": [],
+      "clues": {
+        "hasFoundBoots": false,
+        "hasFoundPen": false,
+        "hasFoundLog": false,
+        "hasFoundReceipt": false
+      }
+    },
+    "updatedAt": 1779328722958
+  },
+  "XJb3kJEVRbSp0EK8AYeW0wVuph53": {
+    "collectedEvidence": [],
+    "savedStoryProgress": null,
+    "updatedAt": 1779287174204
+  },
+  "cmTBamb3QVeyggxBq9Y5svqN0WS2": {
+    "collectedEvidence": [],
+    "savedStoryProgress": null,
+    "updatedAt": 1779322605704
+  },
+  "hiuibiN37YREbZTPrl5UGu2F3Mg1": {
+    "collectedEvidence": [],
+    "savedStoryProgress": null,
+    "updatedAt": 1779339864885
+  },
+  "mdCaNoMq69fKYfECNycETMZoVi12": {
+    "collectedEvidence": [],
+    "savedStoryProgress": null,
+    "updatedAt": 1779289988749
+  },
+  "ogPTn8iqf1gZWqPIaA8VvuFdsoi2": {
+    "collectedEvidence": [],
+    "savedStoryProgress": {
+      "difficulty": "Easy",
+      "cluesList": [],
+      "clues": {
+        "hasFoundBoots": false,
+        "hasFoundPen": false,
+        "hasFoundLog": false,
+        "hasFoundReceipt": false
+      },
+      "phase": "INVESTIGATING"
+    },
+    "updatedAt": 1779340084133
+  },
+  "qjL6a6V7YEaOlb33FH8IUgcB9Pl1": {
+    "collectedEvidence": [],
+    "savedStoryProgress": {
+      "difficulty": "Easy",
+      "cluesList": [],
+      "clues": {
+        "hasFoundBoots": false,
+        "hasFoundPen": false,
+        "hasFoundLog": false,
+        "hasFoundReceipt": false
+      },
+      "phase": "BRIEFING"
+    },
+    "updatedAt": 1779262173553
+  }
+}

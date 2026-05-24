@@ -24,11 +24,17 @@ export default defineConfig({
       },
       '/admin': {
         target: 'http://localhost:3001',
-        changeOrigin: true
+        changeOrigin: true,
+        bypass: (req) => {
+          if (req.headers.accept?.includes('text/html')) return req.url;
+        }
       },
       '/auth': {
         target: 'http://localhost:3001',
-        changeOrigin: true
+        changeOrigin: true,
+        bypass: (req) => {
+          if (req.headers.accept?.includes('text/html')) return req.url;
+        }
       }
     }
   },

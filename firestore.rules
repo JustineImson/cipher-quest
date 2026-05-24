@@ -30,17 +30,20 @@ service cloud.firestore {
     // collection and lock users down to owner-only reads.
     // ------------------------------------------------------------------
     match /users/{userId} {
-      allow read:   if true;
+      // Require authentication to read — prevents anonymous scraping of user data.
+      // Anonymous (guest) accounts also have auth tokens so they are covered.
+      // Write access is strictly limited to the owner's own document.
+      allow read:   if isAuthenticated();
       allow create: if isOwner(userId) || isAdmin();
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
     }
 
     // ------------------------------------------------------------------
-    // storyProgress — public read, owner-only write
+    // storyProgress — authenticated read, owner-only write
     // ------------------------------------------------------------------
     match /storyProgress/{userId} {
-      allow read: if true;
+      allow read: if isAuthenticated();
       allow write: if isOwner(userId) || isAdmin();
     }
 
@@ -103,6 +106,16 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin();
       allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow create, delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // audit_logs — write-only for authenticated users (log events),
+    // read restricted to admin only. Prevents tampering with evidence.
+    // ------------------------------------------------------------------
+    match /audit_logs/{logId} {
+      allow create: if true;              // Anyone can append a log (needed for failed logins)
+      allow read:   if isAdmin();         // Only admins can read logs
+      allow update, delete: if false;     // Logs are immutable
     }
 
     // ------------------------------------------------------------------

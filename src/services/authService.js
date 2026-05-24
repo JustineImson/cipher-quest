@@ -11,9 +11,18 @@ import {
 import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { useGameStore } from '../store/useGameStore';
+import { encryptField } from '../utils/cryptoUtils';
+import { logAuth, logMfa } from './logService';
 
 export const loginUser = async (email, password) => {
-  return signInWithEmailAndPassword(auth, email, password);
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    logAuth.loginSuccess(userCredential.user.uid, email);
+    return userCredential;
+  } catch (err) {
+    logAuth.loginFailed(email, err.code || err.message);
+    throw err;
+  }
 };
 
 export const registerUser = async (email, password, username) => {
@@ -24,9 +33,13 @@ export const registerUser = async (email, password, username) => {
     // Create user document in Firestore
     const uid = userCredential.user.uid;
     const friendCode = await generateUniqueFriendCode(db);
+
+    // Encrypt sensitive field before persisting to Firestore
+    const encryptedEmail = await encryptField(email);
+
     await setDoc(doc(db, 'users', uid), {
       username: username,
-      email: email,
+      email: encryptedEmail,   // AES-GCM encrypted at rest
       friendCode: friendCode,
       createdAt: new Date().toISOString(),
       cipherStats: {
@@ -38,8 +51,12 @@ export const registerUser = async (email, password, username) => {
       }
     });
 
+    // Log registration event
+    logAuth.registerSuccess(uid, username);
+
     // Update store immediately so Social Intel shows the correct 8-char code
     // before the next onAuthStateChanged doc fetch can potentially race it.
+    // Note: store holds the plaintext email (from Firebase Auth), not the encrypted Firestore value
     useGameStore.setState((state) => ({
       currentUser: {
         ...(state.currentUser || {}),
@@ -67,7 +84,7 @@ export const loginAnonymously = async () => {
       const friendCode = await generateUniqueFriendCode(db);
       await setDoc(docRef, {
         username: guestName,
-        email: 'Guest Account',
+        email: 'Guest Account', // Guest accounts have no real email to encrypt
         friendCode: friendCode,
         createdAt: new Date().toISOString(),
         isGuest: true,
@@ -79,6 +96,9 @@ export const loginAnonymously = async () => {
           caesar:       { attempts: 0, solved: 0 }
         }
       });
+
+      // Log guest login
+      logAuth.guestLogin(uid);
 
       // Update store immediately so Social Intel shows the correct 8-char code
       useGameStore.setState((state) => ({
@@ -168,6 +188,7 @@ export const sendOtp = async (uid, email) => {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to send verification code.');
+  logMfa.otpSent(uid, email);
   return data;
 };
 
@@ -182,7 +203,11 @@ export const verifyOtp = async (uid, otp) => {
     body: JSON.stringify({ uid, otp }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Verification failed.');
+  if (!res.ok) {
+    logMfa.otpFailed(uid, '');
+    throw new Error(data.error || 'Verification failed.');
+  }
+  logMfa.otpVerified(uid);
   return data;
 };
 
@@ -193,6 +218,7 @@ export const resetPassword = async (email) => {
     url: `${window.location.origin}/auth/action`,
     handleCodeInApp: true,
   };
+  logAuth.resetRequested(email);
   return sendPasswordResetEmail(auth, email, actionCodeSettings);
 };
 
@@ -208,10 +234,14 @@ export const verifyResetCode = async (oobCode) => {
  * Confirm the password reset with the oobCode and the user's new password.
  */
 export const confirmNewPassword = async (oobCode, newPassword) => {
-  return confirmPasswordReset(auth, oobCode, newPassword);
+  const result = await confirmPasswordReset(auth, oobCode, newPassword);
+  logAuth.resetConfirmed(auth.currentUser?.uid || 'unknown');
+  return result;
 };
 
 export const logoutUser = async () => {
+  const uid = auth.currentUser?.uid;
+
   // Attempt to flush any pending progress to the cloud before signing out
   try {
     const syncFn = useGameStore.getState()?.syncProgressToCloud;
@@ -221,6 +251,9 @@ export const logoutUser = async () => {
   } catch (err) {
     console.warn('Failed to sync before logout:', err);
   }
+
+  // Log before signOut clears the auth context
+  if (uid) await logAuth.logout(uid);
 
   // Clear persisted local state so no stale data lingers
   try {
